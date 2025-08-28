@@ -19,10 +19,10 @@ CONFIG_DIR="./models/configs"
 LOG_FILE="./models/download.log"
 
 # Model URLs and checksums
-YOLO11_MODEL_URL="https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11s.pt"
-YOLO11_MODEL_FILE="yolo11s.pt"
-YOLO5_MODEL_URL="https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt"
-YOLO5_MODEL_FILE="yolov5s.pt"
+YOLO11_MODEL_URL="https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11m.pt"
+YOLO11_MODEL_FILE="yolo11m.pt"
+YOLO5_MODEL_URL="https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5m.pt"
+YOLO5_MODEL_FILE="yolov5m.pt"
 YOLO_CUSTOM_URL=""  # URL for custom horse-trained model (if available)
 YOLO_CUSTOM_FILE="yolov5su.pt"
 
@@ -30,9 +30,9 @@ RTMPOSE_MODEL_URL="https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/r
 RTMPOSE_MODEL_FILE="rtmpose-m_simcc-ap10k_pt-aic-coco_210e-256x256-7a041aa1_20230206.pth"
 
 # Expected file sizes (in bytes) for validation
-YOLO11_EXPECTED_SIZE=21000000   # ~20MB (estimated for YOLO11s)
-YOLO5_EXPECTED_SIZE=14808437    # ~14MB
-RTMPOSE_EXPECTED_SIZE=54934717  # ~52MB
+YOLO11_EXPECTED_SIZE=40684120   # ~39MB (for YOLO11m)
+YOLO5_EXPECTED_SIZE=42806829    # ~41MB (for YOLOv5m)
+RTMPOSE_EXPECTED_SIZE=54721413  # ~52MB
 
 # Functions
 log_message() {

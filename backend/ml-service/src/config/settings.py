@@ -23,13 +23,16 @@ class Settings(BaseSettings):
         default="/models", description="Path to ML models directory"
     )
     yolo_model: str = Field(
-        default="yolo11m.pt", description="Primary YOLO model file"
+        default="downloads/yolo11m.pt", description="Primary YOLO model file"
     )
     yolo_fallback: str = Field(
-        default="yolov5m.pt", description="Fallback YOLO model file"
+        default="downloads/yolov5m.pt", description="Fallback YOLO model file"
+    )
+    yolo_custom: str = Field(
+        default="downloads/yolov5su.pt", description="Custom horse-trained model file"
     )
     pose_model: str = Field(
-        default="rtmpose-m_ap10k-256.pth", description="RTMPose model file"
+        default="downloads/rtmpose-m_simcc-ap10k_pt-aic-coco_210e-256x256-7a041aa1_20230206.pth", description="RTMPose model file"
     )
     
     # Processing Configuration
@@ -46,12 +49,24 @@ class Settings(BaseSettings):
         default=1000, description="Maximum queue size"
     )
     
-    # Performance Configuration
+    # Performance Configuration  
     target_fps: int = Field(
         default=50, description="Target processing FPS"
     )
     enable_gpu: bool = Field(
         default=True, description="Enable GPU acceleration if available"
+    )
+    enable_model_switching: bool = Field(
+        default=True, description="Enable automatic model switching based on performance"
+    )
+    performance_window_size: int = Field(
+        default=10, description="Number of recent frames to consider for performance monitoring"
+    )
+    min_fps_threshold: float = Field(
+        default=30.0, description="Minimum FPS before switching to fallback model"
+    )
+    model_warmup_frames: int = Field(
+        default=5, description="Number of frames for model warmup"
     )
     
     # Redis Configuration
