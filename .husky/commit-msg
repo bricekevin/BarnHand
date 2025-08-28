@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Validating commit message..."
+
+# Validate commit message format: type(scope): description
+commit_regex='^(feat|fix|docs|style|refactor|test|chore|perf|ci|build)(\(.+\))?: .{1,50}'
+
+if ! grep -qE "$commit_regex" "$1"; then
+  echo "❌ Invalid commit message format!"
+  echo "Expected format: type(scope): description"
+  echo "Types: feat, fix, docs, style, refactor, test, chore, perf, ci, build"
+  echo "Example: feat(api): add horse detection endpoint"
+  exit 1
+fi
+
+echo "✅ Commit message format is valid!"
