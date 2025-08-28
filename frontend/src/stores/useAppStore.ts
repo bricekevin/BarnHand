@@ -73,6 +73,7 @@ interface AppActions {
   addStream: (stream: Omit<Stream, 'id'>) => void;
   updateStream: (id: string, updates: Partial<Stream>) => void;
   removeStream: (id: string) => void;
+  toggleStream: (id: string) => void;
   setActiveStreams: (streamIds: string[]) => void;
 
   // Horse actions
@@ -139,6 +140,18 @@ export const useAppStore = create<AppStore>()(
           streams: state.streams.filter(stream => stream.id !== id),
           activeStreams: state.activeStreams.filter(
             streamId => streamId !== id
+          ),
+        })),
+
+      toggleStream: id =>
+        set(state => ({
+          streams: state.streams.map(stream =>
+            stream.id === id 
+              ? { 
+                  ...stream, 
+                  status: stream.status === 'active' ? 'inactive' : 'active' 
+                } 
+              : stream
           ),
         })),
 
