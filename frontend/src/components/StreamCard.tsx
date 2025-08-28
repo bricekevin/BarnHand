@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
 import { OverlayCanvas } from './OverlayCanvas';
 import { VideoPlayer } from './VideoPlayer';
@@ -19,6 +19,7 @@ interface StreamCardProps {
 export const StreamCard: React.FC<StreamCardProps> = ({ stream }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const { toggleStream } = useAppStore();
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -73,15 +74,17 @@ export const StreamCard: React.FC<StreamCardProps> = ({ stream }) => {
           <>
             <VideoPlayer
               src={stream.url}
+              streamId={stream.id}
               className="w-full h-full object-cover"
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
+              onLoad={() => setIsPlaying(false)}
+              onError={(error) => console.error('Video error:', error)}
             />
-            <OverlayCanvas
+            {/* TODO: Re-enable OverlayCanvas when video streaming is working */}
+            {/* <OverlayCanvas
+              videoRef={videoRef}
               className="absolute inset-0 pointer-events-none"
-              detections={[]} // TODO: Connect to real detections from store
-              poses={[]} // TODO: Connect to real poses from store
-            />
+              detections={[]}
+            /> */}
           </>
         ) : (
           <div className="flex items-center justify-center h-full text-slate-400">

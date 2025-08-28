@@ -99,9 +99,17 @@ export const OverlayCanvas: React.FC<OverlayCanvasProps> = ({
 
   const drawDetections = useCallback(() => {
     const canvas = canvasRef.current;
-    const video = videoRef.current;
+    if (!canvas) return;
 
-    if (!canvas || !video) return;
+    const video = videoRef?.current;
+    if (!video) {
+      // Clear canvas if no video
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      return;
+    }
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
