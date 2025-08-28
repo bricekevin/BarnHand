@@ -43,6 +43,8 @@ export const errorLogger = expressWinston.errorLogger({
   winstonInstance: logger,
   meta: true,
   msg: 'HTTP {{req.method}} {{req.url}} {{res.statusCode}} {{res.responseTime}}ms',
-  expressFormat: true,
-  colorize: isDevelopment,
+  format: winston.format.combine(
+    winston.format.colorize(),
+    winston.format.json()
+  ),
 });

@@ -2,7 +2,7 @@
 import os
 import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, Literal
 import torch
 import cv2
 import numpy as np

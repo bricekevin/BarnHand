@@ -9,7 +9,7 @@ export const handleValidationErrors = (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     logger.warn('Validation errors', {
@@ -18,7 +18,7 @@ export const handleValidationErrors = (
       errors: errors.array(),
     });
 
-    return res.status(400).json({
+    res.status(400).json({
       error: 'Validation failed',
       details: errors.array().map(error => ({
         field: error.type === 'field' ? error.path : 'unknown',
@@ -26,6 +26,7 @@ export const handleValidationErrors = (
         value: error.type === 'field' ? error.value : undefined,
       })),
     });
+    return;
   }
   next();
 };
@@ -35,7 +36,7 @@ export const validateSchema = <T>(
   schema: ZodSchema<T>,
   source: 'body' | 'query' | 'params' = 'body'
 ) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     try {
       const data =
         source === 'body'
@@ -63,7 +64,7 @@ export const validateSchema = <T>(
           errors: error.errors,
         });
 
-        return res.status(400).json({
+        res.status(400).json({
           error: 'Invalid request data',
           details: error.errors.map(err => ({
             field: err.path.join('.'),
@@ -71,26 +72,28 @@ export const validateSchema = <T>(
             code: err.code,
           })),
         });
+        return;
       }
 
       logger.error('Schema validation error', { error });
-      return res.status(500).json({ error: 'Internal validation error' });
+      res.status(500).json({ error: 'Internal validation error' });
     }
   };
 };
 
 // Request size limit middleware
 export const validateRequestSize = (maxSizeMB: number = 10) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     const contentLength = parseInt(req.get('content-length') || '0');
     const maxBytes = maxSizeMB * 1024 * 1024;
 
     if (contentLength > maxBytes) {
-      return res.status(413).json({
+      res.status(413).json({
         error: 'Request too large',
         maxSize: `${maxSizeMB}MB`,
         receivedSize: `${(contentLength / 1024 / 1024).toFixed(2)}MB`,
       });
+      return;
     }
 
     next();

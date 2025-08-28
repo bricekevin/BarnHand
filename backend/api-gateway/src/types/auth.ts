@@ -18,7 +18,7 @@ export interface JwtPayload {
   userId: string;
   email: string;
   role: UserRole;
-  farmId?: string;
+  farmId: string | undefined;
   iat?: number;
   exp?: number;
 }
