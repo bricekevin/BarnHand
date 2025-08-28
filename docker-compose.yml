@@ -1,4 +1,4 @@
-version: '3.8'
+# Docker Compose file for BarnHand development environment
 
 services:
   # Frontend React App
@@ -112,11 +112,13 @@ services:
       - redis
     deploy:
       resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+        # GPU configuration for Linux/NVIDIA systems only
+        # Commented out for Mac compatibility
+        # reservations:
+        #   devices:
+        #     - driver: nvidia
+        #       count: 1
+        #       capabilities: [gpu]
         limits:
           memory: 4G
     networks:
