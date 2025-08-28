@@ -16,7 +16,14 @@ export async function createApp(): Promise<express.Application> {
 
   // Security middleware
   app.use(helmet({
-    contentSecurityPolicy: isDevelopment ? false : undefined,
+    contentSecurityPolicy: isDevelopment ? false : {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"]
+      }
+    },
     crossOriginEmbedderPolicy: false
   }));
 
@@ -37,7 +44,7 @@ export async function createApp(): Promise<express.Application> {
   app.use('/health', createHealthRoutes(streamProcessor));
 
   // Root endpoint with service info
-  app.get('/', (req: express.Request, res: express.Response) => {
+  app.get('/', (_req: express.Request, res: express.Response) => {
     res.json({
       name: 'BarnHand Stream Processing Service',
       version: '0.3.0',
@@ -82,7 +89,7 @@ export async function createApp(): Promise<express.Application> {
   });
 
   // Global error handler
-  app.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  app.use((error: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
     logger.error('Unhandled application error', { 
       error: error.message,
       stack: error.stack,

@@ -244,7 +244,7 @@ export class ChunkExtractor {
       return {
         id: chunkId,
         streamId: parts[0] || 'unknown',
-        startTime: parseInt(parts[2]) || 0,
+        startTime: parseInt(parts[2] || '0') || 0,
         duration: env.CHUNK_DURATION,
         filename: chunkFile,
         fullPath: filePath,

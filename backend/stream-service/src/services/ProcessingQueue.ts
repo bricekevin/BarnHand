@@ -31,7 +31,6 @@ export class ProcessingQueue {
     // Initialize Redis connection
     this.redis = new Redis(env.REDIS_URL, {
       maxRetriesPerRequest: 3,
-      retryDelayOnFailover: 100,
       lazyConnect: true
     });
 
@@ -294,16 +293,6 @@ export class ProcessingQueue {
     try {
       // Close queue
       await this.queue.close();
-      
-      // Kill any active extractions
-      for (const [key, process] of this.extractionProcesses) {
-        try {
-          process.kill('SIGTERM');
-        } catch (error) {
-          logger.warn('Failed to kill extraction process during shutdown', { key });
-        }
-      }
-      this.extractionProcesses.clear();
       
       // Close Redis connection
       this.redis.disconnect();

@@ -7,7 +7,7 @@ export function createHealthRoutes(streamProcessor: StreamProcessor): Router {
   const router = Router();
 
   // GET /health - Basic health check
-  router.get('/', async (req: Request, res: Response) => {
+  router.get('/', async (_req: Request, res: Response) => {
     try {
       await streamProcessor.updateMetrics();
       const metrics = streamProcessor.getMetrics();
@@ -79,7 +79,7 @@ export function createHealthRoutes(streamProcessor: StreamProcessor): Router {
   });
 
   // GET /health/detailed - Comprehensive health information
-  router.get('/detailed', async (req: Request, res: Response) => {
+  router.get('/detailed', async (_req: Request, res: Response) => {
     try {
       await streamProcessor.updateMetrics();
       const metrics = streamProcessor.getMetrics();
