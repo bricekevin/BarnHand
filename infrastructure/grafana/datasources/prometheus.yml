@@ -1,0 +1,70 @@
+# BarnHand Grafana Datasource Configuration
+# Configures Prometheus as the primary metrics datasource
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+
+    # Basic authentication (if needed)
+    # basicAuth: true
+    # basicAuthUser: admin
+    # basicAuthPassword: password
+
+    # Custom headers (if needed)
+    # httpHeaderName1: "Authorization"
+    # httpHeaderValue1: "Bearer token"
+
+    # Query timeout
+    timeout: 60
+
+    # JSON data configuration
+    jsonData:
+      httpMethod: POST
+      queryTimeout: 60s
+      defaultRegion: us-east-1
+
+      # Enable query logging
+      queryLogEnabled: true
+
+      # Custom query parameters
+      customQueryParameters: ""
+
+      # Prometheus-specific settings
+      prometheusType: Prometheus
+      prometheusVersion: 2.40.0
+
+      # Exemplars configuration
+      exemplarTraceIdDestinations:
+        - name: traceID
+          datasourceUid: jaeger_uid # If using Jaeger for tracing
+
+    # Secure JSON data (for sensitive information)
+    # secureJsonData:
+    #   basicAuthPassword: "secure_password"
+
+  # PostgreSQL datasource for logs and historical data
+  - name: PostgreSQL
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: barnhand
+    user: admin
+    secureJsonData:
+      password: "${POSTGRES_PASSWORD}"
+
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 10
+      maxIdleConns: 2
+      connMaxLifetime: 14400 # 4 hours
+      postgresVersion: 1400 # PostgreSQL 14
+      timescaledb: true # Enable TimescaleDB features
+
+    # Enable for logs and custom queries
+    editable: true
