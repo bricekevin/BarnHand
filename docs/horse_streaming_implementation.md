@@ -1,14 +1,15 @@
 # Horse Streaming Platform - Technical Implementation Guide
 
-## Implementation Status: ✅ Section 4.1 Complete - ML Models Setup
+## Implementation Status: ✅ Section 4.2 Complete - Horse Re-identification System
 
-### Current Checkpoint: v0.3.0 - Backend Services + ML Models Ready
+### Current Checkpoint: v0.4.0 - Horse Re-identification System Complete
 
 **✅ COMPLETED SECTIONS:**
 - Section 1: Project Setup & Infrastructure  
 - Section 2: Database & Data Layer
 - Section 3: Backend Services (API Gateway, Stream Service, ML Service, Video Streamer)
 - Section 4.1: Model Setup and Management (YOLO11, YOLOv5, RTMPose)
+- Section 4.2: Horse Re-identification System (DeepSort tracking, 512-dim features)
 
 ## 1. Project Setup & Structure ✅ COMPLETE
 
@@ -242,7 +243,104 @@ export const useStreamStore = create<StreamState>((set, get) => ({
 }));
 ```
 
-## 3. Backend Services Implementation
+## 3. Horse Re-identification System Implementation ✅ NEW
+
+### 3.1 Feature Extraction Model
+```python
+# backend/ml-service/src/models/horse_reid.py
+class HorseReIDModel:
+    """512-dimension feature extraction for horse re-identification."""
+    
+    def __init__(self):
+        self.feature_dimension = 512
+        self.model = SimpleReIDNet()  # CNN-based feature extractor
+        self.feature_index = faiss.IndexFlatL2(512)  # FAISS similarity search
+        
+    def extract_features(self, horse_crop):
+        """Extract normalized 512-dim feature vector from horse crop."""
+        # Preprocess: resize to 256x128, normalize
+        # CNN forward pass
+        # L2 normalize output features
+        return features  # np.ndarray(512,)
+        
+    def find_similar_horses(self, features, threshold=0.7):
+        """Find horses with similar appearance using FAISS cosine similarity."""
+        return [(horse_id, similarity_score), ...]
+```
+
+### 3.2 DeepSort-style Tracking
+```python
+# backend/ml-service/src/models/horse_tracker.py
+class HorseTracker:
+    """Multi-horse tracking with re-identification capabilities."""
+    
+    def update_tracks(self, detections, frame, timestamp):
+        """Core tracking algorithm:
+        1. Extract ReID features for all detections
+        2. Predict track positions using motion model
+        3. Associate detections to tracks via Hungarian algorithm
+        4. Update matched tracks with exponential moving average
+        5. Try re-identification for unmatched detections
+        6. Create new tracks for unknown horses
+        """
+        
+    def _associate_detections(self, detections, features):
+        """Cost matrix: 0.3*IoU_cost + 0.7*feature_cost"""
+        # Hungarian algorithm for optimal assignment
+        
+    def _try_reidentification(self, features, detection):
+        """Match against recently lost tracks using:
+        - Feature similarity > threshold
+        - Spatial proximity (no teleportation)
+        - Time window (< 10 seconds since lost)
+        """
+```
+
+### 3.3 Database Storage with pgvector
+```python
+# backend/ml-service/src/services/horse_database.py
+class HorseDatabaseService:
+    """PostgreSQL + pgvector storage for horse tracking."""
+    
+    async def save_horse(self, horse_data):
+        """Save/update horse with 512-dim feature vector."""
+        
+    async def find_similar_horses(self, feature_vector):
+        """pgvector cosine similarity search:
+        SELECT *, 1 - (feature_vector <=> %s::vector) as similarity
+        FROM horses WHERE similarity > threshold
+        ORDER BY feature_vector <=> %s::vector
+        """
+        
+    async def merge_horse_tracks(self, primary_id, secondary_id):
+        """Merge two tracks determined to be same horse."""
+        
+    async def split_horse_track(self, horse_id, split_timestamp):
+        """Split track that was incorrectly merged."""
+```
+
+### 3.4 API Integration  
+New FastAPI endpoints in `/api/tracking/`:
+- **Threshold Control**: `POST /threshold` - Tune similarity matching (0.0-1.0)
+- **Track Management**: `GET /horses` - List all active/lost tracks
+- **Horse Details**: `GET /horses/{id}` - Get track history and appearance data
+- **Manual Corrections**: `POST /merge`, `POST /split` - Fix tracking errors
+- **Analytics**: `GET /stats` - Tracking performance metrics
+
+### 3.5 Track Confidence Scoring
+Multi-factor confidence calculation:
+- **Detection Confidence**: Average of recent detection scores
+- **Track Longevity**: Longer tracks = higher confidence (max at 20 detections)
+- **Feature Consistency**: Low variance in appearance features
+- **Velocity Consistency**: Realistic movement patterns (no teleportation)
+
+### 3.6 Color Assignment System
+10 distinctive tracking colors for visual identification:
+- Consistent color assignment via hash(horse_id)
+- Colors: Red, Teal, Blue, Mint, Yellow, Pink, Light Blue, Purple, Cyan, Orange
+- UI maintains color consistency across sessions
+
+## 4. Backend Services Implementation
 
 ### 3.1 Stream Ingestion Service with YouTube Rate Limit Mitigation
 ```javascript
