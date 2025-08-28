@@ -11,6 +11,7 @@
     "backend/stream-service",
     "backend/ml-service",
     "backend/video-streamer",
+    "backend/database",
     "shared"
   ],
   "scripts": {
@@ -28,9 +29,10 @@
     "lint": "npm run lint --workspaces --if-present",
     "lint:fix": "npm run lint:fix --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "db:migrate": "npm run db:migrate --workspace=backend/api-gateway",
-    "db:seed": "npm run db:seed --workspace=backend/api-gateway",
+    "db:migrate": "npm run migrate --workspace=backend/database",
+    "db:seed": "npm run seed --workspace=backend/database", 
     "db:reset": "npm run db:reset --workspace=backend/api-gateway",
+    "db:status": "npm run migrate status --workspace=backend/database",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
