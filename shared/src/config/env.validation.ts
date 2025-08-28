@@ -44,7 +44,7 @@ export const MLConfigSchema = z.object({
 });
 
 // Stream processing schema
-export const StreamConfigSchema = z.object({
+export const StreamProcessingConfigSchema = z.object({
   CHUNK_DURATION: z.coerce.number().int().min(5).max(60).default(10),
   PROCESSING_DELAY: z.coerce.number().int().min(10).max(120).default(20),
   MAX_CONCURRENT_STREAMS: z.coerce.number().int().min(1).max(50).default(10),
@@ -75,7 +75,7 @@ export const ConfigSchema = z.object({
   ...RedisConfigSchema.shape,
   ...ServicePortsSchema.shape,
   ...MLConfigSchema.shape,
-  ...StreamConfigSchema.shape,
+  ...StreamProcessingConfigSchema.shape,
   ...SecurityConfigSchema.shape,
 });
 
@@ -83,7 +83,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 export type DatabaseConfig = z.infer<typeof DatabaseConfigSchema>;
 export type RedisConfig = z.infer<typeof RedisConfigSchema>;
 export type MLConfig = z.infer<typeof MLConfigSchema>;
-export type StreamConfig = z.infer<typeof StreamConfigSchema>;
+export type StreamProcessingConfig = z.infer<typeof StreamProcessingConfigSchema>;
 export type SecurityConfig = z.infer<typeof SecurityConfigSchema>;
 
 // Configuration validation function
@@ -93,7 +93,7 @@ export function validateConfig(env: Record<string, string | undefined>): Config 
   } catch (error) {
     if (error instanceof z.ZodError) {
       const issues = error.errors.map(
-        issue => `${issue.path.join('.')}: ${issue.message}`
+        (issue: z.ZodIssue) => `${issue.path.join('.')}: ${issue.message}`
       );
       throw new Error(
         `Configuration validation failed:\n${issues.join('\n')}`

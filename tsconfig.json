@@ -29,25 +29,11 @@
     "baseUrl": ".",
     "paths": {
       "@shared/*": ["./shared/src/*"],
-      "@frontend/*": ["./frontend/src/*"],
-      "@backend/*": ["./backend/*/src/*"]
-    },
-    "types": ["node", "jest", "@testing-library/jest-dom"]
+      "@frontend/*": ["./frontend/src/*"]
+    }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "**/*.js",
-    "**/*.jsx"
-  ],
-  "exclude": [
-    "node_modules",
-    "**/node_modules",
-    "**/dist",
-    "**/build",
-    "**/coverage",
-    "**/*.min.js"
-  ],
+  "include": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
+  "exclude": ["node_modules", "**/node_modules", "**/dist", "**/build", "**/coverage", "**/*.min.js"],
   "references": [
     { "path": "./shared" },
     { "path": "./frontend" },
