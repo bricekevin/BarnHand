@@ -26,14 +26,14 @@ const mockUsers: MockUser[] = [
   {
     id: '123e4567-e89b-12d3-a456-426614174000',
     email: 'admin@barnhand.com',
-    password: '$2b$10$rOzJJKz.QtGV8j1qYqJ0eO5Y9Pt6YfHr.ckGy1JvQq8h0gJ2K3h1u', // 'admin123'
+    password: '$2b$10$okFC7FS49v2bQjTqOkmH7OdGDddF6Al7d1GQVCiefTmLiX/f2sAIq', // 'admin123'
     name: 'System Administrator',
     role: 'super_admin',
   },
   {
     id: '123e4567-e89b-12d3-a456-426614174001',
     email: 'farm@example.com',
-    password: '$2b$10$rOzJJKz.QtGV8j1qYqJ0eO5Y9Pt6YfHr.ckGy1JvQq8h0gJ2K3h1u', // 'admin123'
+    password: '$2b$10$okFC7FS49v2bQjTqOkmH7OdGDddF6Al7d1GQVCiefTmLiX/f2sAIq', // 'admin123'
     name: 'Farm Manager',
     role: 'farm_admin',
     farm_id: '123e4567-e89b-12d3-a456-426614174010',
