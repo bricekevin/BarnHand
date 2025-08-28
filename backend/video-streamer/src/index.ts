@@ -1,10 +1,13 @@
+import { createApp } from './app';
 import { env } from './config/env';
 import { logger } from './config/logger';
-import { createApp } from './app';
 
 // Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  logger.error('Uncaught exception', { error: error.message, stack: error.stack });
+process.on('uncaughtException', error => {
+  logger.error('Uncaught exception', {
+    error: error.message,
+    stack: error.stack,
+  });
   process.exit(1);
 });
 
@@ -17,14 +20,14 @@ process.on('unhandledRejection', (reason, promise) => {
 // Graceful shutdown handler
 const gracefulShutdown = async (signal: string) => {
   logger.info(`Received ${signal}. Starting graceful shutdown...`);
-  
+
   try {
     // Get stream manager from app instance
     const streamManager = (global as any).streamManager;
     if (streamManager) {
       await streamManager.shutdown();
     }
-    
+
     logger.info('Graceful shutdown completed');
     process.exit(0);
   } catch (error) {
@@ -40,7 +43,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 const startServer = async () => {
   try {
     const app = await createApp();
-    
+
     const server = app.listen(env.PORT, () => {
       logger.info('🎥 BarnHand Video Streamer started', {
         port: env.PORT,
@@ -53,11 +56,13 @@ const startServer = async () => {
           root: `http://localhost:${env.PORT}`,
           streams: `http://localhost:${env.PORT}/api/streams`,
           videos: `http://localhost:${env.PORT}/api/videos`,
-          health: `http://localhost:${env.PORT}/health`
-        }
+          health: `http://localhost:${env.PORT}/health`,
+        },
       });
-      
-      console.log(`\n🎬 BarnHand Video Streamer ready at http://localhost:${env.PORT}`);
+
+      console.log(
+        `\n🎬 BarnHand Video Streamer ready at http://localhost:${env.PORT}`
+      );
       console.log(`📁 Media Path: ${env.MEDIA_PATH}`);
       console.log(`🎯 Stream Endpoints:`);
       console.log(`   • http://localhost:${env.PORT}/stream1/playlist.m3u8`);
@@ -93,40 +98,44 @@ const autoStartStreams = async () => {
   try {
     // Wait for server to start
     await new Promise(resolve => setTimeout(resolve, 3000));
-    
+
     const app = (global as any).app;
     const videoScanner = app?.videoScanner;
     const streamManager = app?.streamManager;
-    
+
     if (videoScanner && streamManager) {
       const videos = await videoScanner.scanVideos();
-      
+
       if (videos.length > 0) {
-        logger.info('Auto-starting default streams', { availableVideos: videos.length });
-        
+        logger.info('Auto-starting default streams', {
+          availableVideos: videos.length,
+        });
+
         // Start up to 5 streams with available videos
         const streamsToStart = Math.min(5, videos.length);
-        
+
         for (let i = 0; i < streamsToStart; i++) {
           try {
             const streamId = `stream_00${i + 1}`;
             const video = videos[i % videos.length]; // Cycle through videos if fewer than 5
-            
+
             await streamManager.createStream(streamId, video);
-            logger.info('Auto-started stream', { 
+            logger.info('Auto-started stream', {
               streamId,
               videoFile: video.filename,
-              playlistUrl: `http://localhost:${env.PORT}/stream${i + 1}/playlist.m3u8`
+              playlistUrl: `http://localhost:${env.PORT}/stream${i + 1}/playlist.m3u8`,
             });
           } catch (error) {
-            logger.warn('Failed to auto-start stream', { 
+            logger.warn('Failed to auto-start stream', {
               streamIndex: i,
-              error: error instanceof Error ? error.message : error 
+              error: error instanceof Error ? error.message : error,
             });
           }
         }
       } else {
-        logger.warn('No video files found for auto-streaming', { mediaPath: env.MEDIA_PATH });
+        logger.warn('No video files found for auto-streaming', {
+          mediaPath: env.MEDIA_PATH,
+        });
       }
     }
   } catch (error) {
@@ -137,7 +146,7 @@ const autoStartStreams = async () => {
 // Start the server
 startServer().then(() => {
   // Auto-start streams after server is ready
-  if (!isTest) {
+  if (process.env.NODE_ENV !== 'test') {
     autoStartStreams();
   }
 });

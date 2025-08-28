@@ -1,14 +1,16 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
 import path from 'path';
+
+import cors from 'cors';
+import express from 'express';
+import helmet from 'helmet';
+
 import { env, isDevelopment } from './config/env';
 import { logger } from './config/logger';
-import { StreamManager } from './services/StreamManager';
-import { VideoScanner } from './services/VideoScanner';
+import { createHealthRoutes } from './routes/health';
 import { createStreamRoutes } from './routes/streams';
 import { createVideoRoutes } from './routes/videos';
-import { createHealthRoutes } from './routes/health';
+import { StreamManager } from './services/StreamManager';
+import { VideoScanner } from './services/VideoScanner';
 
 export async function createApp(): Promise<express.Application> {
   const app = express();
@@ -21,19 +23,23 @@ export async function createApp(): Promise<express.Application> {
   await streamManager.initializeOutputDirectory();
 
   // Security middleware
-  app.use(helmet({
-    contentSecurityPolicy: isDevelopment ? false : undefined,
-    crossOriginEmbedderPolicy: false
-  }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: isDevelopment ? false : {},
+      crossOriginEmbedderPolicy: false,
+    })
+  );
 
   // CORS configuration (allow all origins for video streaming)
-  app.use(cors({
-    origin: true, // Allow all origins for video streaming
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Range'],
-    exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length'],
-    credentials: false
-  }));
+  app.use(
+    cors({
+      origin: true, // Allow all origins for video streaming
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Range'],
+      exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length'],
+      credentials: false,
+    })
+  );
 
   // Body parsing
   app.use(express.json({ limit: '1mb' }));
@@ -59,7 +65,7 @@ export async function createApp(): Promise<express.Application> {
   app.use('/health', createHealthRoutes(streamManager));
 
   // Root endpoint with service info
-  app.get('/', (req: express.Request, res: express.Response) => {
+  app.get('/', (_req: express.Request, res: express.Response) => {
     res.json({
       name: 'BarnHand Video Streamer',
       version: '0.3.0',
@@ -67,7 +73,7 @@ export async function createApp(): Promise<express.Application> {
       endpoints: {
         streams: '/api/streams',
         videos: '/api/videos',
-        health: '/health'
+        health: '/health',
       },
       streaming: {
         format: 'HLS (HTTP Live Streaming)',
@@ -80,22 +86,22 @@ export async function createApp(): Promise<express.Application> {
           'http://localhost:8003/stream2/playlist.m3u8',
           'http://localhost:8003/stream3/playlist.m3u8',
           'http://localhost:8003/stream4/playlist.m3u8',
-          'http://localhost:8003/stream5/playlist.m3u8'
-        ]
+          'http://localhost:8003/stream5/playlist.m3u8',
+        ],
       },
       mediaPath: env.MEDIA_PATH,
-      environment: env.NODE_ENV
+      environment: env.NODE_ENV,
     });
   });
 
   // 404 handler
   app.use('*', (req, res) => {
-    logger.warn('Route not found', { 
-      path: req.path, 
+    logger.warn('Route not found', {
+      path: req.path,
       method: req.method,
-      userAgent: req.get('user-agent')
+      userAgent: req.get('user-agent'),
     });
-    
+
     res.status(404).json({
       error: 'Endpoint not found',
       path: req.path,
@@ -103,26 +109,33 @@ export async function createApp(): Promise<express.Application> {
       availableEndpoints: {
         root: '/',
         streams: '/api/streams',
-        videos: '/api/videos', 
-        health: '/health'
-      }
+        videos: '/api/videos',
+        health: '/health',
+      },
     });
   });
 
   // Global error handler
-  app.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    logger.error('Unhandled application error', { 
-      error: error.message,
-      stack: error.stack,
-      path: req.path,
-      method: req.method
-    });
+  app.use(
+    (
+      error: Error,
+      req: express.Request,
+      res: express.Response,
+      _next: express.NextFunction
+    ) => {
+      logger.error('Unhandled application error', {
+        error: error.message,
+        stack: error.stack,
+        path: req.path,
+        method: req.method,
+      });
 
-    res.status(500).json({
-      error: isDevelopment ? error.message : 'Internal server error',
-      ...(isDevelopment && { stack: error.stack })
-    });
-  });
+      res.status(500).json({
+        error: isDevelopment ? error.message : 'Internal server error',
+        ...(isDevelopment && { stack: error.stack }),
+      });
+    }
+  );
 
   // Store references for graceful shutdown
   (app as any).streamManager = streamManager;
