@@ -3,10 +3,10 @@ import { test, expect } from '@playwright/test'
 test.describe('BarnHand Dashboard', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the dashboard
-    await page.goto('http://localhost:3000')
+    await page.goto('/')
     
     // Wait for the page to load
-    await page.waitForSelector('h1:has-text("BarnHand")', { timeout: 10000 })
+    await page.waitForSelector('text=BarnHand', { timeout: 10000 })
   })
 
   test('displays main dashboard elements', async ({ page }) => {
