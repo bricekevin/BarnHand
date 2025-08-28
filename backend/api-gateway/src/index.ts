@@ -1,6 +1,10 @@
+import { createServer } from 'http';
+
 import app from './app';
 import { env } from './config/env';
 import { logger } from './config/logger';
+import { WebSocketServer } from './websocket/socketServer';
+import { messageQueue } from './websocket/messageQueue';
 
 // Handle uncaught exceptions
 process.on('uncaughtException', error => {
@@ -17,19 +21,36 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
+let wsServer: WebSocketServer | null = null;
+let httpServer: ReturnType<typeof createServer> | null = null;
+
 // Graceful shutdown handler
-const gracefulShutdown = (signal: string) => {
+const gracefulShutdown = async (signal: string) => {
   logger.info(`Received ${signal}. Starting graceful shutdown...`);
 
-  // TODO: Add cleanup tasks:
-  // - Close database connections
-  // - Complete ongoing requests
-  // - Clear intervals/timeouts
+  try {
+    // Stop accepting new connections
+    httpServer?.close();
+    
+    // Shutdown WebSocket server
+    if (wsServer) {
+      await wsServer.shutdown();
+    }
+    
+    // Stop message queue
+    messageQueue.stop();
+    
+    // TODO: Add more cleanup tasks:
+    // - Close database connections
+    // - Complete ongoing requests
+    // - Clear intervals/timeouts
 
-  setTimeout(() => {
     logger.info('Graceful shutdown completed');
     process.exit(0);
-  }, 5000); // Allow 5 seconds for cleanup
+  } catch (error) {
+    logger.error('Error during graceful shutdown', { error });
+    process.exit(1);
+  }
 };
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
@@ -38,7 +59,16 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 // Start server
 const startServer = async () => {
   try {
-    const server = app.listen(env.PORT, () => {
+    // Create HTTP server
+    httpServer = createServer(app);
+    
+    // Initialize WebSocket server
+    wsServer = new WebSocketServer(httpServer);
+    
+    // Make WebSocket server available globally for use in routes
+    (global as any).wsServer = wsServer;
+
+    httpServer.listen(env.PORT, () => {
       logger.info(`🚀 BarnHand API Gateway started`, {
         port: env.PORT,
         environment: env.NODE_ENV,
@@ -50,6 +80,7 @@ const startServer = async () => {
           horses: `http://localhost:${env.PORT}/api/v1/horses`,
           detections: `http://localhost:${env.PORT}/api/v1/detections`,
           analytics: `http://localhost:${env.PORT}/api/v1/analytics`,
+          websocket: `ws://localhost:${env.PORT}`,
         },
       });
 
@@ -60,10 +91,13 @@ const startServer = async () => {
       console.log(
         `❤️  Health Check: http://localhost:${env.PORT}/api/v1/health`
       );
+      console.log(
+        `🔌 WebSocket Server: ws://localhost:${env.PORT}`
+      );
     });
 
     // Handle server errors
-    server.on('error', (error: NodeJS.ErrnoException) => {
+    httpServer.on('error', (error: NodeJS.ErrnoException) => {
       if (error.code === 'EADDRINUSE') {
         logger.error(`Port ${env.PORT} is already in use`);
       } else {
@@ -72,7 +106,7 @@ const startServer = async () => {
       process.exit(1);
     });
 
-    return server;
+    return httpServer;
   } catch (error) {
     logger.error('Failed to start server', { error });
     process.exit(1);

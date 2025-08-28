@@ -27,6 +27,8 @@
   "dependencies": {
     "@barnhand/database": "file:../database",
     "@barnhand/shared": "file:../../shared",
+    "@types/socket.io": "^3.0.2",
+    "@types/socket.io-client": "^3.0.0",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -36,6 +38,8 @@
     "express-winston": "^4.2.0",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "winston": "^3.11.0",
     "zod": "^3.22.4"
   },
