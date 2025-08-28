@@ -30,10 +30,34 @@ export default {
           200: '#E2E8F0',
           100: '#F1F5F9',
         },
-        success: '#10B981',
-        warning: '#F59E0B',
-        error: '#EF4444',
-        info: '#06B6D4',
+        success: {
+          DEFAULT: '#10B981',
+          50: '#ECFDF5',
+          100: '#D1FAE5',
+          500: '#10B981',
+          600: '#059669',
+        },
+        warning: {
+          DEFAULT: '#F59E0B',
+          50: '#FFFBEB',
+          100: '#FEF3C7',
+          500: '#F59E0B',
+          600: '#D97706',
+        },
+        error: {
+          DEFAULT: '#EF4444',
+          50: '#FEF2F2',
+          100: '#FEE2E2',
+          500: '#EF4444',
+          600: '#DC2626',
+        },
+        info: {
+          DEFAULT: '#06B6D4',
+          50: '#F0FDFA',
+          100: '#CCFBF1',
+          500: '#06B6D4',
+          600: '#0891B2',
+        },
         // Horse tracking colors for multi-horse identification
         horse: {
           red: '#EF4444',
