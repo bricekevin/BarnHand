@@ -8,6 +8,14 @@ process.env.DATABASE_URL =
   'postgresql://test:test@localhost:5432/barnhand_test';
 process.env.REDIS_URL = 'redis://localhost:6379/1';
 
+describe('Test Environment Setup', () => {
+  test('should have required environment variables', () => {
+    expect(process.env.JWT_SECRET).toBe('test-secret-key-that-is-long-enough-for-validation');
+    expect(process.env.NODE_ENV).toBe('test');
+    expect(process.env.PORT).toBe('8000');
+  });
+});
+
 // Global test setup
 beforeAll(async () => {
   // TODO: Set up test database connection

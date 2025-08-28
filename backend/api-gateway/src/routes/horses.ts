@@ -104,7 +104,6 @@ router.post(
   validateSchema(horseParamsSchema, 'params'),
   validateSchema(identifyHorseSchema),
   requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
-  requireFarmAccess,
   async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
