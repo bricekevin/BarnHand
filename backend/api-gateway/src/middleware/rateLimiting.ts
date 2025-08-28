@@ -1,6 +1,6 @@
 import rateLimit from 'express-rate-limit';
 
-import { env } from '../config/env';
+import { env, isTest } from '../config/env';
 import { logger } from '../config/logger';
 
 // General API rate limiting
@@ -13,6 +13,7 @@ export const apiRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => isTest, // Skip rate limiting entirely in test environment
   handler: (req, res) => {
     logger.warn('Rate limit exceeded', {
       ip: req.ip,
@@ -30,7 +31,7 @@ export const apiRateLimit = rateLimit({
 // Strict rate limiting for authentication endpoints
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts per window
+  max: isTest ? 1000 : 10, // Disable rate limiting in test environment
   message: {
     error: 'Too many authentication attempts',
     retryAfter: '900 seconds',
@@ -38,6 +39,7 @@ export const authRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
+  skip: (req) => isTest, // Skip rate limiting entirely in test environment
   handler: (req, res) => {
     logger.warn('Auth rate limit exceeded', {
       ip: req.ip,
