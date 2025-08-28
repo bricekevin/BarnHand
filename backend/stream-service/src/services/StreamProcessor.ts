@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
-import { ChunkExtractor, StreamSource, ChunkInfo } from './ChunkExtractor';
+import { ChunkExtractor, StreamSource } from './ChunkExtractor';
 import { ProcessingQueue } from './ProcessingQueue';
 
 export interface ProcessorMetrics {
@@ -15,8 +15,8 @@ export interface ProcessorMetrics {
 }
 
 export class StreamProcessor {
-  private chunkExtractor: ChunkExtractor;
-  private processingQueue: ProcessingQueue;
+  public chunkExtractor: ChunkExtractor;
+  public processingQueue: ProcessingQueue;
   private activeStreams = new Map<string, StreamSource>();
   private processingJobs: Map<string, any> = new Map();
   private metrics: ProcessorMetrics;
@@ -171,30 +171,39 @@ export class StreamProcessor {
     return Array.from(this.activeStreams.values());
   }
 
-  getStreamStatus(streamId: string): {
-    isActive: boolean;
-    source?: StreamSource;
-    metrics: {
-      chunksExtracted: number;
-      processingDelay: number;
-      lastChunkTime?: Date;
-    };
-  } {
+  getStreamStatus(streamId: string) {
     const source = this.activeStreams.get(streamId);
     const jobs = this.processingQueue.getAllJobs()
       .filter(j => j.chunkInfo.streamId === streamId);
     
-    return {
+    const result: {
+      isActive: boolean;
+      source?: StreamSource;
+      metrics: {
+        chunksExtracted: number;
+        processingDelay: number;
+        lastChunkTime?: Date;
+      };
+    } = {
       isActive: !!source,
-      source,
       metrics: {
         chunksExtracted: jobs.length,
-        processingDelay: env.PROCESSING_DELAY,
-        lastChunkTime: jobs.length > 0 ? 
-          jobs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0].createdAt : 
-          undefined
+        processingDelay: env.PROCESSING_DELAY
       }
     };
+
+    if (jobs.length > 0) {
+      const lastChunk = jobs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+      if (lastChunk?.createdAt) {
+        result.metrics.lastChunkTime = lastChunk.createdAt;
+      }
+    }
+
+    if (source) {
+      result.source = source;
+    }
+
+    return result;
   }
 
   private initializeCleanupJob(): void {

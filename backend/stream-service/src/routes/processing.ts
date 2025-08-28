@@ -59,6 +59,7 @@ export function createProcessingRoutes(streamProcessor: StreamProcessor): Router
           delay: process.env.PROCESSING_DELAY || 20
         }
       });
+      return;
     } catch (error) {
       logger.error('Failed to start stream processing', { error });
       
@@ -73,6 +74,7 @@ export function createProcessingRoutes(streamProcessor: StreamProcessor): Router
         error: 'Failed to start stream processing',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
+      return;
     }
   });
 
@@ -104,14 +106,16 @@ export function createProcessingRoutes(streamProcessor: StreamProcessor): Router
         message: 'Stream processing stopped successfully',
         streamId
       });
+      return;
     } catch (error) {
       logger.error('Failed to stop stream processing', { error });
       res.status(500).json({ error: 'Failed to stop stream processing' });
+      return;
     }
   });
 
   // GET /processing/status - Get processing status for all streams
-  router.get('/status', async (req: Request, res: Response) => {
+  router.get('/status', async (_req: Request, res: Response) => {
     try {
       const activeStreams = streamProcessor.getActiveStreams();
       const metrics = streamProcessor.getMetrics();
@@ -136,9 +140,11 @@ export function createProcessingRoutes(streamProcessor: StreamProcessor): Router
           concurrency: process.env.QUEUE_CONCURRENCY || 3
         }
       });
+      return;
     } catch (error) {
       logger.error('Failed to get processing status', { error });
       res.status(500).json({ error: 'Failed to get processing status' });
+      return;
     }
   });
 
@@ -146,6 +152,9 @@ export function createProcessingRoutes(streamProcessor: StreamProcessor): Router
   router.get('/status/:streamId', async (req: Request, res: Response) => {
     try {
       const { streamId } = req.params;
+      if (!streamId) {
+        return res.status(400).json({ error: 'Stream ID is required' });
+      }
       const status = streamProcessor.getStreamStatus(streamId);
       
       if (!status.isActive) {
@@ -164,14 +173,16 @@ export function createProcessingRoutes(streamProcessor: StreamProcessor): Router
           processingDelay: process.env.PROCESSING_DELAY || 20
         }
       });
+      return;
     } catch (error) {
       logger.error('Failed to get stream status', { error });
       res.status(500).json({ error: 'Failed to get stream status' });
+      return;
     }
   });
 
   // GET /processing/queue - Get detailed queue information
-  router.get('/queue', async (req: Request, res: Response) => {
+  router.get('/queue', async (_req: Request, res: Response) => {
     try {
       const queueStatus = await streamProcessor.processingQueue?.getQueueStatus();
       const allJobs = streamProcessor.processingQueue?.getAllJobs() || [];
@@ -217,7 +228,7 @@ export function createProcessingRoutes(streamProcessor: StreamProcessor): Router
   });
 
   // POST /processing/cleanup - Manual cleanup of old chunks
-  router.post('/cleanup', async (req: Request, res: Response) => {
+  router.post('/cleanup', async (_req: Request, res: Response) => {
     try {
       logger.info('Manual cleanup initiated');
       const deletedCount = await streamProcessor.chunkExtractor?.cleanupOldChunks() || 0;
