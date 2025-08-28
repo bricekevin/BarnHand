@@ -39,7 +39,7 @@ describe('StreamRepository', () => {
         []
       );
       expect(result).toHaveLength(1);
-      expect(result[0].name).toBe('Test Stream');
+      expect(result[0]?.name).toBe('Test Stream');
     });
 
     it('should filter by farmId when provided', async () => {

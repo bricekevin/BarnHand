@@ -1,7 +1,10 @@
 import { Pool, PoolClient } from 'pg';
-import { validateConfig } from '@barnhand/shared';
+// Simple config validation for database layer
+const config = {
+  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://admin:password@localhost:5432/barnhand',
+  NODE_ENV: process.env.NODE_ENV || 'development'
+};
 
-const config = validateConfig(process.env);
 
 export const pool = new Pool({
   connectionString: config.DATABASE_URL,

@@ -1,5 +1,5 @@
 import { query } from '../connection';
-import { generateUUID } from '@barnhand/shared';
+import { generateUUID } from '../types';
 
 interface SeedData {
   users: any[];

@@ -1,4 +1,4 @@
-import { query } from '../connection';
+// import { query } from '../connection'; // Available for test setup if needed
 
 beforeAll(async () => {
   // Ensure test database is clean
