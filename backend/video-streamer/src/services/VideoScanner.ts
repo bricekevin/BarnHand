@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+
 import { logger } from '../config/logger';
 
 export interface VideoFile {
@@ -40,44 +41,49 @@ export class VideoScanner {
                 filename,
                 fullPath,
                 size: stats.size,
-                lastModified: stats.mtime
+                lastModified: stats.mtime,
               };
 
               // Get video metadata using ffprobe (if available)
               try {
                 const metadata = await this.getVideoMetadata(fullPath);
-                videoFile.duration = metadata.duration;
-                videoFile.format = metadata.format;
-                videoFile.resolution = metadata.resolution;
+                videoFile.duration = metadata.duration ?? 0;
+                videoFile.format = metadata.format ?? 'unknown';
+                videoFile.resolution = metadata.resolution ?? 'unknown';
               } catch (metadataError) {
-                logger.warn('Could not extract video metadata', { 
-                  filename, 
-                  error: metadataError instanceof Error ? metadataError.message : metadataError 
+                logger.warn('Could not extract video metadata', {
+                  filename,
+                  error:
+                    metadataError instanceof Error
+                      ? metadataError.message
+                      : metadataError,
                 });
               }
 
               videoFiles.push(videoFile);
             }
           } catch (statError) {
-            logger.warn('Could not stat video file', { 
-              filename, 
-              error: statError instanceof Error ? statError.message : statError 
+            logger.warn('Could not stat video file', {
+              filename,
+              error: statError instanceof Error ? statError.message : statError,
             });
           }
         }
       }
 
-      logger.info('Video scan completed', { 
+      logger.info('Video scan completed', {
         mediaPath: this.mediaPath,
         videosFound: videoFiles.length,
-        totalSize: this.formatBytes(videoFiles.reduce((sum, v) => sum + v.size, 0))
+        totalSize: this.formatBytes(
+          videoFiles.reduce((sum, v) => sum + v.size, 0)
+        ),
       });
 
       return videoFiles.sort((a, b) => a.filename.localeCompare(b.filename));
     } catch (error) {
-      logger.error('Video scan failed', { 
+      logger.error('Video scan failed', {
         mediaPath: this.mediaPath,
-        error: error instanceof Error ? error.message : error 
+        error: error instanceof Error ? error.message : error,
       });
       return [];
     }
@@ -115,22 +121,26 @@ export class VideoScanner {
     const execAsync = promisify(exec);
 
     const command = `ffprobe -v quiet -print_format json -show_format -show_streams "${filePath}"`;
-    
+
     try {
       const { stdout } = await execAsync(command, { timeout: 10000 });
       const metadata = JSON.parse(stdout);
-      
-      const videoStream = metadata.streams?.find((s: any) => s.codec_type === 'video');
-      
+
+      const videoStream = metadata.streams?.find(
+        (s: any) => s.codec_type === 'video'
+      );
+
       return {
         duration: parseFloat(metadata.format?.duration || '0'),
         format: metadata.format?.format_name || 'unknown',
-        resolution: videoStream ? `${videoStream.width}x${videoStream.height}` : undefined
+        resolution: videoStream
+          ? `${videoStream.width}x${videoStream.height}`
+          : 'unknown',
       };
     } catch (error) {
-      logger.debug('FFprobe metadata extraction failed', { 
-        filePath, 
-        error: error instanceof Error ? error.message : error 
+      logger.debug('FFprobe metadata extraction failed', {
+        filePath,
+        error: error instanceof Error ? error.message : error,
       });
       return {};
     }

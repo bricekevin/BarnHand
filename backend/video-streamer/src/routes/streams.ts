@@ -1,21 +1,25 @@
 import { Router, Request, Response } from 'express';
+
+import { env } from '../config/env';
 import { logger } from '../config/logger';
 import { StreamManager } from '../services/StreamManager';
 import { VideoScanner } from '../services/VideoScanner';
-import { env } from '../config/env';
 
-export function createStreamRoutes(streamManager: StreamManager, videoScanner: VideoScanner): Router {
+export function createStreamRoutes(
+  streamManager: StreamManager,
+  videoScanner: VideoScanner
+): Router {
   const router = Router();
 
   // GET /streams - List all active streams
-  router.get('/', async (req: Request, res: Response) => {
+  router.get('/', async (_req: Request, res: Response) => {
     try {
       const streams = streamManager.getAllStreams();
       const activeCount = streamManager.getActiveStreamCount();
-      
-      logger.info('Streams listed', { 
+
+      logger.info('Streams listed', {
         totalStreams: streams.length,
-        activeStreams: activeCount
+        activeStreams: activeCount,
       });
 
       res.json({
@@ -28,17 +32,17 @@ export function createStreamRoutes(streamManager: StreamManager, videoScanner: V
             filename: stream.videoFile.filename,
             duration: stream.videoFile.duration,
             resolution: stream.videoFile.resolution,
-            size: stream.videoFile.size
+            size: stream.videoFile.size,
           },
           startTime: stream.startTime,
           restartCount: stream.restartCount,
-          lastError: stream.lastError
+          lastError: stream.lastError,
         })),
         summary: {
           total: streams.length,
           active: activeCount,
-          maxStreams: env.MAX_STREAMS
-        }
+          maxStreams: env.MAX_STREAMS,
+        },
       });
     } catch (error) {
       logger.error('List streams error', { error });
@@ -50,10 +54,17 @@ export function createStreamRoutes(streamManager: StreamManager, videoScanner: V
   router.post('/start/:streamId', async (req: Request, res: Response) => {
     try {
       const { streamId } = req.params;
+      if (!streamId) {
+        return res
+          .status(400)
+          .json({ error: 'streamId parameter is required' });
+      }
       const { videoFilename } = req.body;
 
       if (!videoFilename) {
-        return res.status(400).json({ error: 'videoFilename required in request body' });
+        return res
+          .status(400)
+          .json({ error: 'videoFilename required in request body' });
       }
 
       // Check if stream already exists
@@ -65,36 +76,40 @@ export function createStreamRoutes(streamManager: StreamManager, videoScanner: V
             stream: {
               id: streamInfo.id,
               status: streamInfo.status,
-              playlistUrl: `http://localhost:${env.PORT}${streamInfo.playlistUrl}`
-            }
+              playlistUrl: `http://localhost:${env.PORT}${streamInfo.playlistUrl}`,
+            },
           });
         } else {
           // Restart existing stream
           await streamManager.restartStream(streamId);
-          streamInfo = streamManager.getStream(streamId)!;
+          const restartedStream = streamManager.getStream(streamId);
+          if (!restartedStream) {
+            return res.status(500).json({ error: 'Failed to restart stream' });
+          }
+          streamInfo = restartedStream;
         }
       } else {
         // Create new stream
         const videos = await videoScanner.scanVideos();
         const videoFile = videos.find(v => v.filename === videoFilename);
-        
+
         if (!videoFile) {
-          return res.status(404).json({ 
+          return res.status(404).json({
             error: 'Video file not found',
-            availableVideos: videos.map(v => v.filename)
+            availableVideos: videos.map(v => v.filename),
           });
         }
 
         streamInfo = await streamManager.createStream(streamId, videoFile);
       }
 
-      logger.info('Stream started', { 
+      logger.info('Stream started', {
         streamId,
         videoFile: streamInfo.videoFile.filename,
-        status: streamInfo.status
+        status: streamInfo.status,
       });
 
-      res.json({
+      return res.json({
         message: 'Stream started successfully',
         stream: {
           id: streamInfo.id,
@@ -102,14 +117,14 @@ export function createStreamRoutes(streamManager: StreamManager, videoScanner: V
           status: streamInfo.status,
           playlistUrl: `http://localhost:${env.PORT}${streamInfo.playlistUrl}`,
           videoFile: streamInfo.videoFile.filename,
-          startTime: streamInfo.startTime
-        }
+          startTime: streamInfo.startTime,
+        },
       });
     } catch (error) {
       logger.error('Start stream error', { error });
-      res.status(500).json({ 
+      return res.status(500).json({
         error: 'Failed to start stream',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   });
@@ -118,22 +133,27 @@ export function createStreamRoutes(streamManager: StreamManager, videoScanner: V
   router.post('/stop/:streamId', async (req: Request, res: Response) => {
     try {
       const { streamId } = req.params;
-      
+      if (!streamId) {
+        return res
+          .status(400)
+          .json({ error: 'streamId parameter is required' });
+      }
+
       const success = await streamManager.stopStream(streamId);
-      
+
       if (!success) {
         return res.status(404).json({ error: 'Stream not found' });
       }
 
       logger.info('Stream stopped', { streamId });
 
-      res.json({
+      return res.json({
         message: 'Stream stopped successfully',
-        streamId
+        streamId,
       });
     } catch (error) {
       logger.error('Stop stream error', { error });
-      res.status(500).json({ error: 'Failed to stop stream' });
+      return res.status(500).json({ error: 'Failed to stop stream' });
     }
   });
 
@@ -141,33 +161,38 @@ export function createStreamRoutes(streamManager: StreamManager, videoScanner: V
   router.get('/:streamId/health', async (req: Request, res: Response) => {
     try {
       const { streamId } = req.params;
-      
+      if (!streamId) {
+        return res
+          .status(400)
+          .json({ error: 'streamId parameter is required' });
+      }
+
       const streamInfo = streamManager.getStream(streamId);
       if (!streamInfo) {
         return res.status(404).json({ error: 'Stream not found' });
       }
 
       const health = await streamManager.getStreamHealth(streamId);
-      
-      res.json({
+
+      return res.json({
         streamId,
         status: streamInfo.status,
         health: {
           isHealthy: health.isHealthy,
           playlistExists: health.playlistExists,
           segmentCount: health.segmentCount,
-          lastSegmentAge: health.lastSegmentAge
+          lastSegmentAge: health.lastSegmentAge,
         },
         process: {
           pid: streamInfo.process?.pid,
           startTime: streamInfo.startTime,
           restartCount: streamInfo.restartCount,
-          lastError: streamInfo.lastError
-        }
+          lastError: streamInfo.lastError,
+        },
       });
     } catch (error) {
       logger.error('Stream health check error', { error });
-      res.status(500).json({ error: 'Failed to check stream health' });
+      return res.status(500).json({ error: 'Failed to check stream health' });
     }
   });
 
