@@ -18,22 +18,31 @@ describe('VideoScanner', () => {
   describe('scanVideos', () => {
     it('should scan and return video files', async () => {
       const mockFiles = ['video1.mp4', 'video2.mov', 'document.txt', 'video3.avi'];
-      const mockStats = {
+      const mockDirStats = {
+        isDirectory: () => true,
+        isFile: () => false,
+        size: 0,
+        mtime: new Date('2024-01-01T00:00:00Z')
+      };
+      const mockFileStats = {
         isFile: () => true,
         size: 1024000,
         mtime: new Date('2024-01-01T00:00:00Z')
       };
 
       mockFs.readdir.mockResolvedValue(mockFiles as any);
-      mockFs.stat.mockResolvedValue(mockStats as any);
+      // First call for directory check, then calls for each video file
+      mockFs.stat
+        .mockResolvedValueOnce(mockDirStats as any) // Directory check
+        .mockResolvedValue(mockFileStats as any); // File checks
 
       const result = await scanner.scanVideos();
 
-      expect(result).toHaveLength(3); // Only video files
+      expect(result).toHaveLength(3); // Only video files (.mp4, .mov, .avi)
       expect(result[0]).toMatchObject({
         filename: 'video1.mp4',
         size: 1024000,
-        lastModified: mockStats.mtime
+        lastModified: mockFileStats.mtime
       });
       expect(result[0].id).toBe('video1'); // Generated ID
     });
@@ -53,14 +62,22 @@ describe('VideoScanner', () => {
 
     it('should filter out non-video files', async () => {
       const mockFiles = ['video.mp4', 'image.jpg', 'document.pdf', 'audio.mp3'];
-      const mockStats = {
+      const mockDirStats = {
+        isDirectory: () => true,
+        isFile: () => false,
+        size: 0,
+        mtime: new Date()
+      };
+      const mockFileStats = {
         isFile: () => true,
         size: 1024000,
         mtime: new Date()
       };
 
       mockFs.readdir.mockResolvedValue(mockFiles as any);
-      mockFs.stat.mockResolvedValue(mockStats as any);
+      mockFs.stat
+        .mockResolvedValueOnce(mockDirStats as any) // Directory check
+        .mockResolvedValue(mockFileStats as any); // File checks
 
       const result = await scanner.scanVideos();
 
@@ -70,13 +87,22 @@ describe('VideoScanner', () => {
 
     it('should handle file stat errors gracefully', async () => {
       const mockFiles = ['video1.mp4', 'video2.mp4'];
+      const mockDirStats = {
+        isDirectory: () => true,
+        isFile: () => false,
+        size: 0,
+        mtime: new Date()
+      };
+      
       mockFs.readdir.mockResolvedValue(mockFiles as any);
-      mockFs.stat.mockRejectedValueOnce(new Error('Permission denied'))
+      mockFs.stat
+        .mockResolvedValueOnce(mockDirStats as any) // Directory check
+        .mockRejectedValueOnce(new Error('Permission denied')) // First file fails
         .mockResolvedValueOnce({
           isFile: () => true,
           size: 2048000,
           mtime: new Date()
-        } as any);
+        } as any); // Second file succeeds
 
       const result = await scanner.scanVideos();
 

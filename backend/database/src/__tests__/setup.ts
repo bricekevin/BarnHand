@@ -1,18 +1,24 @@
 // import { query } from '../connection'; // Available for test setup if needed
 
-beforeAll(async () => {
-  // Ensure test database is clean
-  if (process.env.NODE_ENV !== 'test') {
-    throw new Error('Tests should only run in test environment');
-  }
-  
-  // Create test-specific tables if needed
-  await setupTestEnvironment();
-});
+describe('Database Test Setup', () => {
+  beforeAll(async () => {
+    // Ensure test database is clean
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error('Tests should only run in test environment');
+    }
+    
+    // Create test-specific tables if needed
+    await setupTestEnvironment();
+  });
 
-afterAll(async () => {
-  // Cleanup after tests
-  await cleanupTestEnvironment();
+  afterAll(async () => {
+    // Cleanup after tests
+    await cleanupTestEnvironment();
+  });
+
+  test('should have test environment configured', () => {
+    expect(process.env.NODE_ENV).toBe('test');
+  });
 });
 
 async function setupTestEnvironment(): Promise<void> {

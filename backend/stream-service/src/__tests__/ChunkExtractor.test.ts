@@ -28,6 +28,15 @@ describe('ChunkExtractor', () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.clearAllTimers();
+  });
+
+  afterAll(() => {
+    jest.clearAllTimers();
+  });
+
   describe('extractChunk', () => {
     const mockStreamSource: StreamSource = {
       id: 'test_stream',
@@ -44,20 +53,13 @@ describe('ChunkExtractor', () => {
       // Simulate successful FFmpeg process
       mockProcess.on.mockImplementation((event: string, callback: Function) => {
         if (event === 'close') {
-          setTimeout(() => callback(0), 100); // Exit code 0 = success
+          // Trigger callback immediately instead of using setTimeout
+          setImmediate(() => callback(0)); // Exit code 0 = success
         }
         return mockProcess;
       });
 
-      const extractPromise = extractor.extractChunk(mockStreamSource, 30);
-      
-      // Wait a bit then trigger process completion
-      setTimeout(() => {
-        const closeHandler = mockProcess.on.mock.calls.find(call => call[0] === 'close')?.[1];
-        if (closeHandler) closeHandler(0);
-      }, 50);
-
-      const result = await extractPromise;
+      const result = await extractor.extractChunk(mockStreamSource, 30);
 
       expect(result).toMatchObject({
         streamId: 'test_stream',
@@ -77,20 +79,12 @@ describe('ChunkExtractor', () => {
       // Simulate failed FFmpeg process
       mockProcess.on.mockImplementation((event: string, callback: Function) => {
         if (event === 'close') {
-          setTimeout(() => callback(1), 100); // Exit code 1 = failure
+          setImmediate(() => callback(1)); // Exit code 1 = failure
         }
         return mockProcess;
       });
 
-      const extractPromise = extractor.extractChunk(mockStreamSource, 30);
-      
-      // Trigger process failure
-      setTimeout(() => {
-        const closeHandler = mockProcess.on.mock.calls.find(call => call[0] === 'close')?.[1];
-        if (closeHandler) closeHandler(1);
-      }, 50);
-
-      await expect(extractPromise).rejects.toThrow('FFmpeg extraction failed with code 1');
+      await expect(extractor.extractChunk(mockStreamSource, 30)).rejects.toThrow('FFmpeg extraction failed with code 1');
       
       // Should attempt to clean up failed file
       expect(mockFs.unlink).toHaveBeenCalled();
