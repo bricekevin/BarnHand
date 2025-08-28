@@ -12,6 +12,9 @@ from ..config.settings import settings
 from ..models.detection import HorseDetectionModel
 from ..models.pose import HorsePoseModel
 from ..models.horse_tracker import HorseTracker
+from ..models.pose_analysis import PoseAnalyzer, PoseMetrics
+from ..models.gait_classifier import GaitClassifier, GaitMetrics
+from ..models.pose_validator import PoseValidator
 from .horse_database import HorseDatabaseService
 
 
@@ -23,6 +26,12 @@ class ChunkProcessor:
         self.pose_model = HorsePoseModel()
         self.horse_tracker = HorseTracker()
         self.horse_db = HorseDatabaseService()
+        
+        # Pose analysis components
+        self.pose_analyzers = {}  # Per-horse analyzers
+        self.gait_classifiers = {}  # Per-horse gait classifiers
+        self.pose_validator = PoseValidator()
+        
         self.processing_stats = {
             "chunks_processed": 0,
             "total_detections": 0,
@@ -103,6 +112,65 @@ class ChunkProcessor:
                     if pose_data:
                         pose_data["horse_id"] = track_info["id"]
                         pose_data["tracking_id"] = track_info["tracking_id"]
+                        
+                        # Analyze pose biomechanics
+                        horse_id = track_info["id"]
+                        
+                        # Get or create analyzer for this horse
+                        if horse_id not in self.pose_analyzers:
+                            self.pose_analyzers[horse_id] = PoseAnalyzer()
+                            self.gait_classifiers[horse_id] = GaitClassifier()
+                        
+                        # Validate pose
+                        keypoints = np.array(pose_data["keypoints"])
+                        prev_keypoints = None
+                        if len(frame_poses) > 0 and "keypoints" in frame_poses[-1]:
+                            prev_keypoints = np.array(frame_poses[-1]["keypoints"])
+                        
+                        validation_result = self.pose_validator.validate(keypoints, prev_keypoints)
+                        
+                        # Use corrected keypoints if available
+                        if validation_result.corrected_keypoints is not None:
+                            keypoints = validation_result.corrected_keypoints
+                            pose_data["keypoints"] = keypoints.tolist()
+                        
+                        # Analyze pose if valid
+                        if validation_result.is_valid:
+                            # Biomechanical analysis
+                            pose_metrics = self.pose_analyzers[horse_id].analyze_pose(keypoints, frame_timestamp)
+                            
+                            # Gait classification
+                            self.gait_classifiers[horse_id].add_pose(keypoints, frame_timestamp)
+                            gait_metrics = self.gait_classifiers[horse_id].classify(fps)
+                            
+                            # Add analysis to pose data
+                            pose_data["biomechanics"] = {
+                                "joint_angles": pose_metrics.joint_angles,
+                                "stride_length": pose_metrics.stride_length,
+                                "back_angle": pose_metrics.back_angle,
+                                "head_height": pose_metrics.head_height,
+                                "center_of_mass": pose_metrics.center_of_mass,
+                                "velocity": pose_metrics.velocity,
+                                "confidence": pose_metrics.confidence
+                            }
+                            
+                            if gait_metrics:
+                                pose_data["gait"] = {
+                                    "type": gait_metrics.gait_type.value,
+                                    "action": gait_metrics.action_type.value,
+                                    "stride_frequency": gait_metrics.stride_frequency,
+                                    "symmetry_score": gait_metrics.symmetry_score,
+                                    "regularity_score": gait_metrics.regularity_score,
+                                    "confidence": gait_metrics.confidence
+                                }
+                        
+                        # Add validation info
+                        pose_data["validation"] = {
+                            "is_valid": validation_result.is_valid,
+                            "confidence": validation_result.confidence,
+                            "issues": validation_result.issues[:3] if validation_result.issues else []  # Limit issues
+                        }
+                        
                         frame_poses.append(pose_data)
                         
                     # Save horse to database if new or updated
