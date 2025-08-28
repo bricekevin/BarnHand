@@ -6,33 +6,36 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                         CLIENT LAYER                         │
 ├───────────────┬─────────────────┬──────────────────────────┤
-│  Web App (React) │  Mobile Apps  │   Admin Dashboard        │
+│  React Web App  │  Mobile Apps  │   Admin Dashboard        │
+│  + WebSocket    │               │                          │
 └───────┬───────────┴───────┬───────┴────────┬────────────────┘
         │                   │                 │
         ▼                   ▼                 ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                      API GATEWAY                             │
-│                  (Kong / AWS API Gateway)                    │
+│                API GATEWAY + WEBSOCKET SERVER                │
+│               (Express.js + Socket.io)                      │
 └───────┬────────────────────┬────────────────┬───────────────┘
         │                    │                │
         ▼                    ▼                ▼
 ┌──────────────┐    ┌──────────────┐   ┌──────────────┐
-│  Auth Service │    │ Stream Service│   │ ML Service   │
-│   (Auth0)     │    │  (Node.js)    │   │  (Python)    │
-└──────────────┘    └───────┬────────┘   └──────┬───────┘
-                            │                    │
-        ┌───────────────────┼────────────────────┤
-        ▼                   ▼                    ▼
+│ Stream Service│    │  ML Service  │   │Video Streamer│
+│  (Node.js)    │    │  (Python)    │   │  (FFmpeg)    │
+│  + WebSocket  │    │ + WebSocket  │   │              │
+└───────┬──────┘    └──────┬───────┘   └──────┬───────┘
+        │                  │                  │
+        ▼                  ▼                  ▼
 ┌──────────────┐    ┌──────────────┐   ┌──────────────┐
-│ Media Server  │    │ Message Queue │   │  Database    │
-│  (WebRTC/HLS) │    │   (Redis)     │   │ (PostgreSQL) │
-└──────┬────────┘    └──────────────┘   └──────────────┘
+│   Database   │    │Message Queue │   │ Media Storage│
+│ (PostgreSQL  │    │ + WebSocket  │   │    (Local)   │
+│ +TimescaleDB)│    │   Events     │   │              │
+└──────────────┘    └──────────────┘   └──────────────┘
         │
         ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      VIDEO SOURCES                           │
 ├──────────────┬──────────────────┬───────────────────────────┤
-│   YouTube    │   IP Cameras      │    Future: Edge Devices  │
+│  Local Videos │   IP Cameras     │    Future: Live Streams  │
+│   (MP4/MOV)   │     (RTSP)       │     (YouTube/Twitch)     │
 └──────────────┴──────────────────┴───────────────────────────┘
 ```
 
@@ -142,7 +145,113 @@ class MLProcessingPipeline:
         return poses
 ```
 
-### 2.3 Data Pipeline Architecture
+### 2.3 WebSocket Real-time Communication Architecture
+
+```typescript
+// WebSocket Event Flow
+┌─────────────┐    WebSocket     ┌─────────────────┐    Events    ┌─────────────┐
+│   React     │◄──────────────► │  API Gateway    │◄────────────► │   Backend   │
+│   Client    │    Socket.io     │  WebSocket      │   Message     │  Services   │
+│             │                  │    Server       │    Queue      │             │
+└─────────────┘                  └─────────────────┘              └─────────────┘
+       │                                   │                             │
+       │ - detection:update                │ - Room management           │
+       │ - chunk:processed                 │ - Authentication            │
+       │ - metrics:update                  │ - Message queuing           │
+       │ - stream:status                   │ - Connection tracking       │
+       │ - horse:update                    │ - Auto-reconnection        │
+       │                                   │                             │
+       └─── Connection Status UI ──────────┘                             │
+                                                                         │
+// Real-time Data Flow                                                   │
+┌─────────────┐    Process      ┌─────────────┐    Emit Event  ┌─────────▼─────┐
+│  ML Service │───────────────► │   Stream    │──────────────► │   WebSocket   │
+│  Detection  │    Chunk        │  Service    │   via API      │    Server     │
+│   Results   │                 │             │                │               │
+└─────────────┘                 └─────────────┘                └───────────────┘
+                                                                        │
+                                                              Broadcast │
+                                                                        ▼
+                                                              ┌─────────────────┐
+                                                              │ Subscribed Clients│
+                                                              │  - Farm rooms     │
+                                                              │  - Stream rooms   │
+                                                              │  - User sessions  │
+                                                              └─────────────────┘
+```
+
+#### WebSocket Server Implementation
+```typescript
+class WebSocketServer {
+  private io: Server;
+  private connections: Map<string, ExtendedSocket> = new Map();
+  private streamRooms: Map<string, Set<string>> = new Map();
+  private userSessions: Map<string, Set<string>> = new Map();
+
+  // Authentication middleware
+  private setupAuthentication() {
+    this.io.use(async (socket, next) => {
+      const token = socket.handshake.auth.token;
+      const decoded = jwt.verify(token, JWT_SECRET);
+      socket.data.user = decoded;
+      next();
+    });
+  }
+
+  // Room-based subscriptions
+  public async subscribeToStream(socket: Socket, streamId: string) {
+    await socket.join(`stream:${streamId}`);
+    this.streamRooms.get(`stream:${streamId}`)?.add(socket.id);
+  }
+
+  // Event broadcasting
+  public emitDetectionUpdate(streamId: string, detection: any) {
+    this.io.to(`stream:${streamId}`).emit('detection:update', {
+      streamId,
+      detection,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+```
+
+#### Frontend WebSocket Integration
+```typescript
+class WebSocketService {
+  private socket: Socket | null = null;
+  private connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error';
+  private reconnectTimer?: NodeJS.Timeout;
+  private subscribedStreams: Set<string> = new Set();
+
+  // Auto-reconnection with exponential backoff
+  public connect(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.socket = io(wsUrl, {
+        auth: { token: localStorage.getItem('authToken') },
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 10,
+      });
+
+      this.socket.on('connect', () => {
+        this.updateConnectionStatus('connected');
+        this.resubscribeToStreams();
+        resolve();
+      });
+    });
+  }
+
+  // Event handling
+  private setupEventHandlers() {
+    this.socket?.on('detection:update', (data) => {
+      const store = useAppStore.getState();
+      store.addDetections([data.detection]);
+    });
+  }
+}
+```
+
+### 2.4 Data Pipeline Architecture
 
 ```yaml
 # Data Flow Pipeline with Chunk Processing
