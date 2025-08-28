@@ -1,0 +1,214 @@
+version: '3.8'
+
+services:
+  # Frontend React App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=http://localhost:${API_GATEWAY_PORT:-8000}
+      - REACT_APP_WS_URL=ws://localhost:${API_GATEWAY_PORT:-8000}
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - /app/node_modules
+    depends_on:
+      - api-gateway
+    networks:
+      - barnhand-network
+
+  # API Gateway Service
+  api-gateway:
+    build:
+      context: ./backend/api-gateway
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "${API_GATEWAY_PORT:-8000}:8000"
+    environment:
+      - NODE_ENV=development
+      - PORT=8000
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-barnhand}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-this}
+      - STREAM_SERVICE_URL=http://stream-service:8001
+      - ML_SERVICE_URL=http://ml-service:8002
+      - VIDEO_STREAMER_URL=http://video-streamer:8003
+      - CORS_ORIGIN=http://localhost:${FRONTEND_PORT:-3000}
+    volumes:
+      - ./backend/api-gateway/src:/app/src
+      - /app/node_modules
+    depends_on:
+      - postgres
+      - redis
+      - stream-service
+      - ml-service
+      - video-streamer
+    networks:
+      - barnhand-network
+
+  # Stream Processing Service
+  stream-service:
+    build:
+      context: ./backend/stream-service
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "${STREAM_SERVICE_PORT:-8001}:8001"
+      - "1935:1935"     # RTMP
+      - "8088:8088"     # HTTP-FLV
+    environment:
+      - NODE_ENV=development
+      - PORT=8001
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-barnhand}
+      - REDIS_URL=redis://redis:6379
+      - CHUNK_DURATION=${CHUNK_DURATION:-10}
+      - PROCESSING_DELAY=${PROCESSING_DELAY:-20}
+      - ML_SERVICE_URL=http://ml-service:8002
+      - VIDEO_FOLDER=/media
+    volumes:
+      - ./backend/stream-service/src:/app/src
+      - ./media:/media:ro
+      - ./chunks:/app/chunks
+      - /app/node_modules
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - barnhand-network
+
+  # ML Processing Service
+  ml-service:
+    build:
+      context: ./backend/ml-service
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "${ML_SERVICE_PORT:-8002}:8002"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8002
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-barnhand}
+      - REDIS_URL=redis://redis:6379
+      - ML_DEVICE=${ML_DEVICE:-cpu}
+      - MODEL_PATH=/models
+      - YOLO_MODEL_PATH=/models/yolo11m.pt
+      - YOLOV5_MODEL_PATH=/models/yolov5m.pt
+      - RTMPOSE_MODEL_PATH=/models/rtmpose-m-ap10k.pth
+      - BATCH_SIZE=${BATCH_SIZE:-8}
+      - CONFIDENCE_THRESHOLD=${CONFIDENCE_THRESHOLD:-0.5}
+    volumes:
+      - ./backend/ml-service/src:/app/src
+      - ./models:/models:ro
+      - ./chunks:/app/chunks:ro
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 4G
+    networks:
+      - barnhand-network
+
+  # Local Video Streaming Service
+  video-streamer:
+    build:
+      context: ./backend/video-streamer
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "${VIDEO_STREAMER_PORT:-8003}:8003"
+      - "5000-5100:5000-5100/udp"  # WebRTC range
+    environment:
+      - NODE_ENV=development
+      - PORT=8003
+      - VIDEO_FOLDER=/media
+      - STREAM_COUNT=${STREAM_COUNT:-5}
+      - HLS_SEGMENT_TIME=${HLS_SEGMENT_TIME:-2}
+    volumes:
+      - ./backend/video-streamer/src:/app/src
+      - ./media:/media:ro
+      - /app/node_modules
+    networks:
+      - barnhand-network
+
+  # PostgreSQL with TimescaleDB
+  postgres:
+    image: timescale/timescaledb:latest-pg14
+    ports:
+      - "${DATABASE_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - POSTGRES_DB=${POSTGRES_DB:-barnhand}
+      - POSTGRES_INITDB_ARGS=--data-checksums
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-barnhand}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - barnhand-network
+
+  # Redis for caching and pub/sub
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - barnhand-network
+
+  # Nginx reverse proxy (production)
+  nginx:
+    build:
+      context: ./infrastructure/nginx
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - frontend
+      - api-gateway
+    networks:
+      - barnhand-network
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  barnhand-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+coverage/
+.next/
+out/
+
+# Environment files
+.env*
+
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+.parcel-cache/
+.eslintcache
+
+# Database
+*.sqlite
+*.db
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+
+# Generated files
+*.min.js
+*.min.css
+public/
+
+# Media files
+media/
+models/
+
+# Test output
+test-results/
+playwright-report/
