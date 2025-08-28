@@ -14,12 +14,13 @@ export const authenticateToken = (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
   if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
+    res.status(401).json({ error: 'Access token required' });
+    return;
   }
 
   try {
@@ -30,15 +31,16 @@ export const authenticateToken = (
     logger.warn('Invalid JWT token', {
       error: error instanceof Error ? error.message : error,
     });
-    return res.status(403).json({ error: 'Invalid or expired token' });
+    res.status(403).json({ error: 'Invalid or expired token' });
   }
 };
 
 // Role-based Access Control
 export const requireRole = (allowedRoles: UserRole[]) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
+      res.status(401).json({ error: 'Authentication required' });
+      return;
     }
 
     if (!allowedRoles.includes(req.user.role)) {
@@ -47,11 +49,12 @@ export const requireRole = (allowedRoles: UserRole[]) => {
         userRole: req.user.role,
         requiredRoles: allowedRoles,
       });
-      return res.status(403).json({
+      res.status(403).json({
         error: 'Insufficient permissions',
         required: allowedRoles,
         current: req.user.role,
       });
+      return;
     }
 
     next();
@@ -63,20 +66,23 @@ export const requireFarmAccess = (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required' });
+    res.status(401).json({ error: 'Authentication required' });
+    return;
   }
 
   // Super admins can access any farm
   if (req.user.role === UserRole.SUPER_ADMIN) {
-    return next();
+    next();
+    return;
   }
 
   const farmId = req.params.farmId || req.body.farm_id || req.query.farm_id;
 
   if (!farmId) {
-    return res.status(400).json({ error: 'Farm ID required' });
+    res.status(400).json({ error: 'Farm ID required' });
+    return;
   }
 
   if (req.user.farmId !== farmId) {
@@ -85,7 +91,8 @@ export const requireFarmAccess = (
       userFarmId: req.user.farmId,
       requestedFarmId: farmId,
     });
-    return res.status(403).json({ error: 'Access denied to this farm' });
+    res.status(403).json({ error: 'Access denied to this farm' });
+    return;
   }
 
   next();
@@ -93,11 +100,11 @@ export const requireFarmAccess = (
 
 // Generate JWT tokens
 export const generateTokens = (payload: Omit<JwtPayload, 'iat' | 'exp'>) => {
-  const accessToken = jwt.sign(payload, env.JWT_SECRET, {
+  const accessToken = jwt.sign(payload as object, env.JWT_SECRET, {
     expiresIn: env.JWT_EXPIRES_IN,
   });
 
-  const refreshToken = jwt.sign(payload, env.JWT_SECRET, {
+  const refreshToken = jwt.sign(payload as object, env.JWT_SECRET, {
     expiresIn: env.JWT_REFRESH_EXPIRES_IN,
   });
 

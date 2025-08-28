@@ -69,7 +69,7 @@ app.use('/api/v1/detections', detectionRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 
 // Root health check (for Docker health checks)
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({
     status: 'healthy',
     service: 'api-gateway',
@@ -78,7 +78,7 @@ app.get('/health', (req, res) => {
 });
 
 // API info endpoint
-app.get('/api/v1', (req, res) => {
+app.get('/api/v1', (_req, res) => {
   res.json({
     name: 'BarnHand API Gateway',
     version: '0.3.0',

@@ -89,7 +89,7 @@ router.post('/login', validateSchema(loginSchema), async (req, res) => {
       email: user.email,
     });
 
-    res.json({
+    return res.json({
       user: {
         id: user.id,
         email: user.email,
@@ -103,7 +103,7 @@ router.post('/login', validateSchema(loginSchema), async (req, res) => {
     });
   } catch (error) {
     logger.error('Login error', { error });
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -123,7 +123,7 @@ router.post('/refresh', validateSchema(refreshSchema), async (req, res) => {
       farmId: payload.farmId,
     });
 
-    res.json({
+    return res.json({
       accessToken: newAccessToken,
       expiresIn: '24h',
     });
@@ -131,7 +131,7 @@ router.post('/refresh', validateSchema(refreshSchema), async (req, res) => {
     logger.warn('Invalid refresh token', {
       error: error instanceof Error ? error.message : error,
     });
-    res.status(401).json({ error: 'Invalid refresh token' });
+    return res.status(401).json({ error: 'Invalid refresh token' });
   }
 });
 
@@ -144,7 +144,7 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({
+    return res.json({
       id: user.id,
       email: user.email,
       name: user.name,
@@ -153,15 +153,15 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
     });
   } catch (error) {
     logger.error('Get user info error', { error });
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // POST /api/v1/auth/logout
 router.post('/logout', authenticateToken, (req: AuthenticatedRequest, res) => {
   // In production, add token to blacklist or revoke refresh tokens
-  logger.info('User logged out', { userId: req.user.userId });
-  res.json({ message: 'Logged out successfully' });
+  logger.info('User logged out', { userId: req.user?.userId });
+  return res.json({ message: 'Logged out successfully' });
 });
 
 export default router;
