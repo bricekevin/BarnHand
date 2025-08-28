@@ -1,0 +1,29 @@
+{
+  "name": "@barnhand/database",
+  "version": "0.1.0",
+  "description": "Database layer with migrations and connection management",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "migrate": "tsx src/migrations/migrate.ts",
+    "migrate:create": "tsx src/migrations/create.ts",
+    "migrate:rollback": "tsx src/migrations/rollback.ts",
+    "seed": "tsx src/seeds/seed.ts",
+    "test": "jest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@barnhand/shared": "workspace:*",
+    "pg": "^8.11.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.10.9",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.8"
+  }
+}
