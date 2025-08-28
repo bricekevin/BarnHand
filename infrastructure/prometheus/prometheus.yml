@@ -1,0 +1,254 @@
+# BarnHand Prometheus Configuration
+# Monitoring and metrics collection for horse streaming platform
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+  external_labels:
+    cluster: "barnhand-production"
+    environment: "production"
+
+# Rule files
+rule_files:
+  - "alert_rules.yml"
+
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093  # Uncomment if using Alertmanager
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # API Gateway metrics
+  - job_name: "api-gateway"
+    static_configs:
+      - targets: ["api-gateway:8000"]
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: api-gateway
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: api-gateway:8000
+
+  # ML Service metrics
+  - job_name: "ml-service"
+    static_configs:
+      - targets: ["ml-service:8002"]
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: ml-service
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: ml-service:8002
+
+  # Stream Service metrics
+  - job_name: "stream-service"
+    static_configs:
+      - targets: ["stream-service:8001"]
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: stream-service
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: stream-service:8001
+
+  # Video Streamer metrics
+  - job_name: "video-streamer"
+    static_configs:
+      - targets: ["video-streamer:8003"]
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: video-streamer
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: video-streamer:8003
+
+  # PostgreSQL metrics (if using postgres_exporter)
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["postgres:9187"] # Requires postgres_exporter sidecar
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: postgres
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: postgres:5432
+
+  # Redis metrics (if using redis_exporter)
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis:9121"] # Requires redis_exporter sidecar
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: redis
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: redis:6379
+
+  # Nginx metrics (if using nginx-prometheus-exporter)
+  - job_name: "nginx"
+    static_configs:
+      - targets: ["nginx:9113"] # Requires nginx-prometheus-exporter
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: nginx
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: nginx:80
+
+  # Node Exporter for system metrics (if deployed)
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: node-exporter
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: host-system
+
+  # cAdvisor for container metrics (if deployed)
+  - job_name: "cadvisor"
+    static_configs:
+      - targets: ["cadvisor:8080"]
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+
+    metric_relabel_configs:
+      # Keep only useful container metrics
+      - source_labels: [__name__]
+        regex: "container_(cpu|memory|network|fs)_.*"
+        action: keep
+      - source_labels: [container_label_com_docker_compose_service]
+        target_label: service
+      - source_labels: [container_label_com_docker_compose_project]
+        target_label: project
+
+  # Fluentd metrics
+  - job_name: "fluentd"
+    static_configs:
+      - targets: ["fluentd:9880"]
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: true
+
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: fluentd
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: fluentd:24224
+
+# Recording rules for computed metrics
+recording_rules:
+  - name: barnhand.rules
+    rules:
+      # API Gateway request rate
+      - record: barnhand:api_gateway_request_rate
+        expr: rate(http_requests_total{service="api-gateway"}[5m])
+
+      # API Gateway error rate
+      - record: barnhand:api_gateway_error_rate
+        expr: rate(http_requests_total{service="api-gateway",status=~"5.."}[5m])
+
+      # ML Service processing time
+      - record: barnhand:ml_processing_time_avg
+        expr: avg(rate(ml_processing_duration_seconds_sum{service="ml-service"}[5m])) / avg(rate(ml_processing_duration_seconds_count{service="ml-service"}[5m]))
+
+      # Stream Service chunk processing rate
+      - record: barnhand:stream_chunk_processing_rate
+        expr: rate(stream_chunks_processed_total{service="stream-service"}[5m])
+
+      # Database connection utilization
+      - record: barnhand:database_connection_utilization
+        expr: (pg_stat_database_numbackends{service="postgres"} / pg_settings_max_connections{service="postgres"}) * 100
+
+      # Redis memory utilization
+      - record: barnhand:redis_memory_utilization
+        expr: (redis_memory_used_bytes{service="redis"} / redis_config_maxmemory{service="redis"}) * 100
+
+      # System CPU utilization
+      - record: barnhand:system_cpu_utilization
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+
+      # System memory utilization
+      - record: barnhand:system_memory_utilization
+        expr: ((node_memory_MemTotal_bytes - node_memory_MemFree_bytes - node_memory_Buffers_bytes - node_memory_Cached_bytes) / node_memory_MemTotal_bytes) * 100
+
+# Global configuration for recording and alerting rules
+global_config:
+  # Retention period for metrics (30 days)
+  retention: 30d
+
+  # Storage configuration
+  storage:
+    tsdb:
+      # Retention time for TSDB blocks
+      retention.time: 30d
+      # Maximum size of TSDB blocks
+      retention.size: 10GB
+      # Compression level
+      wal-compression: true
