@@ -38,8 +38,8 @@ describe('HorseRepository', () => {
       const result = await repository.findSimilarHorses(featureVector, threshold, maxResults);
       
       expect(result).toHaveLength(1);
-      expect(result[0].horse.name).toBe('Thunder');
-      expect(result[0].similarity).toBe(0.85);
+      expect(result[0]?.horse.name).toBe('Thunder');
+      expect(result[0]?.similarity).toBe(0.85);
     });
   });
 

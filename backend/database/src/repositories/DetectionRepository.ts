@@ -1,5 +1,5 @@
 import { query } from '../connection';
-import type { HorseDetection, CreateDetectionRequest } from '@barnhand/shared';
+import type { HorseDetection, CreateDetectionRequest } from '../types';
 
 export interface DetectionQueryOptions {
   streamId?: string;
@@ -8,7 +8,6 @@ export interface DetectionQueryOptions {
   endTime?: Date;
   limit?: number;
   offset?: number;
-  includeMetrics?: boolean;
 }
 
 export class DetectionRepository {
@@ -19,8 +18,7 @@ export class DetectionRepository {
       startTime,
       endTime,
       limit = 100,
-      offset = 0,
-      includeMetrics = true
+      offset = 0
     } = options;
 
     let sql = 'SELECT * FROM detections WHERE 1=1';
@@ -94,7 +92,7 @@ export class DetectionRepository {
   async bulkCreate(detections: CreateDetectionRequest[]): Promise<void> {
     if (detections.length === 0) return;
 
-    const values = detections.map((detection, index) => {
+    const values = detections.map((_, index) => {
       const baseIndex = index * 15;
       return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5}, $${baseIndex + 6}, $${baseIndex + 7}, $${baseIndex + 8}, $${baseIndex + 9}, $${baseIndex + 10}, $${baseIndex + 11}, $${baseIndex + 12}, $${baseIndex + 13}, $${baseIndex + 14}, $${baseIndex + 15})`;
     }).join(', ');
@@ -108,7 +106,7 @@ export class DetectionRepository {
       VALUES ${values}
     `;
 
-    const params = detections.flatMap(detection => [
+    const params = detections.flatMap((detection) => [
       detection.time || new Date(),
       detection.stream_id,
       detection.chunk_id,

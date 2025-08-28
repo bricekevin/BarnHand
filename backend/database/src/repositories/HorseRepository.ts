@@ -1,5 +1,5 @@
 import { query } from '../connection';
-import type { Horse, CreateHorseRequest } from '@barnhand/shared';
+import type { Horse, CreateHorseRequest } from '../types';
 
 export class HorseRepository {
   async findAll(farmId?: string): Promise<Horse[]> {

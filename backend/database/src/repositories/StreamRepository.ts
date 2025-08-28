@@ -1,5 +1,5 @@
 import { query } from '../connection';
-import type { Stream, StreamConfig, CreateStreamRequest } from '@barnhand/shared';
+import type { Stream, StreamConfig, CreateStreamRequest } from '../types';
 
 export class StreamRepository {
   async findAll(farmId?: string): Promise<Stream[]> {
@@ -67,7 +67,7 @@ export class StreamRepository {
     );
   }
 
-  async updateHealthCheck(id: string, isHealthy: boolean): Promise<void> {
+  async updateHealthCheck(id: string): Promise<void> {
     await query(
       'UPDATE streams SET last_health_check = CURRENT_TIMESTAMP WHERE id = $1',
       [id]

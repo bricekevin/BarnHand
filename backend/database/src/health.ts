@@ -28,7 +28,7 @@ export async function checkDatabaseHealth(): Promise<HealthStatus> {
 
   try {
     // Check basic connection
-    const connectionResult = await pool.query('SELECT NOW() as current_time');
+    await pool.query('SELECT NOW() as current_time');
     status.database.connected = true;
     
     // Get connection stats
