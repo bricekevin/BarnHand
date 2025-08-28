@@ -20,7 +20,7 @@ class Settings(BaseSettings):
         default="auto", description="ML processing device"
     )
     model_path: str = Field(
-        default="/models", description="Path to ML models directory"
+        default="../../models", description="Path to ML models directory"
     )
     yolo_model: str = Field(
         default="downloads/yolo11m.pt", description="Primary YOLO model file"
@@ -69,12 +69,40 @@ class Settings(BaseSettings):
         default=5, description="Number of frames for model warmup"
     )
     
+    # Database Configuration
+    database_host: str = Field(
+        default="localhost", description="Database host"
+    )
+    database_port: int = Field(
+        default=5432, description="Database port"
+    )
+    database_name: str = Field(
+        default="horsestream", description="Database name"
+    )
+    database_user: str = Field(
+        default="admin", description="Database user"
+    )
+    database_password: str = Field(
+        default="password", description="Database password"
+    )
+    
     # Redis Configuration
     redis_url: str = Field(
         default="redis://localhost:6379", description="Redis connection URL"
     )
     redis_timeout: int = Field(
         default=30, description="Redis operation timeout in seconds"
+    )
+    
+    # Horse Tracking Configuration
+    similarity_threshold: float = Field(
+        default=0.7, ge=0.0, le=1.0, description="Feature similarity threshold for horse matching"
+    )
+    max_lost_frames: int = Field(
+        default=30, description="Maximum frames before a track is considered lost"
+    )
+    reid_feature_dimension: int = Field(
+        default=512, description="ReID feature vector dimension"
     )
     
     # Storage Configuration

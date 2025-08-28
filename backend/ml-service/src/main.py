@@ -31,8 +31,24 @@ class ProcessingResponse(BaseModel):
     status: str
     processing_time_ms: float
     detections: List[Dict[str, Any]]
+    tracked_horses: List[Dict[str, Any]] = []
     overlay_data: Dict[str, Any]
     model_info: Dict[str, Any]
+    tracking_stats: Dict[str, Any] = {}
+
+
+class ThresholdUpdateRequest(BaseModel):
+    threshold: float
+
+
+class HorseMergeRequest(BaseModel):
+    primary_id: str
+    secondary_id: str
+
+
+class HorseSplitRequest(BaseModel):
+    horse_id: str
+    split_timestamp: float
 
 
 class HealthResponse(BaseModel):
@@ -75,8 +91,8 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="BarnHand ML Service",
-    description="Horse detection and pose analysis using YOLO11/YOLOv5 + RTMPose",
-    version="0.3.0",
+    description="Horse detection, pose analysis, and re-identification using YOLO11/YOLOv5 + RTMPose + DeepSort",
+    version="0.4.0",
     lifespan=lifespan
 )
 
@@ -101,14 +117,16 @@ async def root():
             "process": "/api/process",
             "batch": "/api/batch", 
             "health": "/health",
-            "models": "/api/models"
+            "models": "/api/models",
+            "tracking": "/api/tracking"
         },
         "configuration": {
             "device": str(settings.ml_device),
             "target_fps": settings.target_fps,
             "batch_size": settings.batch_size,
             "confidence_threshold": settings.confidence_threshold,
-            "pose_threshold": settings.pose_confidence_threshold
+            "pose_threshold": settings.pose_confidence_threshold,
+            "similarity_threshold": 0.7
         },
         "environment": settings.environment
     }
@@ -200,13 +218,18 @@ async def get_model_info():
         detection_info = processor.detection_model.get_model_info()
         pose_info = processor.pose_model.get_performance_info()
         
+        tracking_stats = processor.horse_tracker.get_tracking_stats()
+        
         return {
             "detection_model": detection_info,
             "pose_model": pose_info,
+            "tracking_model": processor.horse_tracker.reid_model.get_model_info(),
             "device": str(settings.ml_device),
+            "tracking_stats": tracking_stats,
             "configuration": {
                 "confidence_threshold": settings.confidence_threshold,
                 "pose_threshold": settings.pose_confidence_threshold,
+                "similarity_threshold": tracking_stats.get("similarity_threshold", 0.7),
                 "target_fps": settings.target_fps,
                 "batch_size": settings.batch_size
             }
@@ -249,7 +272,8 @@ async def health_check():
         if processor:
             models_info = {
                 "detection_model": processor.detection_model.get_model_info(),
-                "pose_model": processor.pose_model.get_performance_info()
+                "pose_model": processor.pose_model.get_performance_info(),
+                "tracking_model": processor.horse_tracker.reid_model.get_model_info()
             }
             performance_info = processor.get_stats()
         
@@ -300,6 +324,128 @@ def _get_gpu_info() -> Dict[str, Any]:
         pass
         
     return {"available": False}
+
+
+# Horse tracking API endpoints
+@app.post("/api/tracking/threshold")
+async def update_similarity_threshold(request: ThresholdUpdateRequest):
+    """Update similarity threshold for horse tracking."""
+    if not processor:
+        raise HTTPException(status_code=503, detail="ML service not initialized")
+        
+    try:
+        success = await processor.update_similarity_threshold(request.threshold)
+        if success:
+            return {"message": f"Similarity threshold updated to {request.threshold}"}
+        else:
+            raise HTTPException(status_code=400, detail="Invalid threshold value")
+    except Exception as error:
+        logger.error(f"Threshold update error: {error}")
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+@app.get("/api/tracking/horses")
+async def get_tracked_horses(include_lost: bool = False):
+    """Get all currently tracked horses."""
+    if not processor:
+        raise HTTPException(status_code=503, detail="ML service not initialized")
+        
+    try:
+        horses = processor.horse_tracker.get_all_tracks(include_lost=include_lost)
+        return {
+            "horses": horses,
+            "tracking_stats": processor.horse_tracker.get_tracking_stats()
+        }
+    except Exception as error:
+        logger.error(f"Get tracked horses error: {error}")
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+@app.get("/api/tracking/horses/{horse_id}")
+async def get_horse_details(horse_id: str):
+    """Get detailed information about a specific horse."""
+    if not processor:
+        raise HTTPException(status_code=503, detail="ML service not initialized")
+        
+    try:
+        track = processor.horse_tracker.get_track_by_id(horse_id)
+        if not track:
+            raise HTTPException(status_code=404, detail=f"Horse {horse_id} not found")
+            
+        # Get appearance history from database
+        appearance_history = await processor.horse_db.get_horse_appearance_history(horse_id)
+        
+        return {
+            "track": track,
+            "appearance_history": appearance_history
+        }
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error(f"Get horse details error: {error}")
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+@app.post("/api/tracking/merge")
+async def merge_horses(request: HorseMergeRequest):
+    """Merge two horse tracks that are the same horse."""
+    if not processor:
+        raise HTTPException(status_code=503, detail="ML service not initialized")
+        
+    try:
+        success = await processor.merge_horses(request.primary_id, request.secondary_id)
+        if success:
+            return {"message": f"Successfully merged {request.secondary_id} into {request.primary_id}"}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to merge horses")
+    except Exception as error:
+        logger.error(f"Horse merge error: {error}")
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+@app.post("/api/tracking/split")
+async def split_horse(request: HorseSplitRequest):
+    """Split a horse track that was incorrectly merged."""
+    if not processor:
+        raise HTTPException(status_code=503, detail="ML service not initialized")
+        
+    try:
+        new_horse_id = await processor.split_horse(request.horse_id, request.split_timestamp)
+        if new_horse_id:
+            return {
+                "message": f"Successfully split horse {request.horse_id}",
+                "new_horse_id": new_horse_id
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Failed to split horse")
+    except Exception as error:
+        logger.error(f"Horse split error: {error}")
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+@app.get("/api/tracking/stats")
+async def get_tracking_statistics(stream_id: Optional[str] = None):
+    """Get horse tracking statistics."""
+    if not processor:
+        raise HTTPException(status_code=503, detail="ML service not initialized")
+        
+    try:
+        db_stats = await processor.horse_db.get_horse_statistics(stream_id)
+        tracker_stats = processor.horse_tracker.get_tracking_stats()
+        
+        return {
+            "database_stats": db_stats,
+            "tracker_stats": tracker_stats,
+            "combined_stats": {
+                "active_tracks": tracker_stats.get("active_tracks", 0),
+                "total_horses_in_db": db_stats.get("total_horses", 0),
+                "avg_track_confidence": db_stats.get("avg_track_confidence", 0),
+                "recent_reidentifications": tracker_stats.get("successful_reidentifications", 0)
+            }
+        }
+    except Exception as error:
+        logger.error(f"Get tracking statistics error: {error}")
+        raise HTTPException(status_code=500, detail=str(error))
 
 
 # Store startup time for uptime calculation
