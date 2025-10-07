@@ -3,6 +3,8 @@ import asyncio
 import time
 import uuid
 import json
+import subprocess
+import shutil
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 import cv2
@@ -276,36 +278,21 @@ class ChunkProcessor:
 
             logger.info(f"Video properties: {width}x{height} @ {fps}fps, {total_frames} frames")
 
-            # Create output directory
+            # Create output directories
             Path(output_video_path).parent.mkdir(parents=True, exist_ok=True)
             Path(output_json_path).parent.mkdir(parents=True, exist_ok=True)
 
-            # Create video writer - try multiple codecs for Docker compatibility
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Start with mp4v for compatibility
-            out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
-
-            # Fallback to XVID if mp4v fails
-            if not out.isOpened():
-                logger.warning("mp4v codec failed, trying XVID")
-                output_video_path = output_video_path.replace('.mp4', '.avi')  # XVID needs AVI container
-                fourcc = cv2.VideoWriter_fourcc(*'XVID')
-                out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
-
-            # Last resort: X264
-            if not out.isOpened():
-                logger.warning("XVID codec failed, trying X264")
-                output_video_path = output_video_path.replace('.avi', '.mp4')  # Back to MP4
-                fourcc = cv2.VideoWriter_fourcc(*'X264')
-                out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
-
-            if not out.isOpened():
-                raise ValueError(f"Failed to create video writer for {output_video_path} - all codecs failed")
+            # Create temporary directory for frames (FFmpeg workaround for Docker codec issues)
+            temp_frames_dir = Path(f"/tmp/chunk_processing_{chunk_id}")
+            temp_frames_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Saving frames to temporary directory: {temp_frames_dir}")
 
             # Process frames
             frame_idx = 0
             frame_results = []
             total_detections = 0
             total_tracks = 0
+            processed_frames = []  # Store frames for FFmpeg writing
 
             while cap.isOpened() and frame_idx < total_frames:
                 ret, frame = cap.read()
@@ -364,8 +351,10 @@ class ChunkProcessor:
                     frame_behavioral_states
                 )
 
-                # Write processed frame
-                out.write(processed_frame)
+                # Save frame as PNG for FFmpeg
+                frame_path = temp_frames_dir / f"frame_{frame_idx:04d}.png"
+                cv2.imwrite(str(frame_path), processed_frame)
+                processed_frames.append(frame_path)
 
                 # Save frame results
                 frame_result = {
@@ -385,9 +374,16 @@ class ChunkProcessor:
 
                 frame_idx += 1
 
-            # Cleanup video resources
+            # Cleanup video capture
             cap.release()
-            out.release()
+
+            # Use FFmpeg to create video from frames
+            logger.info(f"Creating video with FFmpeg from {len(processed_frames)} frames...")
+            self._create_video_with_ffmpeg(temp_frames_dir, output_video_path, fps)
+
+            # Cleanup temporary frames
+            logger.info(f"Cleaning up temporary frames directory: {temp_frames_dir}")
+            shutil.rmtree(temp_frames_dir, ignore_errors=True)
 
             # Generate processing result
             processing_time = (time.time() - start_time) * 1000
@@ -574,7 +570,50 @@ class ChunkProcessor:
             })
 
         return horse_summaries
-    
+
+    def _create_video_with_ffmpeg(self, frames_dir: Path, output_path: str, fps: int) -> None:
+        """
+        Create video from PNG frames using FFmpeg subprocess.
+        This is a workaround for OpenCV VideoWriter codec issues in Docker.
+        """
+        try:
+            # FFmpeg command to create video from frame sequence
+            cmd = [
+                'ffmpeg',
+                '-y',  # Overwrite output file
+                '-framerate', str(fps),
+                '-i', str(frames_dir / 'frame_%04d.png'),
+                '-c:v', 'libx264',  # H.264 codec
+                '-pix_fmt', 'yuv420p',  # Pixel format for compatibility
+                '-preset', 'fast',  # Encoding speed preset
+                '-crf', '23',  # Quality (0-51, lower is better, 23 is default)
+                output_path
+            ]
+
+            logger.info(f"FFmpeg command: {' '.join(cmd)}")
+
+            # Run FFmpeg
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=300  # 5 minute timeout
+            )
+
+            if result.returncode != 0:
+                logger.error(f"FFmpeg failed with return code {result.returncode}")
+                logger.error(f"FFmpeg stderr: {result.stderr}")
+                raise RuntimeError(f"FFmpeg video creation failed: {result.stderr}")
+
+            logger.info(f"Video created successfully: {output_path}")
+
+        except subprocess.TimeoutExpired:
+            logger.error("FFmpeg timeout - video creation took too long")
+            raise RuntimeError("FFmpeg timeout during video creation")
+        except Exception as error:
+            logger.error(f"FFmpeg video creation error: {error}")
+            raise
+
     def _ensure_horse_analyzers(self, horse_id: str) -> None:
         """Ensure behavioral state analyzers exist for a horse."""
         if horse_id not in self.hierarchical_state_detectors:
