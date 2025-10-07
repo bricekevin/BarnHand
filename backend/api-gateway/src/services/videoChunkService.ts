@@ -669,6 +669,87 @@ export class VideoChunkService {
     }
   }
 
+  async getChunkStatus(
+    chunkId: string,
+    farmId: string
+  ): Promise<{
+    chunk_id: string;
+    recording_status: 'recording' | 'completed' | 'failed';
+    ml_processed: boolean;
+    processing_status: string;
+    has_processed_video: boolean;
+    has_detections: boolean;
+    file_size?: number;
+    duration?: number;
+    created_at?: Date;
+  } | null> {
+    const chunk = await this.getChunkById(chunkId, farmId);
+    if (!chunk) {
+      return null;
+    }
+
+    // Check if processed video exists
+    const processedFilename = `${path.basename(chunk.filename, '.mp4')}_processed.mp4`;
+    const processedPath = path.join(
+      this.chunkStoragePath,
+      farmId,
+      chunk.stream_id,
+      'processed',
+      processedFilename
+    );
+
+    let hasProcessedVideo = false;
+    try {
+      const stats = await fs.stat(processedPath);
+      hasProcessedVideo = stats.isFile() && stats.size > 0;
+    } catch (error) {
+      // File doesn't exist
+      hasProcessedVideo = false;
+    }
+
+    // Check if detections file exists
+    const detectionsFilename = `${path.basename(chunk.filename, '.mp4')}_detections.json`;
+    const detectionsPath = path.join(
+      this.chunkStoragePath,
+      farmId,
+      chunk.stream_id,
+      'detections',
+      detectionsFilename
+    );
+
+    let hasDetections = false;
+    try {
+      const stats = await fs.stat(detectionsPath);
+      hasDetections = stats.isFile() && stats.size > 0;
+    } catch (error) {
+      // File doesn't exist
+      hasDetections = false;
+    }
+
+    // Determine ML processing status based on file existence
+    // TODO: When database is integrated, read ml_processed and processing_status from DB
+    const ml_processed = hasProcessedVideo && hasDetections;
+    let processing_status = 'pending';
+
+    if (ml_processed) {
+      processing_status = 'complete';
+    } else if (hasProcessedVideo || hasDetections) {
+      processing_status = 'processing'; // Partial files - still processing
+    }
+
+    return {
+      chunk_id: chunkId,
+      recording_status: chunk.status,
+      ml_processed,
+      processing_status,
+      has_processed_video: hasProcessedVideo,
+      has_detections: hasDetections,
+      file_size: chunk.file_size,
+      duration: chunk.duration,
+      created_at: chunk.created_at,
+    };
+  }
+
   async cancelRecording(chunkId: string): Promise<boolean> {
     const recordingProcess = this.activeRecordings.get(chunkId);
     if (!recordingProcess || !recordingProcess.process) {
