@@ -464,10 +464,12 @@ router.get(
       }
 
       const { chunkId } = req.params;
+      const forceRaw = req.query.raw === 'true';
 
       const streamUrl = await videoChunkService.getChunkStreamUrl(
         chunkId,
-        req.user.farmId
+        req.user.farmId,
+        forceRaw
       );
 
       if (!streamUrl) {
@@ -479,6 +481,7 @@ router.get(
         streamUrl,
         format: 'mp4',
         available: true,
+        isProcessed: !forceRaw && streamUrl.includes('/processed/'),
       });
     } catch (error) {
       logger.error('Get chunk stream error', { error });

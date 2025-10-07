@@ -567,15 +567,49 @@ export class VideoChunkService {
 
   async getChunkStreamUrl(
     chunkId: string,
-    farmId: string
+    farmId: string,
+    forceRaw: boolean = false
   ): Promise<string | null> {
     const chunk = await this.getChunkById(chunkId, farmId);
     if (!chunk || chunk.status !== 'completed') {
       return null;
     }
 
+    // Check if processed video is available and not forcing raw
+    // TODO: When database is integrated, check ml_processed flag from database
+    // For now, check if processed file exists on disk
+    if (!forceRaw) {
+      const processedFilename = `${path.basename(chunk.filename, '.mp4')}_processed.mp4`;
+      const processedPath = path.join(
+        this.chunkStoragePath,
+        farmId,
+        chunk.stream_id,
+        'processed',
+        processedFilename
+      );
+
+      try {
+        const stats = await fs.stat(processedPath);
+        if (stats.isFile() && stats.size > 0) {
+          // Processed video exists, return that URL
+          logger.info('Serving processed video', {
+            chunkId,
+            processedPath,
+          });
+          return `http://localhost:8003/chunks/${farmId}/${chunk.stream_id}/processed/${processedFilename}`;
+        }
+      } catch (error) {
+        // Processed file doesn't exist yet, fall through to raw video
+        logger.debug('Processed video not available, serving raw', {
+          chunkId,
+          processedPath,
+        });
+      }
+    }
+
     // For Docker deployment, we'll serve chunks through a dedicated endpoint
     // This URL will be handled by the video-streamer service
+    // Serve raw video (original recording)
     return `http://localhost:8003/chunks/${farmId}/${chunk.stream_id}/${chunk.filename}`;
   }
 
