@@ -613,6 +613,62 @@ export class VideoChunkService {
     return `http://localhost:8003/chunks/${farmId}/${chunk.stream_id}/${chunk.filename}`;
   }
 
+  async getChunkDetections(
+    chunkId: string,
+    farmId: string
+  ): Promise<any | null> {
+    const chunk = await this.getChunkById(chunkId, farmId);
+    if (!chunk) {
+      return null;
+    }
+
+    // Build path to detections JSON file
+    const detectionsFilename = `${path.basename(chunk.filename, '.mp4')}_detections.json`;
+    const detectionsPath = path.join(
+      this.chunkStoragePath,
+      farmId,
+      chunk.stream_id,
+      'detections',
+      detectionsFilename
+    );
+
+    try {
+      // Read and parse detections JSON file
+      const detectionsData = await fs.readFile(detectionsPath, 'utf-8');
+      const detections = JSON.parse(detectionsData);
+
+      logger.info('Chunk detections retrieved', {
+        chunkId,
+        farmId,
+        detectionsPath,
+      });
+
+      return detections;
+    } catch (error) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      ) {
+        // File doesn't exist - chunk not processed yet
+        logger.debug('Detections file not found', {
+          chunkId,
+          detectionsPath,
+        });
+        return null;
+      }
+
+      // Other error (parse error, permission, etc)
+      logger.error('Failed to read chunk detections', {
+        error,
+        chunkId,
+        detectionsPath,
+      });
+      throw error;
+    }
+  }
+
   async cancelRecording(chunkId: string): Promise<boolean> {
     const recordingProcess = this.activeRecordings.get(chunkId);
     if (!recordingProcess || !recordingProcess.process) {
