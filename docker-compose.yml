@@ -109,7 +109,7 @@ services:
     volumes:
       - ./backend/ml-service/src:/app/src
       - ./models:/models:ro
-      - ./chunks:/app/chunks:ro
+      - ./chunks:/app/storage/chunks
     depends_on:
       - postgres
       - redis
