@@ -28,15 +28,13 @@ COPY requirements-dev.txt ./
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir numpy
 
-# Install openmim for mmcv management
-RUN pip install --no-cache-dir openmim==0.3.9
+# Install all dependencies (includes torch, which mim needs to detect version)
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Install mmcv with compiled extensions using mim (recommended by OpenMMLab)
+# Must be installed AFTER torch so mim can detect the version
 # This will compile from source on ARM (15-20 min), use pre-built wheels on x86
 RUN mim install "mmcv>=2.0.0,<2.2.0"
-
-# Install remaining dependencies
-RUN pip install --no-cache-dir -r requirements.txt
 
 # Development image
 FROM python-deps as development
