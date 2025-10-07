@@ -21,6 +21,17 @@ class ChunkProcessRequest(BaseModel):
     metadata: Dict[str, Any] = {}
 
 
+class ChunkWithVideoProcessRequest(BaseModel):
+    chunk_path: str
+    stream_id: str
+    farm_id: str
+    chunk_id: str
+    output_video_path: str
+    output_json_path: str
+    start_time: float = 0.0
+    metadata: Dict[str, Any] = {}
+
+
 class BatchProcessRequest(BaseModel):
     chunks: List[ChunkProcessRequest]
 
@@ -170,6 +181,41 @@ async def process_chunk(request: ChunkProcessRequest):
         
     except Exception as error:
         logger.error(f"Chunk processing API error: {error}")
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+@app.post("/api/process-chunk")
+async def process_chunk_with_video(request: ChunkWithVideoProcessRequest):
+    """
+    Process chunk and output both processed video with overlays and detections JSON.
+    This is the Phase 2 enhancement endpoint that outputs files for serving.
+    """
+    if not processor:
+        raise HTTPException(status_code=503, detail="ML service not initialized")
+
+    try:
+        chunk_metadata = {
+            "stream_id": request.stream_id,
+            "farm_id": request.farm_id,
+            "chunk_id": request.chunk_id,
+            "start_time": request.start_time,
+            **request.metadata
+        }
+
+        result = await processor.process_chunk_with_video_output(
+            chunk_path=request.chunk_path,
+            chunk_metadata=chunk_metadata,
+            output_video_path=request.output_video_path,
+            output_json_path=request.output_json_path
+        )
+
+        if result["status"] == "failed":
+            raise HTTPException(status_code=500, detail=f"Processing failed: {result.get('error')}")
+
+        return result
+
+    except Exception as error:
+        logger.error(f"Chunk processing with video output API error: {error}")
         raise HTTPException(status_code=500, detail=str(error))
 
 

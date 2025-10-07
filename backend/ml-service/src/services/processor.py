@@ -2,6 +2,7 @@
 import asyncio
 import time
 import uuid
+import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 import cv2
@@ -233,6 +234,346 @@ class ChunkProcessor:
                 "processing_time_ms": processing_time,
                 "processed_at": time.time()
             }
+
+    async def process_chunk_with_video_output(
+        self,
+        chunk_path: str,
+        chunk_metadata: Dict[str, Any],
+        output_video_path: str,
+        output_json_path: str
+    ) -> Dict[str, Any]:
+        """
+        Process chunk and output both processed video and detections JSON.
+
+        Args:
+            chunk_path: Path to input raw video chunk
+            chunk_metadata: Metadata about the chunk (stream_id, chunk_id, etc.)
+            output_video_path: Path where processed video should be saved
+            output_json_path: Path where detections JSON should be saved
+
+        Returns:
+            Processing results including paths to outputs
+        """
+        start_time = time.time()
+        chunk_id = chunk_metadata.get("chunk_id", str(uuid.uuid4()))
+
+        logger.info(f"Processing chunk with video output: {chunk_path}",
+                   chunk_id=chunk_id,
+                   output_video=output_video_path,
+                   output_json=output_json_path)
+
+        try:
+            # Load video chunk
+            cap = cv2.VideoCapture(chunk_path)
+            if not cap.isOpened():
+                raise ValueError(f"Failed to open video: {chunk_path}")
+
+            # Get video properties
+            fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+            logger.info(f"Video properties: {width}x{height} @ {fps}fps, {total_frames} frames")
+
+            # Create output directory
+            Path(output_video_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(output_json_path).parent.mkdir(parents=True, exist_ok=True)
+
+            # Create video writer - try multiple codecs for Docker compatibility
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Start with mp4v for compatibility
+            out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
+
+            # Fallback to XVID if mp4v fails
+            if not out.isOpened():
+                logger.warning("mp4v codec failed, trying XVID")
+                output_video_path = output_video_path.replace('.mp4', '.avi')  # XVID needs AVI container
+                fourcc = cv2.VideoWriter_fourcc(*'XVID')
+                out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
+
+            # Last resort: X264
+            if not out.isOpened():
+                logger.warning("XVID codec failed, trying X264")
+                output_video_path = output_video_path.replace('.avi', '.mp4')  # Back to MP4
+                fourcc = cv2.VideoWriter_fourcc(*'X264')
+                out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
+
+            if not out.isOpened():
+                raise ValueError(f"Failed to create video writer for {output_video_path} - all codecs failed")
+
+            # Process frames
+            frame_idx = 0
+            frame_results = []
+            total_detections = 0
+            total_tracks = 0
+
+            while cap.isOpened() and frame_idx < total_frames:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                frame_timestamp = chunk_metadata.get("start_time", 0) + (frame_idx / fps)
+
+                # Step 1: Detect horses
+                detections, _ = self.detection_model.detect_horses(frame)
+                total_detections += len(detections)
+
+                # Step 2: Update tracking
+                tracked_horses = self.horse_tracker.update_tracks(detections, frame, frame_timestamp)
+                total_tracks = len(tracked_horses)
+
+                # Step 3: Process poses and states
+                frame_poses = []
+                frame_behavioral_states = []
+
+                for track_info in tracked_horses:
+                    horse_id = str(track_info.get("tracking_id", "unknown"))
+                    bbox = track_info.get("bbox", {})
+
+                    # Initialize state detectors for new horses
+                    self._ensure_horse_analyzers(horse_id)
+
+                    # Estimate pose
+                    pose_result = None
+                    if bbox and bbox.get("width", 0) > 0 and bbox.get("height", 0) > 0:
+                        try:
+                            pose_result, pose_confidence = self.pose_model.estimate_pose(frame, bbox)
+                            if pose_result:
+                                frame_poses.append({
+                                    "horse_id": horse_id,
+                                    "pose": pose_result,
+                                    "confidence": pose_confidence,
+                                    "bbox": bbox
+                                })
+                        except Exception as pose_error:
+                            logger.debug(f"Pose estimation failed for horse {horse_id}: {pose_error}")
+
+                    # Process behavioral state
+                    behavioral_state = self._process_behavioral_state(
+                        horse_id, pose_result, track_info, frame_timestamp
+                    )
+
+                    if behavioral_state:
+                        frame_behavioral_states.append(behavioral_state)
+
+                # Draw overlays on frame
+                processed_frame = self._draw_overlays(
+                    frame.copy(),
+                    tracked_horses,
+                    frame_poses,
+                    frame_behavioral_states
+                )
+
+                # Write processed frame
+                out.write(processed_frame)
+
+                # Save frame results
+                frame_result = {
+                    "frame_index": frame_idx,
+                    "timestamp": frame_timestamp,
+                    "detections": detections,
+                    "tracked_horses": tracked_horses,
+                    "poses": frame_poses,
+                    "behavioral_states": frame_behavioral_states
+                }
+                frame_results.append(frame_result)
+
+                # Progress logging
+                if frame_idx % 30 == 0 and frame_idx > 0:
+                    progress = (frame_idx / total_frames) * 100
+                    logger.info(f"Processing progress: {progress:.1f}% ({frame_idx}/{total_frames})")
+
+                frame_idx += 1
+
+            # Cleanup video resources
+            cap.release()
+            out.release()
+
+            # Generate processing result
+            processing_time = (time.time() - start_time) * 1000
+
+            # Save detections JSON
+            detections_data = {
+                "video_metadata": {
+                    "fps": fps,
+                    "duration": total_frames / fps if fps > 0 else 0,
+                    "resolution": f"{width}x{height}",
+                    "total_frames": total_frames
+                },
+                "summary": {
+                    "total_horses": self._count_unique_horses(frame_results),
+                    "total_detections": total_detections,
+                    "total_frames": len(frame_results),
+                    "processing_time_ms": processing_time,
+                    "processing_fps": len(frame_results) / (processing_time / 1000) if processing_time > 0 else 0
+                },
+                "horses": self._generate_horse_summary(frame_results),
+                "frames": frame_results
+            }
+
+            with open(output_json_path, 'w') as f:
+                json.dump(detections_data, f, indent=2, default=str)
+
+            logger.info(f"Chunk processing completed",
+                       chunk_id=chunk_id,
+                       processing_time_ms=round(processing_time, 1),
+                       output_video=output_video_path,
+                       output_json=output_json_path)
+
+            return {
+                "chunk_id": chunk_id,
+                "stream_id": chunk_metadata.get("stream_id"),
+                "status": "completed",
+                "processed_video_path": output_video_path,
+                "detections_path": output_json_path,
+                "processing_time_ms": processing_time,
+                "summary": detections_data["summary"],
+                "processed_at": time.time()
+            }
+
+        except Exception as error:
+            processing_time = (time.time() - start_time) * 1000
+            logger.error(f"Chunk processing with video output failed: {error}",
+                        chunk_id=chunk_id,
+                        error=str(error))
+
+            return {
+                "chunk_id": chunk_id,
+                "stream_id": chunk_metadata.get("stream_id"),
+                "status": "failed",
+                "error": str(error),
+                "processing_time_ms": processing_time,
+                "processed_at": time.time()
+            }
+
+    def _draw_overlays(
+        self,
+        frame: np.ndarray,
+        tracked_horses: List[Dict],
+        frame_poses: List[Dict],
+        frame_behavioral_states: List[Dict]
+    ) -> np.ndarray:
+        """Draw detection, tracking, and pose overlays on frame."""
+
+        # Create overlay map for behavioral states
+        state_map = {state["horse_id"]: state for state in frame_behavioral_states}
+        pose_map = {pose["horse_id"]: pose for pose in frame_poses}
+
+        # Draw each tracked horse
+        for track in tracked_horses:
+            horse_id = str(track.get("tracking_id", "unknown"))
+            bbox = track.get("bbox", {})
+            color = track.get("color", [255, 255, 255])
+
+            # Convert BGR color if needed
+            if isinstance(color, list) and len(color) == 3:
+                color = tuple(color)
+            else:
+                color = (255, 255, 255)
+
+            # Draw bounding box
+            if bbox:
+                x = int(bbox.get("x", 0))
+                y = int(bbox.get("y", 0))
+                w = int(bbox.get("width", 0))
+                h = int(bbox.get("height", 0))
+
+                # Draw bbox rectangle
+                cv2.rectangle(frame, (x, y), (x + w, y + h), color, 3)
+
+                # Draw horse ID
+                cv2.putText(frame, f"#{horse_id}", (x, y - 10),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
+                # Draw behavioral state if available
+                if horse_id in state_map:
+                    state = state_map[horse_id]
+                    hierarchical = state.get("hierarchical_analysis", {})
+                    primary_state = hierarchical.get("primary_state", "unknown")
+
+                    # Draw state label
+                    state_text = primary_state.upper() if primary_state else "UNKNOWN"
+                    cv2.putText(frame, state_text, (x, y + h + 25),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+            # Draw pose keypoints if available
+            if horse_id in pose_map:
+                pose = pose_map[horse_id]
+                keypoints = pose["pose"].get("keypoints", [])
+
+                if keypoints and len(keypoints) > 0:
+                    for i, kp in enumerate(keypoints):
+                        if len(kp) >= 2:
+                            x, y = int(kp[0]), int(kp[1])
+                            if x > 0 and y > 0:  # Valid keypoint
+                                # Color code by body part
+                                if i < 5:  # Head/neck
+                                    kp_color = (0, 255, 255)  # Yellow
+                                elif i < 11:  # Front legs
+                                    kp_color = (255, 0, 0)  # Blue
+                                else:  # Back legs/body
+                                    kp_color = (0, 255, 0)  # Green
+
+                                cv2.circle(frame, (x, y), 4, kp_color, -1)
+                                cv2.circle(frame, (x, y), 4, (255, 255, 255), 1)
+
+        # Draw header info
+        cv2.rectangle(frame, (0, 0), (frame.shape[1], 60), (0, 0, 0), -1)
+        cv2.putText(frame, f"BarnHand ML Processing - Horses: {len(tracked_horses)}",
+                   (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.putText(frame, f"Detections: {len(tracked_horses)} | Poses: {len(frame_poses)}",
+                   (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 2)
+
+        return frame
+
+    def _generate_horse_summary(self, frame_results: List[Dict]) -> List[Dict]:
+        """Generate per-horse summary across all frames."""
+        horse_data = {}
+
+        for frame_result in frame_results:
+            for track in frame_result["tracked_horses"]:
+                horse_id = str(track.get("tracking_id"))
+
+                if horse_id not in horse_data:
+                    horse_data[horse_id] = {
+                        "id": horse_id,
+                        "color": track.get("color", [255, 255, 255]),
+                        "total_detections": 0,
+                        "confidences": [],
+                        "states": []
+                    }
+
+                horse_data[horse_id]["total_detections"] += 1
+                horse_data[horse_id]["confidences"].append(track.get("confidence", 0.0))
+
+            # Add behavioral states
+            for state in frame_result.get("behavioral_states", []):
+                horse_id = state.get("horse_id")
+                if horse_id in horse_data:
+                    hierarchical = state.get("hierarchical_analysis", {})
+                    primary_state = hierarchical.get("primary_state")
+                    if primary_state:
+                        horse_data[horse_id]["states"].append(primary_state)
+
+        # Calculate averages and format output
+        horse_summaries = []
+        for horse_id, data in horse_data.items():
+            avg_confidence = sum(data["confidences"]) / len(data["confidences"]) if data["confidences"] else 0.0
+
+            # Count state distribution
+            state_counts = {}
+            for state in data["states"]:
+                state_counts[state] = state_counts.get(state, 0) + 1
+
+            horse_summaries.append({
+                "id": horse_id,
+                "color": data["color"],
+                "total_detections": data["total_detections"],
+                "avg_confidence": round(avg_confidence, 3),
+                "state_distribution": state_counts
+            })
+
+        return horse_summaries
     
     def _ensure_horse_analyzers(self, horse_id: str) -> None:
         """Ensure behavioral state analyzers exist for a horse."""
