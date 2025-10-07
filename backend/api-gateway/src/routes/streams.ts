@@ -529,6 +529,41 @@ router.get(
   })
 );
 
+// GET /api/v1/streams/:id/chunks/:chunkId/status - Get chunk processing status
+router.get(
+  '/:id/chunks/:chunkId/status',
+  validateSchema(chunkParamsSchema, 'params'),
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Ensure farmId is defined
+      if (!req.user.farmId) {
+        return res.status(403).json({ error: 'Farm ID required' });
+      }
+
+      const { chunkId } = req.params;
+
+      const status = await videoChunkService.getChunkStatus(
+        chunkId,
+        req.user.farmId
+      );
+
+      if (!status) {
+        return res.status(404).json({ error: 'Chunk not found' });
+      }
+
+      return res.json(status);
+    } catch (error) {
+      logger.error('Get chunk status error', { error });
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+);
+
 // DELETE /api/v1/streams/:id/chunks/:chunkId - Delete video chunk
 router.delete(
   '/:id/chunks/:chunkId',
