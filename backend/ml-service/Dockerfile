@@ -27,6 +27,11 @@ COPY requirements-dev.txt ./
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir numpy
+
+# Install mmcv with compiled extensions for CPU + torch 2.1
+RUN pip install --no-cache-dir mmcv==2.1.0 -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.1/index.html
+
+# Install remaining dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Development image
@@ -39,13 +44,13 @@ RUN pip install --no-cache-dir -r requirements-dev.txt
 # Copy source code
 COPY . .
 
-# Create non-root user
+# Create non-root user with home directory
 RUN groupadd --system --gid 1001 python
-RUN useradd --system --uid 1001 --gid python mlservice
+RUN useradd --system --uid 1001 --gid python --create-home mlservice
 
 # Create directories and set permissions
-RUN mkdir -p /app/chunks /models /tmp/matplotlib /tmp/ultralytics
-RUN chown -R mlservice:python /app /models /tmp/matplotlib /tmp/ultralytics
+RUN mkdir -p /app/chunks /models /tmp/matplotlib /tmp/ultralytics /tmp/huggingface
+RUN chown -R mlservice:python /app /models /tmp/matplotlib /tmp/ultralytics /tmp/huggingface
 USER mlservice
 
 # Expose port
@@ -54,6 +59,8 @@ ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
 ENV MPLCONFIGDIR=/tmp/matplotlib
 ENV YOLO_CONFIG_DIR=/tmp/ultralytics
+ENV HF_HOME=/tmp/huggingface
+ENV TRANSFORMERS_CACHE=/tmp/huggingface
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
@@ -70,13 +77,13 @@ WORKDIR /app
 COPY src/ ./src/
 COPY pyproject.toml ./
 
-# Create non-root user
+# Create non-root user with home directory
 RUN groupadd --system --gid 1001 python
-RUN useradd --system --uid 1001 --gid python mlservice
+RUN useradd --system --uid 1001 --gid python --create-home mlservice
 
 # Create directories and set permissions
-RUN mkdir -p /app/chunks /models /tmp/matplotlib /tmp/ultralytics
-RUN chown -R mlservice:python /app /models /tmp/matplotlib /tmp/ultralytics
+RUN mkdir -p /app/chunks /models /tmp/matplotlib /tmp/ultralytics /tmp/huggingface
+RUN chown -R mlservice:python /app /models /tmp/matplotlib /tmp/ultralytics /tmp/huggingface
 USER mlservice
 
 # Expose port
@@ -86,6 +93,8 @@ ENV PYTHONUNBUFFERED=1
 ENV ENVIRONMENT=production
 ENV MPLCONFIGDIR=/tmp/matplotlib
 ENV YOLO_CONFIG_DIR=/tmp/ultralytics
+ENV HF_HOME=/tmp/huggingface
+ENV TRANSFORMERS_CACHE=/tmp/huggingface
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
