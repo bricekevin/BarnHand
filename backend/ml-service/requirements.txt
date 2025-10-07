@@ -12,8 +12,7 @@ opencv-python==4.8.1.78
 numpy==1.24.4
 pillow==10.1.0
 mmpose==1.2.0
-# mmcv with compiled extensions (installed separately in Dockerfile)
-# mmcv==2.1.0 is installed via: -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.1/index.html
+mmcv==2.1.0
 timm==0.9.12
 
 # Data processing

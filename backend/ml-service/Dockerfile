@@ -27,11 +27,6 @@ COPY requirements-dev.txt ./
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir numpy
-
-# Install mmcv with compiled extensions for CPU + torch 2.1
-RUN pip install --no-cache-dir mmcv==2.1.0 -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.1/index.html
-
-# Install remaining dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Development image
