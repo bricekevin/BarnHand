@@ -32,7 +32,8 @@
     "express": "^4.18.2",
     "helmet": "^7.1.0",
     "node-cron": "^3.0.3",
-    "winston": "^3.11.0"
+    "winston": "^3.11.0",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

@@ -1,4 +1,5 @@
 import winston from 'winston';
+
 import { env, isDevelopment } from './env';
 
 export const logger = winston.createLogger({
@@ -9,7 +10,11 @@ export const logger = winston.createLogger({
     isDevelopment
       ? winston.format.combine(
           winston.format.colorize(),
-          winston.format.printf(({ timestamp, level, message, stack }) => {
+          winston.format.printf(info => {
+            const timestamp = info.timestamp as string;
+            const level = info.level as string;
+            const message = info.message as string;
+            const stack = info.stack as string | undefined;
             return `${timestamp} [${level}]: ${message}${stack ? '\n' + stack : ''}`;
           })
         )
@@ -17,7 +22,7 @@ export const logger = winston.createLogger({
   ),
   transports: [
     new winston.transports.Console({
-      silent: env.NODE_ENV === 'test'
-    })
-  ]
+      silent: env.NODE_ENV === 'test',
+    }),
+  ],
 });

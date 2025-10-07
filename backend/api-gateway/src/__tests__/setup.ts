@@ -10,7 +10,9 @@ process.env.REDIS_URL = 'redis://localhost:6379/1';
 
 describe('Test Environment Setup', () => {
   test('should have required environment variables', () => {
-    expect(process.env.JWT_SECRET).toBe('test-secret-key-that-is-long-enough-for-validation');
+    expect(process.env.JWT_SECRET).toBe(
+      'test-secret-key-that-is-long-enough-for-validation'
+    );
     expect(process.env.NODE_ENV).toBe('test');
     expect(process.env.PORT).toBe('8000');
   });

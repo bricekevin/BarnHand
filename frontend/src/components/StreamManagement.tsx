@@ -1,75 +1,142 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import { StreamCard } from './StreamCard';
+import { PrimaryVideoPlayer } from './PrimaryVideoPlayer';
 import { useAppStore } from '../stores/useAppStore';
 
-export const StreamManagement: React.FC = () => {
-  const { streams, addStream } = useAppStore();
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newStreamName, setNewStreamName] = useState('');
-  const [newStreamUrl, setNewStreamUrl] = useState('');
+interface BackendStream {
+  id: string;
+  name: string;
+  status: string;
+  playlistUrl: string;
+  videoFile: {
+    filename: string;
+    duration: number;
+    resolution: string;
+    size: number;
+  };
+  startTime: string;
+  restartCount: number;
+}
 
-  const handleAddStream = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newStreamName.trim() && newStreamUrl.trim()) {
-      addStream({
-        name: newStreamName.trim(),
-        url: newStreamUrl.trim(),
-        status: 'inactive',
-        horseCount: 0,
-        accuracy: 0,
-        lastUpdate: new Date().toLocaleTimeString(),
-      });
-      setNewStreamName('');
-      setNewStreamUrl('');
-      setShowAddModal(false);
+interface StreamData {
+  id: string;
+  name: string;
+  url: string;
+  status: 'active' | 'inactive' | 'processing' | 'error';
+}
+
+export const StreamManagement: React.FC = () => {
+  const { selectedStream, setSelectedStream, streams: customStreams } = useAppStore();
+  const [localStreams, setLocalStreams] = useState<StreamData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const handleBackgroundClick = (e: React.MouseEvent) => {
+    // Only unselect if clicking on the background (not on video elements)
+    if (e.target === e.currentTarget) {
+      setSelectedStream(null);
     }
   };
 
-  // Mock stream data for development
-  const mockStreams = [
-    {
-      id: 'stream-1',
-      name: 'Paddock North',
-      url: 'http://localhost:8003/stream1/playlist.m3u8',
-      status: 'active' as const,
-      horseCount: 3,
-      accuracy: 94,
-      lastUpdate: '2 min ago',
-    },
-    {
-      id: 'stream-2',
-      name: 'Stable Area',
-      url: 'http://localhost:8003/stream2/playlist.m3u8',
-      status: 'processing' as const,
-      horseCount: 1,
-      accuracy: 87,
-      lastUpdate: '5 min ago',
-    },
-    {
-      id: 'stream-3',
-      name: 'Training Ring',
-      url: 'http://localhost:8003/stream3/playlist.m3u8',
-      status: 'inactive' as const,
-      horseCount: 0,
-      accuracy: 0,
-      lastUpdate: 'Never',
-    },
-    {
-      id: 'stream-4',
-      name: 'Pasture South',
-      url: 'http://localhost:8003/stream4/playlist.m3u8',
-      status: 'error' as const,
-      horseCount: 0,
-      accuracy: 0,
-      lastUpdate: '1 hour ago',
-    },
+  // Fetch active streams from backend video-streamer
+  const fetchLocalStreams = async () => {
+    try {
+      const response = await fetch('http://localhost:8003/api/streams');
+      const data = await response.json();
+
+      const streamData: StreamData[] = data.streams
+        .filter((stream: BackendStream) => stream.status === 'active')
+        .map((stream: BackendStream) => ({
+          id: stream.id,
+          name: stream.videoFile.filename.replace('.mp4', '').replace(/[_-]/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+          url: stream.playlistUrl,
+          status: stream.status === 'active' ? 'active' : 'inactive' as const,
+        }));
+
+      setLocalStreams(streamData);
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch local streams:', error);
+      setLocalStreams([]);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLocalStreams();
+    // Refresh local streams every 10 seconds
+    const interval = setInterval(fetchLocalStreams, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Combine local streams and custom streams
+  const combinedStreams: StreamData[] = [
+    ...localStreams,
+    ...customStreams.filter(stream => !localStreams.find(local => local.id === stream.id)).map(stream => ({
+      id: stream.id,
+      name: stream.name,
+      url: stream.url,
+      status: stream.status,
+    }))
   ];
 
-  const displayStreams = streams.length > 0 ? streams : mockStreams;
+  // Debug logging
+  console.log('Local streams:', localStreams);
+  console.log('Custom streams:', customStreams);
+  console.log('Combined streams:', combinedStreams);
+
+  const displayStreams = combinedStreams;
+  const selectedStreamData = selectedStream ? displayStreams.find(s => s.id === selectedStream) : null;
+  const otherStreams = selectedStreamData ? displayStreams.filter(s => s.id !== selectedStream) : displayStreams;
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-display font-bold text-slate-100">
+              Live Streams
+            </h2>
+            <p className="text-slate-400 mt-1">Loading streams...</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="bg-slate-800/50 rounded-lg h-64 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (displayStreams.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-display font-bold text-slate-100">
+              Live Streams
+            </h2>
+            <p className="text-slate-400 mt-1">No active streams</p>
+          </div>
+        </div>
+        <div className="bg-slate-800/30 rounded-lg p-8 text-center">
+          <div className="text-slate-400 mb-4">
+            <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-slate-300 mb-2">No Active Streams</h3>
+          <p className="text-slate-400 text-sm">
+            Start streams from the Settings → Stream Control tab to see video feeds here.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" onClick={handleBackgroundClick}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -81,82 +148,38 @@ export const StreamManagement: React.FC = () => {
             {displayStreams.length} streams active
           </p>
         </div>
-        <div className="flex space-x-3">
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="btn-primary flex items-center space-x-2"
-          >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span>Add Stream</span>
-          </button>
-          <button className="btn-secondary">Start All</button>
-          <button className="btn-secondary">Stop All</button>
-        </div>
       </div>
 
-      {/* Stream Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
-        {displayStreams.map(stream => (
-          <StreamCard key={stream.id} stream={stream} />
-        ))}
-      </div>
-
-      {/* Add Stream Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="glass bg-slate-900/90 rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-semibold text-slate-100 mb-4">
-              Add New Stream
-            </h3>
-            <form onSubmit={handleAddStream}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Stream Name
-                  </label>
-                  <input
-                    type="text"
-                    value={newStreamName}
-                    onChange={e => setNewStreamName(e.target.value)}
-                    className="neu-input w-full text-slate-100 placeholder-slate-400"
-                    placeholder="e.g., Paddock North"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Stream URL
-                  </label>
-                  <input
-                    type="url"
-                    value={newStreamUrl}
-                    onChange={e => setNewStreamUrl(e.target.value)}
-                    className="neu-input w-full text-slate-100 placeholder-slate-400"
-                    placeholder="http://localhost:8003/stream1/playlist.m3u8"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary">
-                  Add Stream
-                </button>
-              </div>
-            </form>
+      {selectedStreamData ? (
+        <>
+          {/* Selected Stream - Large Player with Chunk Recording */}
+          <div className="mb-6">
+            <PrimaryVideoPlayer
+              stream={selectedStreamData}
+              onClose={() => setSelectedStream(null)}
+            />
           </div>
+
+          {/* Other Streams - Thumbnail Grid */}
+          {otherStreams.length > 0 && (
+            <div>
+              <h3 className="text-lg font-display font-semibold text-slate-200 mb-4">
+                Other Streams
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {otherStreams.map(stream => (
+                  <StreamCard key={stream.id} stream={stream} thumbnail={true} />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        /* Default Grid View */
+        <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
+          {displayStreams.map(stream => (
+            <StreamCard key={stream.id} stream={stream} />
+          ))}
         </div>
       )}
     </div>

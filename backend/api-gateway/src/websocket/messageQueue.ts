@@ -4,7 +4,7 @@ interface QueuedMessage {
   id: string;
   type: string;
   target: string; // userId, streamId, or farmId
-  data: any;
+  data: unknown;
   timestamp: Date;
   retries: number;
   maxRetries: number;
@@ -22,7 +22,7 @@ export class MessageQueue {
   private queues: Map<string, QueuedMessage[]> = new Map();
   private processing: Set<string> = new Set();
   private options: Required<MessageQueueOptions>;
-  private flushTimer?: NodeJS.Timeout;
+  private flushTimer?: NodeJS.Timeout | undefined;
 
   constructor(options: MessageQueueOptions = {}) {
     this.options = {
@@ -39,7 +39,7 @@ export class MessageQueue {
   public enqueue(
     target: string,
     type: string,
-    data: any,
+    data: unknown,
     priority: 'high' | 'medium' | 'low' = 'medium'
   ): string {
     const messageId = this.generateId();
@@ -59,7 +59,7 @@ export class MessageQueue {
     }
 
     const queue = this.queues.get(target)!;
-    
+
     // Check queue size limit
     if (queue.length >= this.options.maxSize) {
       // Remove oldest low priority message
@@ -68,7 +68,7 @@ export class MessageQueue {
         queue.splice(lowPriorityIndex, 1);
         logger.warn('Message queue full, dropping low priority message', {
           target,
-          droppedMessageType: queue[lowPriorityIndex].type,
+          droppedMessageType: queue[lowPriorityIndex]?.type || 'unknown',
         });
       } else {
         logger.error('Message queue full, cannot add message', {
@@ -122,14 +122,17 @@ export class MessageQueue {
     try {
       while (queue.length > 0) {
         const message = queue[0];
-        
+        if (!message) {
+          break; // Safety check for undefined message
+        }
+
         try {
           const success = await processor(message);
-          
+
           if (success) {
             queue.shift(); // Remove successfully processed message
             processedCount++;
-            
+
             logger.debug('Message processed successfully', {
               messageId: message.id,
               target,
@@ -138,12 +141,12 @@ export class MessageQueue {
           } else {
             // Processing failed, handle retry
             message.retries++;
-            
+
             if (message.retries >= message.maxRetries) {
               // Max retries reached, move to dead letter queue
               this.moveToDeadLetter(message);
               queue.shift();
-              
+
               logger.error('Message moved to dead letter queue', {
                 messageId: message.id,
                 target,
@@ -154,14 +157,14 @@ export class MessageQueue {
               // Move to end of queue for retry
               queue.shift();
               queue.push(message);
-              
+
               logger.warn('Message processing failed, will retry', {
                 messageId: message.id,
                 target,
                 type: message.type,
                 retries: message.retries,
               });
-              
+
               // Add delay before retrying
               await this.delay(this.options.retryDelay);
             }
@@ -173,7 +176,7 @@ export class MessageQueue {
             target,
             type: message.type,
           });
-          
+
           // Move failed message to end for retry
           queue.shift();
           queue.push(message);
@@ -197,12 +200,12 @@ export class MessageQueue {
     processor: (message: QueuedMessage) => Promise<boolean>
   ): Promise<number> {
     let totalProcessed = 0;
-    
+
     for (const target of this.queues.keys()) {
       const processed = await this.processQueue(target, processor);
       totalProcessed += processed;
     }
-    
+
     return totalProcessed;
   }
 
@@ -239,18 +242,20 @@ export class MessageQueue {
       totalQueues: this.queues.size,
       totalMessages: this.getTotalQueueSize(),
       processingTargets: this.processing.size,
-      queueDetails: Array.from(this.queues.entries()).map(([target, queue]) => ({
-        target,
-        size: queue.length,
-        oldestMessage: queue[0]?.timestamp,
-        priorities: {
-          high: queue.filter(m => m.priority === 'high').length,
-          medium: queue.filter(m => m.priority === 'medium').length,
-          low: queue.filter(m => m.priority === 'low').length,
-        },
-      })),
+      queueDetails: Array.from(this.queues.entries()).map(
+        ([target, queue]) => ({
+          target,
+          size: queue.length,
+          oldestMessage: queue[0]?.timestamp,
+          priorities: {
+            high: queue.filter(m => m.priority === 'high').length,
+            medium: queue.filter(m => m.priority === 'medium').length,
+            low: queue.filter(m => m.priority === 'low').length,
+          },
+        })
+      ),
     };
-    
+
     return metrics;
   }
 

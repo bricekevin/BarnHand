@@ -13,7 +13,7 @@ export const apiRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => isTest, // Skip rate limiting entirely in test environment
+  skip: _req => isTest, // Skip rate limiting entirely in test environment
   handler: (req, res) => {
     logger.warn('Rate limit exceeded', {
       ip: req.ip,
@@ -39,7 +39,7 @@ export const authRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
-  skip: (req) => isTest, // Skip rate limiting entirely in test environment
+  skip: _req => isTest, // Skip rate limiting entirely in test environment
   handler: (req, res) => {
     logger.warn('Auth rate limit exceeded', {
       ip: req.ip,

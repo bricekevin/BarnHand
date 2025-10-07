@@ -102,12 +102,12 @@ const autoConnectStreams = async () => {
       const defaultStreams = [
         {
           id: 'stream_001',
-          url: 'http://localhost:8003/stream1/playlist.m3u8',
+          url: `${env.VIDEO_STREAMER_URL}/stream1/playlist.m3u8`,
           name: 'Main Pasture Camera'
         },
         {
-          id: 'stream_002', 
-          url: 'http://localhost:8003/stream2/playlist.m3u8',
+          id: 'stream_002',
+          url: `${env.VIDEO_STREAMER_URL}/stream2/playlist.m3u8`,
           name: 'Secondary Camera'
         }
       ];

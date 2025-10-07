@@ -1,10 +1,12 @@
 import { Server as HTTPServer } from 'http';
+
 import jwt from 'jsonwebtoken';
 import { Server, Socket } from 'socket.io';
 
+import { DetectionData, ChunkData, MetricsData, HorseData } from './events';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
-import { UserPayload } from '../types/auth';
+import { UserPayload, JwtPayload } from '../types/auth';
 
 interface SocketData {
   user?: UserPayload;
@@ -48,18 +50,26 @@ export class WebSocketServer {
 
       try {
         const token = socket.handshake.auth.token;
-        
+
         if (!token) {
           return next(new Error('Authentication token required'));
         }
 
         // Verify JWT token
-        const decoded = jwt.verify(token, env.JWT_SECRET) as UserPayload;
-        extSocket.data.user = decoded;
-        extSocket.data.farmId = decoded.farmId;
+        const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+        extSocket.data.user = {
+          id: decoded.userId,
+          userId: decoded.userId,
+          email: decoded.email,
+          role: decoded.role,
+          farmId: decoded.farmId,
+        };
+        if (decoded.farmId !== undefined) {
+          extSocket.data.farmId = decoded.farmId;
+        }
 
         logger.info('WebSocket client authenticated', {
-          userId: decoded.id,
+          userId: decoded.userId,
           farmId: decoded.farmId,
           socketId: socket.id,
         });
@@ -88,7 +98,7 @@ export class WebSocketServer {
 
       // Store connection
       this.connections.set(socket.id, extSocket);
-      
+
       // Track user sessions
       if (!this.userSessions.has(userId)) {
         this.userSessions.set(userId, new Set());
@@ -118,7 +128,7 @@ export class WebSocketServer {
           // TODO: Verify user has access to this stream
           const roomName = `stream:${streamId}`;
           await socket.join(roomName);
-          
+
           // Track stream room membership
           if (!this.streamRooms.has(roomName)) {
             this.streamRooms.set(roomName, new Set());
@@ -158,7 +168,7 @@ export class WebSocketServer {
       socket.on('unsubscribe:stream', async (streamId: string) => {
         const roomName = `stream:${streamId}`;
         await socket.leave(roomName);
-        
+
         // Remove from tracking
         this.streamRooms.get(roomName)?.delete(socket.id);
         if (this.streamRooms.get(roomName)?.size === 0) {
@@ -199,7 +209,7 @@ export class WebSocketServer {
 
         // Clean up connections
         this.connections.delete(socket.id);
-        
+
         // Clean up user sessions
         this.userSessions.get(userId)?.delete(socket.id);
         if (this.userSessions.get(userId)?.size === 0) {
@@ -222,7 +232,7 @@ export class WebSocketServer {
 
   // Public methods for emitting events
 
-  public emitDetectionUpdate(streamId: string, detection: any) {
+  public emitDetectionUpdate(streamId: string, detection: DetectionData) {
     const roomName = `stream:${streamId}`;
     this.io.to(roomName).emit('detection:update', {
       streamId,
@@ -236,21 +246,21 @@ export class WebSocketServer {
     });
   }
 
-  public emitChunkProcessed(streamId: string, chunkData: any) {
+  public emitChunkProcessed(streamId: string, chunkData: ChunkData) {
     const roomName = `stream:${streamId}`;
     this.io.to(roomName).emit('chunk:processed', {
-      streamId,
       ...chunkData,
+      streamId,
       timestamp: new Date().toISOString(),
     });
 
     logger.debug('Chunk processed notification sent', {
       streamId,
-      chunkId: chunkData.chunkId,
+      chunkId: chunkData.id,
     });
   }
 
-  public emitMetricsUpdate(farmId: string, metrics: any) {
+  public emitMetricsUpdate(farmId: string, metrics: MetricsData) {
     const roomName = `farm:${farmId}`;
     this.io.to(roomName).emit('metrics:update', {
       ...metrics,
@@ -273,7 +283,7 @@ export class WebSocketServer {
     });
   }
 
-  public emitHorseUpdate(farmId: string, horseData: any) {
+  public emitHorseUpdate(farmId: string, horseData: HorseData) {
     const roomName = `farm:${farmId}`;
     this.io.to(roomName).emit('horse:update', {
       ...horseData,
@@ -281,10 +291,10 @@ export class WebSocketServer {
     });
   }
 
-  public broadcastToFarm(farmId: string, event: string, data: any) {
+  public broadcastToFarm(farmId: string, event: string, data: unknown) {
     const roomName = `farm:${farmId}`;
     this.io.to(roomName).emit(event, {
-      ...data,
+      data,
       timestamp: new Date().toISOString(),
     });
   }
@@ -299,14 +309,17 @@ export class WebSocketServer {
         memoryUsage: process.memoryUsage(),
       };
 
-      logger.info('WebSocket metrics', metrics);
-    }, 60000); // Report every minute
+      // Only log metrics in debug mode or when there are active connections
+      if (process.env.LOG_LEVEL === 'debug' || this.connections.size > 0) {
+        logger.debug('WebSocket metrics', metrics);
+      }
+    }, 300000); // Report every 5 minutes instead of every minute
   }
 
   // Graceful shutdown
   public async shutdown() {
     logger.info('Shutting down WebSocket server...');
-    
+
     // Notify all clients
     this.io.emit('server:shutdown', {
       message: 'Server is shutting down',
@@ -315,9 +328,9 @@ export class WebSocketServer {
 
     // Close all connections
     this.io.disconnectSockets(true);
-    
+
     // Close the server
-    await new Promise<void>((resolve) => {
+    await new Promise<void>(resolve => {
       this.io.close(() => {
         logger.info('WebSocket server shut down');
         resolve();

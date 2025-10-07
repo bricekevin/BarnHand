@@ -5,11 +5,11 @@ import { logger } from '../config/logger';
 import {
   authenticateToken,
   requireRole,
-  requireFarmAccess,
+  createAuthenticatedRoute,
 } from '../middleware/auth';
 import { validateSchema } from '../middleware/validation';
 import { UserRole } from '../types/auth';
-import { AuthenticatedRequest } from '../types/requests';
+// AuthenticatedRequest is now handled by createAuthenticatedRoute wrapper
 
 // Validation schemas
 const horseParamsSchema = z.object({
@@ -39,8 +39,12 @@ router.use(authenticateToken);
 router.get(
   '/',
   requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
-  async (req: AuthenticatedRequest, res) => {
+  createAuthenticatedRoute(async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
       // Filter by farm for non-super-admin users
       const farmId =
         req.user.role === UserRole.SUPER_ADMIN
@@ -87,15 +91,15 @@ router.get(
         count: filteredHorses.length,
       });
 
-      res.json({
+      return res.json({
         horses: filteredHorses,
         total: filteredHorses.length,
       });
     } catch (error) {
       logger.error('List horses error', { error });
-      res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 // POST /api/v1/horses/:id/identify - Manual horse identification
@@ -104,8 +108,12 @@ router.post(
   validateSchema(horseParamsSchema, 'params'),
   validateSchema(identifyHorseSchema),
   requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
-  async (req: AuthenticatedRequest, res) => {
+  createAuthenticatedRoute(async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
       const { id } = req.params;
       const { name, description, metadata } = req.body;
 
@@ -117,7 +125,7 @@ router.post(
         farmId: req.user.farmId,
       });
 
-      res.json({
+      return res.json({
         message: 'Horse identified successfully',
         horse: {
           id,
@@ -130,9 +138,9 @@ router.post(
       });
     } catch (error) {
       logger.error('Identify horse error', { error });
-      res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 // GET /api/v1/horses/:id/timeline - Get horse tracking history
@@ -141,8 +149,12 @@ router.get(
   validateSchema(horseParamsSchema, 'params'),
   validateSchema(timelineQuerySchema, 'query'),
   requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
-  async (req: AuthenticatedRequest, res) => {
+  createAuthenticatedRoute(async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
       const { id } = req.params;
       const { hours, include_pose } = req.query;
 
@@ -185,7 +197,7 @@ router.get(
         detectionCount: mockTimeline.length,
       });
 
-      res.json({
+      return res.json({
         horseId: id,
         timeRange: `${hours} hours`,
         detections: mockTimeline,
@@ -193,9 +205,9 @@ router.get(
       });
     } catch (error) {
       logger.error('Get horse timeline error', { error });
-      res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 // GET /api/v1/horses/:id - Get specific horse details
@@ -203,8 +215,12 @@ router.get(
   '/:id',
   validateSchema(horseParamsSchema, 'params'),
   requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
-  async (req: AuthenticatedRequest, res) => {
+  createAuthenticatedRoute(async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
       const { id } = req.params;
 
       // TODO: Replace with HorseRepository.findById()
@@ -230,12 +246,12 @@ router.get(
         return res.status(403).json({ error: 'Access denied to this horse' });
       }
 
-      res.json(mockHorse);
+      return res.json(mockHorse);
     } catch (error) {
       logger.error('Get horse error', { error });
-      res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 export default router;

@@ -29,7 +29,7 @@ interface HealthStatus {
 const router = Router();
 
 // GET /api/v1/health - Basic health check (public endpoint)
-router.get('/', async (req, res) => {
+router.get('/', async (_req, res) => {
   try {
     const startTime = process.hrtime();
 

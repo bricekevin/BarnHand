@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horse State Detection Timeline Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 2px solid rgba(255,255,255,0.2);
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #4CAF50, #81C784);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            background: rgba(0,0,0,0.4);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 0 5px;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        
+        input[type="file"] {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        .video-section {
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .timeline-section {
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        video {
+            width: 100%;
+            max-width: 800px;
+            border-radius: 10px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+        }
+        
+        .timeline-controls {
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+        
+        .chart-container {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .chart-title {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            color: #81C784;
+            text-align: center;
+        }
+        
+        .horse-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+            justify-content: center;
+        }
+        
+        .horse-button {
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+        }
+        
+        .horse-button.active {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #81C784);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .alert-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255, 87, 87, 0.1);
+            border: 1px solid rgba(255, 87, 87, 0.3);
+            border-radius: 10px;
+        }
+        
+        .alert-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(255, 87, 87, 0.2);
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2em;
+        }
+        
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(3, end) infinite;
+        }
+        
+        @keyframes dots {
+            0%, 33% { content: '.'; }
+            34%, 66% { content: '..'; }
+            67%, 100% { content: '...'; }
+        }
+        
+        .sync-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 12px;
+            height: 12px;
+            background: #4CAF50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🐴 Horse State Detection Timeline Viewer</h1>
+        <p>Advanced behavioral analysis with synchronized video playback</p>
+    </div>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label for="videoFile">Video File:</label>
+            <input type="file" id="videoFile" accept="video/*">
+        </div>
+        <div class="control-group">
+            <label for="timelineFile">Timeline JSON:</label>
+            <input type="file" id="timelineFile" accept=".json">
+        </div>
+        <div class="control-group">
+            <button onclick="loadData()">Load & Analyze</button>
+            <button onclick="exportReport()">Export Report</button>
+        </div>
+    </div>
+    
+    <div class="main-container" id="mainContainer" style="display: none;">
+        <div class="video-section">
+            <h3>🎥 Video Playback</h3>
+            <div style="position: relative;">
+                <video id="videoPlayer" controls>
+                    Your browser does not support the video tag.
+                </video>
+                <div class="sync-indicator" id="syncIndicator"></div>
+            </div>
+            
+            <div class="timeline-controls">
+                <div style="margin-bottom: 10px;">
+                    <label>Current Time: <span id="currentTime">0:00</span></label>
+                    <span style="float: right;">Frame: <span id="currentFrame">0</span></span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <button onclick="jumpToNextEvent()">⏭ Next Event</button>
+                    <button onclick="jumpToPrevEvent()">⏮ Prev Event</button>
+                    <button onclick="togglePlayback()">⏯ Play/Pause</button>
+                </div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalHorses">0</div>
+                    <div class="stat-label">Horses Tracked</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalFrames">0</div>
+                    <div class="stat-label">Frames Analyzed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="avgConfidence">0%</div>
+                    <div class="stat-label">Avg Confidence</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="alertCount">0</div>
+                    <div class="stat-label">Alerts</div>
+                </div>
+            </div>
+            
+            <div class="alert-section" id="alertSection" style="display: none;">
+                <h4>⚠️ Behavioral Alerts</h4>
+                <div id="alertList"></div>
+            </div>
+        </div>
+        
+        <div class="timeline-section">
+            <h3>📊 Timeline Analysis</h3>
+            
+            <div class="horse-selector" id="horseSelector"></div>
+            
+            <div class="chart-container">
+                <div class="chart-title">Body State Timeline</div>
+                <canvas id="bodyStateChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">Head Position Timeline</div>
+                <canvas id="headPositionChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">Confidence Levels</div>
+                <canvas id="confidenceChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">State Distribution</div>
+                <canvas id="distributionChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div id="loadingIndicator" class="loading">Loading timeline data</div>
+
+    <script>
+        let timelineData = [];
+        let videoPlayer;
+        let charts = {};
+        let selectedHorses = new Set();
+        let fps = 30; // Default FPS
+        
+        // Color schemes for different states
+        const stateColors = {
+            'standing_still': '#4CAF50',
+            'moving': '#2196F3', 
+            'walking': '#FF9800',
+            'running': '#F44336',
+            'lying_down': '#9C27B0',
+            'kneeling': '#607D8B',
+            'jumping': '#E91E63',
+            'unknown': '#9E9E9E'
+        };
+        
+        const headColors = {
+            'head_up': '#4CAF50',
+            'head_down': '#2196F3',
+            'head_left': '#FF9800',
+            'head_right': '#F44336',
+            'head_left_back': '#9C27B0',
+            'head_right_back': '#607D8B',
+            'head_neutral': '#9E9E9E'
+        };
+        
+        function loadData() {
+            const videoFile = document.getElementById('videoFile').files[0];
+            const timelineFile = document.getElementById('timelineFile').files[0];
+            
+            if (!videoFile || !timelineFile) {
+                alert('Please select both video and timeline files');
+                return;
+            }
+            
+            // Load video
+            videoPlayer = document.getElementById('videoPlayer');
+            videoPlayer.src = URL.createObjectURL(videoFile);
+            
+            // Load timeline data
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    timelineData = JSON.parse(e.target.result);
+                    processTimelineData();
+                    document.getElementById('loadingIndicator').style.display = 'none';
+                    document.getElementById('mainContainer').style.display = 'grid';
+                } catch (error) {
+                    alert('Error parsing timeline JSON: ' + error.message);
+                }
+            };
+            reader.readAsText(timelineFile);
+        }
+        
+        function processTimelineData() {
+            if (timelineData.length === 0) return;
+            
+            // Extract unique horses
+            const horses = [...new Set(timelineData.map(d => d.horse_id))];
+            selectedHorses = new Set(horses);
+            
+            // Update statistics
+            updateStatistics();
+            
+            // Create horse selector
+            createHorseSelector(horses);
+            
+            // Create charts
+            createCharts();
+            
+            // Setup video event listeners
+            setupVideoSync();
+        }
+        
+        function updateStatistics() {
+            const horses = new Set(timelineData.map(d => d.horse_id));
+            const frames = new Set(timelineData.map(d => d.frame_idx));
+            const avgConf = timelineData.reduce((acc, d) => acc + d.body_state.confidence, 0) / timelineData.length;
+            const alerts = timelineData.filter(d => d.alerts && d.alerts.length > 0);
+            
+            document.getElementById('totalHorses').textContent = horses.size;
+            document.getElementById('totalFrames').textContent = frames.size;
+            document.getElementById('avgConfidence').textContent = Math.round(avgConf * 100) + '%';
+            document.getElementById('alertCount').textContent = alerts.length;
+            
+            // Show alerts if any
+            if (alerts.length > 0) {
+                const alertSection = document.getElementById('alertSection');
+                const alertList = document.getElementById('alertList');
+                alertSection.style.display = 'block';
+                
+                const uniqueAlerts = [...new Set(alerts.flatMap(d => d.alerts))];
+                alertList.innerHTML = uniqueAlerts.map(alert => 
+                    `<div class="alert-item">${alert}</div>`
+                ).join('');
+            }
+        }
+        
+        function createHorseSelector(horses) {
+            const selector = document.getElementById('horseSelector');
+            selector.innerHTML = horses.map(horseId => {
+                const horseData = timelineData.filter(d => d.horse_id === horseId);
+                const color = stateColors[horseData[0]?.body_state?.state] || '#9E9E9E';
+                return `<div class="horse-button active" 
+                             style="background-color: ${color};"
+                             onclick="toggleHorse(${horseId})"
+                             data-horse="${horseId}">
+                            Horse #${horseId} (${horseData.length} frames)
+                        </div>`;
+            }).join('');
+        }
+        
+        function toggleHorse(horseId) {
+            const button = document.querySelector(`[data-horse="${horseId}"]`);
+            if (selectedHorses.has(horseId)) {
+                selectedHorses.delete(horseId);
+                button.classList.remove('active');
+                button.style.opacity = '0.5';
+            } else {
+                selectedHorses.add(horseId);
+                button.classList.add('active');
+                button.style.opacity = '1';
+            }
+            updateCharts();
+        }
+        
+        function createCharts() {
+            createBodyStateChart();
+            createHeadPositionChart();
+            createConfidenceChart();
+            createDistributionChart();
+        }
+        
+        function createBodyStateChart() {
+            const ctx = document.getElementById('bodyStateChart').getContext('2d');
+            const filteredData = timelineData.filter(d => selectedHorses.has(d.horse_id));
+            
+            // Group by time and state
+            const timeGroups = {};
+            filteredData.forEach(d => {
+                const time = Math.floor(d.timestamp);
+                if (!timeGroups[time]) timeGroups[time] = {};
+                const state = d.body_state.state;
+                timeGroups[time][state] = (timeGroups[time][state] || 0) + 1;
+            });
+            
+            const datasets = Object.keys(stateColors).map(state => ({
+                label: state.replace('_', ' ').toUpperCase(),
+                data: Object.keys(timeGroups).map(time => ({
+                    x: parseInt(time),
+                    y: timeGroups[time][state] || 0
+                })),
+                backgroundColor: stateColors[state] + '80',
+                borderColor: stateColors[state],
+                borderWidth: 2,
+                tension: 0.4
+            }));
+            
+            charts.bodyState = new Chart(ctx, {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: { display: true, text: 'Time (seconds)', color: 'white' },
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Count', color: 'white' },
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: 'white' } }
+                    }
+                }
+            });
+        }
+        
+        function createHeadPositionChart() {
+            const ctx = document.getElementById('headPositionChart').getContext('2d');
+            const filteredData = timelineData.filter(d => selectedHorses.has(d.horse_id));
+            
+            const angles = filteredData.map(d => ({
+                x: d.timestamp,
+                y: d.head_angle || 0,
+                horse: d.horse_id
+            }));
+            
+            const horseDatasets = [...selectedHorses].map(horseId => {
+                const horseAngles = angles.filter(a => a.horse === horseId);
+                return {
+                    label: `Horse #${horseId}`,
+                    data: horseAngles,
+                    backgroundColor: stateColors[Object.keys(stateColors)[horseId % Object.keys(stateColors).length]] + '80',
+                    borderColor: stateColors[Object.keys(stateColors)[horseId % Object.keys(stateColors).length]],
+                    borderWidth: 2,
+                    tension: 0.4
+                };
+            });
+            
+            charts.headPosition = new Chart(ctx, {
+                type: 'line',
+                data: { datasets: horseDatasets },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Time (seconds)', color: 'white' },
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Head Angle (degrees)', color: 'white' },
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: 'white' } }
+                    }
+                }
+            });
+        }
+        
+        function createConfidenceChart() {
+            const ctx = document.getElementById('confidenceChart').getContext('2d');
+            const filteredData = timelineData.filter(d => selectedHorses.has(d.horse_id));
+            
+            const confidenceData = filteredData.map(d => ({
+                x: d.timestamp,
+                y: d.body_state.confidence * 100,
+                horse: d.horse_id
+            }));
+            
+            const horseDatasets = [...selectedHorses].map(horseId => {
+                const horseConfidence = confidenceData.filter(c => c.horse === horseId);
+                return {
+                    label: `Horse #${horseId}`,
+                    data: horseConfidence,
+                    backgroundColor: stateColors[Object.keys(stateColors)[horseId % Object.keys(stateColors).length]] + '40',
+                    borderColor: stateColors[Object.keys(stateColors)[horseId % Object.keys(stateColors).length]],
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: false
+                };
+            });
+            
+            charts.confidence = new Chart(ctx, {
+                type: 'line',
+                data: { datasets: horseDatasets },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Time (seconds)', color: 'white' },
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            min: 0,
+                            max: 100,
+                            title: { display: true, text: 'Confidence (%)', color: 'white' },
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: 'white' } }
+                    }
+                }
+            });
+        }
+        
+        function createDistributionChart() {
+            const ctx = document.getElementById('distributionChart').getContext('2d');
+            const filteredData = timelineData.filter(d => selectedHorses.has(d.horse_id));
+            
+            const stateCounts = {};
+            filteredData.forEach(d => {
+                const state = d.body_state.state;
+                stateCounts[state] = (stateCounts[state] || 0) + 1;
+            });
+            
+            charts.distribution = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(stateCounts).map(s => s.replace('_', ' ').toUpperCase()),
+                    datasets: [{
+                        data: Object.values(stateCounts),
+                        backgroundColor: Object.keys(stateCounts).map(state => stateColors[state]),
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { 
+                            labels: { color: 'white' },
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateCharts() {
+            if (charts.bodyState) charts.bodyState.destroy();
+            if (charts.headPosition) charts.headPosition.destroy();
+            if (charts.confidence) charts.confidence.destroy();
+            if (charts.distribution) charts.distribution.destroy();
+            createCharts();
+        }
+        
+        function setupVideoSync() {
+            videoPlayer.addEventListener('timeupdate', function() {
+                const currentTime = videoPlayer.currentTime;
+                const duration = videoPlayer.duration;
+                const currentFrame = Math.floor(currentTime * fps);
+                
+                document.getElementById('currentTime').textContent = formatTime(currentTime);
+                document.getElementById('currentFrame').textContent = currentFrame;
+                document.getElementById('progressFill').style.width = (currentTime / duration * 100) + '%';
+                
+                // Sync indicator pulse
+                const indicator = document.getElementById('syncIndicator');
+                indicator.style.animation = 'none';
+                setTimeout(() => indicator.style.animation = 'pulse 2s infinite', 10);
+            });
+        }
+        
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        function jumpToNextEvent() {
+            if (!videoPlayer || timelineData.length === 0) return;
+            
+            const currentTime = videoPlayer.currentTime;
+            const nextEvent = timelineData.find(d => d.timestamp > currentTime);
+            
+            if (nextEvent) {
+                videoPlayer.currentTime = nextEvent.timestamp;
+            }
+        }
+        
+        function jumpToPrevEvent() {
+            if (!videoPlayer || timelineData.length === 0) return;
+            
+            const currentTime = videoPlayer.currentTime;
+            const prevEvents = timelineData.filter(d => d.timestamp < currentTime);
+            
+            if (prevEvents.length > 0) {
+                const prevEvent = prevEvents[prevEvents.length - 1];
+                videoPlayer.currentTime = prevEvent.timestamp;
+            }
+        }
+        
+        function togglePlayback() {
+            if (!videoPlayer) return;
+            
+            if (videoPlayer.paused) {
+                videoPlayer.play();
+            } else {
+                videoPlayer.pause();
+            }
+        }
+        
+        function exportReport() {
+            if (timelineData.length === 0) {
+                alert('No timeline data loaded');
+                return;
+            }
+            
+            const report = generateReport();
+            const blob = new Blob([report], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'horse_analysis_report.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        function generateReport() {
+            const horses = [...new Set(timelineData.map(d => d.horse_id))];
+            const totalFrames = new Set(timelineData.map(d => d.frame_idx)).size;
+            const avgConfidence = timelineData.reduce((acc, d) => acc + d.body_state.confidence, 0) / timelineData.length;
+            
+            let report = `
+                <html>
+                <head><title>Horse Analysis Report</title>
+                <style>body{font-family:Arial;margin:40px;}h1{color:#4CAF50;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ddd;padding:8px;text-align:left;}th{background:#f2f2f2;}</style>
+                </head>
+                <body>
+                <h1>🐴 Horse State Detection Analysis Report</h1>
+                <p>Generated: ${new Date().toLocaleString()}</p>
+                <h2>Summary Statistics</h2>
+                <table>
+                <tr><th>Metric</th><th>Value</th></tr>
+                <tr><td>Total Horses Tracked</td><td>${horses.length}</td></tr>
+                <tr><td>Total Frames Analyzed</td><td>${totalFrames}</td></tr>
+                <tr><td>Average Confidence</td><td>${Math.round(avgConfidence * 100)}%</td></tr>
+                </table>
+                <h2>Per-Horse Analysis</h2>
+            `;
+            
+            horses.forEach(horseId => {
+                const horseData = timelineData.filter(d => d.horse_id === horseId);
+                const states = {};
+                const headPositions = {};
+                
+                horseData.forEach(d => {
+                    states[d.body_state.state] = (states[d.body_state.state] || 0) + 1;
+                    headPositions[d.head_position.state] = (headPositions[d.head_position.state] || 0) + 1;
+                });
+                
+                report += `
+                    <h3>Horse #${horseId} (${horseData.length} detections)</h3>
+                    <h4>Body States:</h4>
+                    <ul>
+                    ${Object.entries(states).map(([state, count]) => 
+                        `<li>${state.replace('_', ' ')}: ${count} frames (${Math.round(count/horseData.length*100)}%)</li>`
+                    ).join('')}
+                    </ul>
+                    <h4>Head Positions:</h4>
+                    <ul>
+                    ${Object.entries(headPositions).map(([pos, count]) => 
+                        `<li>${pos.replace('_', ' ')}: ${count} frames (${Math.round(count/horseData.length*100)}%)</li>`
+                    ).join('')}
+                    </ul>
+                `;
+            });
+            
+            report += '</body></html>';
+            return report;
+        }
+        
+        // Initialize
+        document.getElementById('loadingIndicator').style.display = 'none';
+    </script>
+</body>
+</html>

@@ -7,6 +7,7 @@ interface VideoPlayerProps {
   onError?: (error: string) => void;
   onLoad?: () => void;
   className?: string;
+  onVideoRef?: (ref: React.RefObject<HTMLVideoElement>) => void;
 }
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -15,12 +16,62 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onError,
   onLoad,
   className = '',
+  onVideoRef,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+
+  // Expose video ref to parent component
+  useEffect(() => {
+    if (onVideoRef) {
+      onVideoRef(videoRef);
+    }
+  }, [onVideoRef]);
+  const bufferMonitorRef = useRef<NodeJS.Timeout | null>(null);
+  const recoveryAttemptRef = useRef(0);
+
+  // Buffer monitoring function
+  const startBufferMonitoring = (video: HTMLVideoElement) => {
+    if (bufferMonitorRef.current) {
+      clearInterval(bufferMonitorRef.current);
+    }
+    
+    bufferMonitorRef.current = setInterval(() => {
+      if (!video || video.ended || video.paused) return;
+      
+      const buffered = video.buffered;
+      const currentTime = video.currentTime;
+      
+      if (buffered.length > 0) {
+        const bufferEnd = buffered.end(buffered.length - 1);
+        const bufferHealth = bufferEnd - currentTime;
+        
+        // If buffer health is low and we're not loading
+        if (bufferHealth < 2 && !video.seeking) {
+          console.log(`Buffer health low: ${bufferHealth}s, checking for stall...`);
+          
+          // Check if video is actually stalled (not progressing)
+          const lastTime = video.dataset.lastCurrentTime ? parseFloat(video.dataset.lastCurrentTime) : 0;
+          if (Math.abs(currentTime - lastTime) < 0.1 && recoveryAttemptRef.current < 3) {
+            console.log('Video appears stalled, attempting recovery...');
+            recoveryAttemptRef.current++;
+            
+            // Try to recover by seeking slightly forward
+            if (bufferEnd > currentTime + 0.1) {
+              video.currentTime = Math.min(currentTime + 0.1, bufferEnd - 0.1);
+            } else if (hlsRef.current) {
+              hlsRef.current.startLoad();
+            }
+          }
+        }
+        
+        // Store current time for stall detection
+        video.dataset.lastCurrentTime = currentTime.toString();
+      }
+    }, 2000); // Check every 2 seconds
+  };
 
   useEffect(() => {
     const video = videoRef.current;
@@ -29,18 +80,74 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setIsLoading(true);
     setError(null);
 
-    // Check if HLS is supported
+    // Check if the source is an MP4 file (video chunks)
+    const isMP4 = src.toLowerCase().includes('.mp4');
+
+    if (isMP4) {
+      // Handle MP4 files directly (video chunks)
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+
+      video.src = src;
+
+      video.addEventListener('loadedmetadata', () => {
+        setIsLoading(false);
+        onLoad?.();
+
+        // Auto-play MP4 chunks
+        video.play().catch(error => {
+          if (error.name === 'NotAllowedError') {
+            console.log('Autoplay prevented by browser policy for MP4');
+          } else {
+            console.warn('MP4 play error:', error.message);
+          }
+        });
+      });
+
+      video.addEventListener('error', () => {
+        const errorMsg = 'MP4 video loading error';
+        setError(errorMsg);
+        setIsLoading(false);
+        onError?.(errorMsg);
+      });
+
+      return;
+    }
+
+    // Check if HLS is supported (for live streams)
     if (Hls.isSupported()) {
       // Destroy previous HLS instance
       if (hlsRef.current) {
         hlsRef.current.destroy();
       }
 
-      // Create new HLS instance
+      // Create new HLS instance optimized for live streaming
       const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-        backBufferLength: 90,
+        enableWorker: false, // Disable worker for better live stream compatibility
+        lowLatencyMode: true, // Enable for live streams
+        backBufferLength: 10, // Minimal back buffer for live streams
+        maxBufferLength: 20, // Short forward buffer to stay close to live
+        maxMaxBufferLength: 30, // Keep maximum buffer small
+        liveSyncDurationCount: 1, // Stay very close to live edge (1 segment behind)
+        liveMaxLatencyDurationCount: 3, // Maximum 3 segments behind
+        liveDurationInfinity: true, // Handle infinite live streams
+        maxBufferHole: 0.5, // Allow small gaps
+        highBufferWatchdogPeriod: 2, // Check buffer health every 2s
+        nudgeOffset: 0.1, // Small nudge for sync
+        nudgeMaxRetry: 3, // Retry nudge 3 times
+        maxSeekHole: 2, // Allow seeking over 2s gaps
+        // Fragment loading settings optimized for live
+        fragLoadingTimeOut: 10000, // Shorter timeout for live
+        fragLoadingMaxRetry: 6, // More retries for live streams
+        fragLoadingRetryDelay: 500, // Quick retry delay
+        // Manifest settings
+        manifestLoadingTimeOut: 10000, // 10s manifest timeout
+        manifestLoadingMaxRetry: 4, // Retry manifest loading
+        manifestLoadingRetryDelay: 500, // Quick manifest retry
+        startLevel: -1, // Auto-select quality
+        capLevelToPlayerSize: true, // Cap quality to player size
       });
 
       hlsRef.current = hls;
@@ -53,15 +160,71 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setIsLoading(false);
         onLoad?.();
-        video.play().catch(console.error);
+        recoveryAttemptRef.current = 0; // Reset recovery counter
+
+        // More robust video play handling
+        const playVideo = async () => {
+          try {
+            await video.play();
+            console.log('Video started playing successfully');
+          } catch (error) {
+            if (error.name === 'AbortError') {
+              console.log('Play request was interrupted, retrying in 500ms...');
+              setTimeout(() => {
+                if (!video.paused && !video.ended) return;
+                video.play().catch(e => console.warn('Retry play failed:', e.message));
+              }, 500);
+            } else if (error.name === 'NotAllowedError') {
+              console.log('Autoplay prevented by browser policy');
+            } else {
+              console.warn('Video play error:', error.message);
+            }
+          }
+        };
+
+        playVideo();
+
+        // Start buffer monitoring
+        startBufferMonitoring(video);
       });
 
-      hls.on(Hls.Events.ERROR, (event, data) => {
+      hls.on(Hls.Events.ERROR, (_event, data) => {
         console.error('HLS Error:', data);
-        const errorMsg = `HLS Error: ${data.type} - ${data.details}`;
-        setError(errorMsg);
-        setIsLoading(false);
-        onError?.(errorMsg);
+
+        if (data.fatal) {
+          // Handle fatal errors with recovery
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.log('Network error, attempting to recover...');
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.log('Media error, attempting to recover...');
+              hls.recoverMediaError();
+              break;
+            default:
+              // Unrecoverable error
+              const errorMsg = `HLS Error: ${data.type} - ${data.details}`;
+              setError(errorMsg);
+              setIsLoading(false);
+              onError?.(errorMsg);
+              break;
+          }
+        } else {
+          // Non-fatal errors - just log and continue
+          console.warn('HLS Warning:', data.details);
+          
+          // Special handling for buffer stalled errors
+          if (data.details === 'bufferStalledError') {
+            console.log('Buffer stalled, attempting recovery...');
+            // Try to recover by restarting the load
+            setTimeout(() => {
+              if (hlsRef.current && !hlsRef.current.media?.ended) {
+                hlsRef.current.startLoad();
+              }
+            }, 1000);
+          }
+        }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       // Native HLS support (Safari)
@@ -70,7 +233,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         setIsLoading(false);
         onLoad?.();
       });
-      video.addEventListener('error', _e => {
+      video.addEventListener('error', () => {
         const errorMsg = 'Video loading error';
         setError(errorMsg);
         setIsLoading(false);
@@ -83,35 +246,26 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       onError?.(errorMsg);
     }
 
-    // Video event listeners
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-
-    video.addEventListener('play', handlePlay);
-    video.addEventListener('pause', handlePause);
-
     // Cleanup
     return () => {
-      video.removeEventListener('play', handlePlay);
-      video.removeEventListener('pause', handlePause);
-
+      if (bufferMonitorRef.current) {
+        clearInterval(bufferMonitorRef.current);
+        bufferMonitorRef.current = null;
+      }
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
+      if (video) {
+        // Remove event listeners and pause video
+        video.removeEventListener('loadedmetadata', () => {});
+        video.removeEventListener('error', () => {});
+        video.pause();
+        video.src = '';
+      }
     };
   }, [src, onError, onLoad]);
 
-  const togglePlayPause = () => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    if (video.paused) {
-      video.play().catch(console.error);
-    } else {
-      video.pause();
-    }
-  };
 
   if (error) {
     return (
@@ -143,7 +297,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   return (
     <div
-      className={`relative aspect-video bg-slate-900 rounded-lg overflow-hidden group ${className}`}
+      className={`relative aspect-video bg-slate-900 rounded-lg overflow-hidden ${className}`}
     >
       {/* Loading Overlay */}
       {isLoading && (
@@ -163,52 +317,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         playsInline
         autoPlay
       />
-
-      {/* Stream Info Overlay */}
-      <div className="absolute top-4 left-4 right-4 flex justify-between items-start opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-        <div className="glass-dark px-3 py-1 rounded-lg">
-          <p className="text-xs font-mono text-slate-300">Stream {streamId}</p>
-        </div>
-        <div className="glass-dark px-2 py-1 rounded-lg">
-          <div
-            className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-success' : 'bg-amber-500'}`}
-          />
-        </div>
-      </div>
-
-      {/* Play/Pause Overlay */}
-      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-        <button
-          onClick={togglePlayPause}
-          className="w-16 h-16 bg-black/30 hover:bg-black/50 rounded-full flex items-center justify-center transition-colors duration-200"
-        >
-          {isPlaying ? (
-            <svg
-              className="w-8 h-8 text-white"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-          ) : (
-            <svg
-              className="w-8 h-8 text-white"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-                clipRule="evenodd"
-              />
-            </svg>
-          )}
-        </button>
-      </div>
     </div>
   );
 };

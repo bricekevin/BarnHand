@@ -2,10 +2,14 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { logger } from '../config/logger';
-import { authenticateToken, requireRole } from '../middleware/auth';
+import {
+  authenticateToken,
+  requireRole,
+  createAuthenticatedRoute,
+} from '../middleware/auth';
 import { validateSchema } from '../middleware/validation';
 import { UserRole } from '../types/auth';
-import { AuthenticatedRequest } from '../types/requests';
+// AuthenticatedRequest is now handled by createAuthenticatedRoute wrapper
 
 // Validation schemas
 const detectionQuerySchema = z.object({
@@ -33,8 +37,14 @@ router.get(
   '/',
   validateSchema(detectionQuerySchema, 'query'),
   requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
-  async (req: AuthenticatedRequest, res) => {
+  createAuthenticatedRoute(async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Get validated and transformed query parameters
+      const validatedQuery = detectionQuerySchema.parse(req.query);
       const {
         stream_id,
         horse_id,
@@ -44,7 +54,7 @@ router.get(
         offset,
         include_pose,
         confidence_threshold,
-      } = req.query;
+      } = validatedQuery;
 
       // TODO: Replace with DetectionRepository.findDetections()
       const mockDetections = [
@@ -89,7 +99,7 @@ router.get(
         count: filteredDetections.length,
       });
 
-      res.json({
+      return res.json({
         detections: filteredDetections.slice(offset, offset + limit),
         total: filteredDetections.length,
         limit,
@@ -104,9 +114,9 @@ router.get(
       });
     } catch (error) {
       logger.error('Query detections error', { error });
-      res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 // GET /api/v1/chunks/:id/status - Get chunk processing status
@@ -114,8 +124,12 @@ router.get(
   '/chunks/:id/status',
   validateSchema(chunkParamsSchema, 'params'),
   requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
-  async (req: AuthenticatedRequest, res) => {
+  createAuthenticatedRoute(async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
       const { id } = req.params;
 
       // TODO: Replace with VideoChunkRepository.findById()
@@ -141,12 +155,12 @@ router.get(
         status: mockChunkStatus.status,
       });
 
-      res.json(mockChunkStatus);
+      return res.json(mockChunkStatus);
     } catch (error) {
       logger.error('Get chunk status error', { error });
-      res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 export default router;

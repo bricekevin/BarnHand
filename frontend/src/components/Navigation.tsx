@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
-import { ConnectionStatus } from './ConnectionStatus';
 
 export const Navigation: React.FC = () => {
   const location = useLocation();
@@ -52,8 +51,6 @@ export const Navigation: React.FC = () => {
             </Link>
           </div>
 
-          {/* Status Indicator */}
-          <ConnectionStatus />
         </div>
       </div>
     </nav>

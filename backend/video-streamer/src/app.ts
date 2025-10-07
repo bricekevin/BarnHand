@@ -22,11 +22,13 @@ export async function createApp(): Promise<express.Application> {
   // Initialize output directory
   await streamManager.initializeOutputDirectory();
 
-  // Security middleware
+  // Security middleware (relaxed for video streaming)
   app.use(
     helmet({
       contentSecurityPolicy: isDevelopment ? false : {},
       crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: false, // Allow cross-origin video access
+      frameguard: false, // Allow video embedding
     })
   );
 
@@ -50,19 +52,65 @@ export async function createApp(): Promise<express.Application> {
   app.use('/stream2', express.static(path.join(env.OUTPUT_PATH, 'stream_002')));
   app.use('/stream3', express.static(path.join(env.OUTPUT_PATH, 'stream_003')));
   app.use('/stream4', express.static(path.join(env.OUTPUT_PATH, 'stream_004')));
-  app.use('/stream5', express.static(path.join(env.OUTPUT_PATH, 'stream_005')));
 
   // Dynamic stream serving
-  app.use('/streams/:streamId', (req, res, next) => {
-    const streamId = req.params.streamId;
-    const streamPath = path.join(env.OUTPUT_PATH, streamId);
-    express.static(streamPath)(req, res, next);
-  });
+  app.use(
+    '/streams/:streamId',
+    (
+      req: express.Request,
+      res: express.Response,
+      next: express.NextFunction
+    ) => {
+      const streamId = req.params.streamId;
+      const streamPath = path.join(env.OUTPUT_PATH, streamId);
+      express.static(streamPath)(req, res, next);
+    }
+  );
+
+  // Processed video chunks serving
+  const chunkStoragePath =
+    process.env.CHUNK_STORAGE_PATH || '/app/storage/chunks';
+  app.use('/chunks', express.static(chunkStoragePath));
+
+  // Legacy processed chunks path (for backward compatibility)
+  const processedChunkPath =
+    process.env.CHUNK_OUTPUT_PATH || '/tmp/processed-chunks';
+  app.use('/processed', express.static(processedChunkPath));
 
   // API routes
   app.use('/api/streams', createStreamRoutes(streamManager, videoScanner));
   app.use('/api/videos', createVideoRoutes(videoScanner));
   app.use('/health', createHealthRoutes(streamManager));
+
+  // Manual route for serving TS segments (fallback for static middleware) - UPDATED
+  app.get(
+    '/stream:streamNumber(\\d+)/:filename',
+    (req: express.Request, res: express.Response) => {
+      const streamNumber = req.params.streamNumber;
+      const filename = req.params.filename;
+      const streamId = `stream_00${streamNumber}`;
+      const filePath = path.join(env.OUTPUT_PATH, streamId, filename);
+
+      // Only log in debug mode
+      if (isDevelopment && env.LOG_LEVEL === 'debug') {
+        logger.debug('Serving segment file', { streamId, filename });
+      }
+
+      res.sendFile(filePath, (err?: Error) => {
+        if (err) {
+          // Only log actual errors, not routine 404s for segments
+          if (err.message && !err.message.includes('ENOENT')) {
+            logger.error('Error serving segment file', {
+              streamId,
+              filename,
+              error: err.message,
+            });
+          }
+          res.status(404).json({ error: 'Segment not found' });
+        }
+      });
+    }
+  );
 
   // Root endpoint with service info
   app.get('/', (_req: express.Request, res: express.Response) => {
@@ -86,7 +134,6 @@ export async function createApp(): Promise<express.Application> {
           'http://localhost:8003/stream2/playlist.m3u8',
           'http://localhost:8003/stream3/playlist.m3u8',
           'http://localhost:8003/stream4/playlist.m3u8',
-          'http://localhost:8003/stream5/playlist.m3u8',
         ],
       },
       mediaPath: env.MEDIA_PATH,
@@ -95,7 +142,7 @@ export async function createApp(): Promise<express.Application> {
   });
 
   // 404 handler
-  app.use('*', (req, res) => {
+  app.use('*', (req: express.Request, res: express.Response) => {
     logger.warn('Route not found', {
       path: req.path,
       method: req.method,

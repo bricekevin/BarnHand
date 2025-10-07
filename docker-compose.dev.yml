@@ -1,0 +1,95 @@
+# Simplified Docker Compose for development
+# Only includes essential services needed for testing
+
+services:
+  # Frontend React App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - api-gateway
+    networks:
+      - barnhand-network
+
+  # API Gateway Service
+  api-gateway:
+    build:
+      context: ./backend/api-gateway
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=development
+      - PORT=8000
+      - DATABASE_URL=postgresql://admin:password@postgres:5432/barnhand
+      - JWT_SECRET=dev-secret-key
+      - VIDEO_STREAMER_URL=http://video-streamer:8003
+      - LOG_LEVEL=info
+    volumes:
+      - ./backend/api-gateway:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+      - video-streamer
+    networks:
+      - barnhand-network
+
+  # Video Streaming Service
+  video-streamer:
+    build:
+      context: ./backend/video-streamer
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "8003:8003"
+    environment:
+      - NODE_ENV=development
+      - PORT=8003
+      - MEDIA_PATH=/media
+      - OUTPUT_PATH=/tmp/barnhand/streams
+      - LOG_LEVEL=info
+    volumes:
+      - ./backend/video-streamer:/app
+      - ./media:/media:ro
+      - /app/node_modules
+    networks:
+      - barnhand-network
+
+  # PostgreSQL with TimescaleDB
+  postgres:
+    image: timescale/timescaledb:latest-pg14
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=barnhand
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/src/migrations/sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d barnhand"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - barnhand-network
+
+volumes:
+  postgres_data:
+
+networks:
+  barnhand-network:
+    driver: bridge

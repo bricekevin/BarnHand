@@ -3,8 +3,8 @@ import { createServer } from 'http';
 import app from './app';
 import { env } from './config/env';
 import { logger } from './config/logger';
-import { WebSocketServer } from './websocket/socketServer';
 import { messageQueue } from './websocket/messageQueue';
+import { WebSocketServer } from './websocket/socketServer';
 
 // Handle uncaught exceptions
 process.on('uncaughtException', error => {
@@ -31,15 +31,15 @@ const gracefulShutdown = async (signal: string) => {
   try {
     // Stop accepting new connections
     httpServer?.close();
-    
+
     // Shutdown WebSocket server
     if (wsServer) {
       await wsServer.shutdown();
     }
-    
+
     // Stop message queue
     messageQueue.stop();
-    
+
     // TODO: Add more cleanup tasks:
     // - Close database connections
     // - Complete ongoing requests
@@ -61,12 +61,12 @@ const startServer = async () => {
   try {
     // Create HTTP server
     httpServer = createServer(app);
-    
+
     // Initialize WebSocket server
     wsServer = new WebSocketServer(httpServer);
-    
+
     // Make WebSocket server available globally for use in routes
-    (global as any).wsServer = wsServer;
+    globalThis.wsServer = wsServer;
 
     httpServer.listen(env.PORT, () => {
       logger.info(`🚀 BarnHand API Gateway started`, {
@@ -91,9 +91,7 @@ const startServer = async () => {
       console.log(
         `❤️  Health Check: http://localhost:${env.PORT}/api/v1/health`
       );
-      console.log(
-        `🔌 WebSocket Server: ws://localhost:${env.PORT}`
-      );
+      console.log(`🔌 WebSocket Server: ws://localhost:${env.PORT}`);
     });
 
     // Handle server errors

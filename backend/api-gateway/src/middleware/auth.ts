@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
 
 import { env } from '../config/env';
@@ -9,9 +9,37 @@ export interface AuthenticatedRequest extends Request {
   user?: JwtPayload;
 }
 
+// Type-safe authenticated route handler wrapper
+export type AuthenticatedHandler<
+  P = Record<string, string>,
+  ResBody = unknown,
+  ReqBody = unknown,
+  ReqQuery = Record<string, unknown>,
+> = (
+  req: AuthenticatedRequest & Request<P, ResBody, ReqBody, ReqQuery>,
+  res: Response<ResBody>,
+  next: NextFunction
+) => Promise<Response<ResBody> | void> | Response<ResBody> | void;
+
+// Helper to create type-safe authenticated routes
+export const createAuthenticatedRoute = <
+  P = Record<string, string>,
+  ResBody = unknown,
+  ReqBody = unknown,
+  ReqQuery = Record<string, unknown>,
+>(
+  handler: AuthenticatedHandler<P, ResBody, ReqBody, ReqQuery>
+): RequestHandler<P, ResBody, ReqBody, ReqQuery> => {
+  return (req, res, next) => {
+    const authReq = req as AuthenticatedRequest &
+      Request<P, ResBody, ReqBody, ReqQuery>;
+    return handler(authReq, res, next);
+  };
+};
+
 // JWT Authentication Middleware
 export const authenticateToken = (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): void => {
@@ -25,7 +53,7 @@ export const authenticateToken = (
 
   try {
     const payload = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
-    req.user = payload;
+    (req as AuthenticatedRequest).user = payload;
     next();
   } catch (error) {
     logger.warn('Invalid JWT token', {
@@ -37,22 +65,23 @@ export const authenticateToken = (
 
 // Role-based Access Control
 export const requireRole = (allowedRoles: UserRole[]) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-    if (!req.user) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    if (!allowedRoles.includes(authReq.user.role)) {
       logger.warn('Insufficient permissions', {
-        userId: req.user.userId,
-        userRole: req.user.role,
+        userId: authReq.user.userId,
+        userRole: authReq.user.role,
         requiredRoles: allowedRoles,
       });
       res.status(403).json({
         error: 'Insufficient permissions',
         required: allowedRoles,
-        current: req.user.role,
+        current: authReq.user.role,
       });
       return;
     }
@@ -63,17 +92,18 @@ export const requireRole = (allowedRoles: UserRole[]) => {
 
 // Farm Access Control - ensure users can only access their farm's data
 export const requireFarmAccess = (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): void => {
-  if (!req.user) {
+  const authReq = req as AuthenticatedRequest;
+  if (!authReq.user) {
     res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
   // Super admins can access any farm
-  if (req.user.role === UserRole.SUPER_ADMIN) {
+  if (authReq.user.role === UserRole.SUPER_ADMIN) {
     next();
     return;
   }
@@ -85,10 +115,10 @@ export const requireFarmAccess = (
     return;
   }
 
-  if (req.user.farmId !== farmId) {
+  if (authReq.user.farmId !== farmId) {
     logger.warn('Farm access denied', {
-      userId: req.user.userId,
-      userFarmId: req.user.farmId,
+      userId: authReq.user.userId,
+      userFarmId: authReq.user.farmId,
       requestedFarmId: farmId,
     });
     res.status(403).json({ error: 'Access denied to this farm' });
@@ -100,11 +130,18 @@ export const requireFarmAccess = (
 
 // Generate JWT tokens
 export const generateTokens = (payload: Omit<JwtPayload, 'iat' | 'exp'>) => {
-  const accessToken = jwt.sign(payload as object, env.JWT_SECRET, {
+  const tokenPayload = {
+    userId: payload.userId,
+    email: payload.email,
+    role: payload.role,
+    farmId: payload.farmId,
+  };
+
+  const accessToken = jwt.sign(tokenPayload, env.JWT_SECRET, {
     expiresIn: env.JWT_EXPIRES_IN,
   });
 
-  const refreshToken = jwt.sign(payload as object, env.JWT_SECRET, {
+  const refreshToken = jwt.sign(tokenPayload, env.JWT_SECRET, {
     expiresIn: env.JWT_REFRESH_EXPIRES_IN,
   });
 

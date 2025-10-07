@@ -1,5 +1,5 @@
-import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import request from 'supertest';
 
 import app from '../app';
 import { env } from '../config/env';
@@ -88,7 +88,7 @@ describe('Detections API', () => {
         .expect(200);
 
       expect(response.body.filters.confidence_threshold).toBe(0.9);
-      
+
       // All returned detections should meet the confidence threshold
       response.body.detections.forEach((detection: any) => {
         expect(detection.confidence).toBeGreaterThanOrEqual(0.9);
@@ -131,9 +131,7 @@ describe('Detections API', () => {
     });
 
     it('should reject requests without auth', async () => {
-      await request(app)
-        .get('/api/v1/detections')
-        .expect(401);
+      await request(app).get('/api/v1/detections').expect(401);
     });
   });
 
@@ -176,7 +174,9 @@ describe('Detections API', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      expect(['queued', 'processing', 'completed', 'error']).toContain(response.body.status);
+      expect(['queued', 'processing', 'completed', 'error']).toContain(
+        response.body.status
+      );
     });
 
     it('should include timing information', async () => {
@@ -214,7 +214,7 @@ describe('Detections API', () => {
 
       if (response.body.detections.length > 0) {
         const detection = response.body.detections[0];
-        
+
         expect(detection).toHaveProperty('time');
         expect(detection).toHaveProperty('stream_id');
         expect(detection).toHaveProperty('chunk_id');
@@ -247,11 +247,11 @@ describe('Detections API', () => {
 
       if (response.body.detections.length > 0) {
         const detection = response.body.detections[0];
-        
+
         expect(detection).toHaveProperty('gait_type');
         expect(detection).toHaveProperty('velocity');
         expect(detection).toHaveProperty('acceleration');
-        
+
         expect(typeof detection.velocity).toBe('number');
         expect(typeof detection.acceleration).toBe('number');
       }

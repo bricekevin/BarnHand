@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐴 Horse State Detection - Comprehensive Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+        
+        .workflow-progress {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 30px 0;
+        }
+        
+        .workflow-step {
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+        
+        .workflow-step.active {
+            background: #4CAF50;
+            transform: scale(1.05);
+        }
+        
+        .workflow-step.completed {
+            background: #2196F3;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        #uploadSection, #processingSection {
+            background: rgba(0,0,0,0.4);
+            padding: 40px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        #resultsSection {
+            display: none;
+        }
+        
+        .results-layout {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .results-video {
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 15px;
+            height: fit-content;
+        }
+        
+        .comprehensive-analysis {
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 15px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .horse-section {
+            background: rgba(255,255,255,0.05);
+            margin: 20px 0;
+            padding: 25px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        
+        .horse-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(255,255,255,0.2);
+        }
+        
+        .horse-id {
+            font-size: 1.4em;
+            font-weight: bold;
+        }
+        
+        .horse-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            font-size: 0.85em;
+            text-align: center;
+        }
+        
+        .metric-card {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .metric-value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .horse-charts-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .horse-position-section {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .chart-container {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 10px;
+        }
+        
+        .chart-title {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            font-size: 2em;
+            color: #4CAF50;
+            margin: 10px 0;
+        }
+        
+        video {
+            width: 100%;
+            border-radius: 10px;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .comprehensive-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(255,255,255,0.2);
+        }
+        
+        .tab-button {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+            margin-right: 5px;
+        }
+        
+        .tab-button.active {
+            background: #4CAF50;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🐴 Horse State Detection - Comprehensive Analysis</h1>
+        <p id="statusText">Upload → Process → Analyze: Complete pipeline with detailed horse metrics</p>
+    </div>
+    
+    <div class="workflow-progress">
+        <div class="workflow-step active" id="step1">
+            📤 Upload Video
+            <span>Select horse video file</span>
+        </div>
+        <div class="workflow-step" id="step2">
+            ⚙️ Configure
+            <span>Set processing options</span>
+        </div>
+        <div class="workflow-step" id="step3">
+            🎬 Process
+            <span>AI analysis & tracking</span>
+        </div>
+        <div class="workflow-step" id="step4">
+            ✅ Review
+            <span>Comprehensive analysis</span>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div id="uploadSection">
+            <h2>📤 Upload Horse Video</h2>
+            <div id="uploadArea" style="border: 2px dashed #4CAF50; padding: 40px; text-align: center; border-radius: 10px; margin: 20px 0;">
+                <p>🎥 Drag & Drop Video File Here</p>
+                <p>or</p>
+                <input type="file" id="videoInput" accept="video/*" style="display: none;">
+                <button onclick="document.getElementById('videoInput').click()">Browse Files</button>
+                <p style="margin-top: 10px; font-size: 0.9em; opacity: 0.7;">Supported: MP4, MOV, AVI, MKV (max 500MB)</p>
+            </div>
+            
+            <div id="selectedFile" class="hidden" style="background: rgba(76,175,80,0.2); padding: 15px; border-radius: 10px; margin: 20px 0;">
+                <h3>Selected File:</h3>
+                <p id="fileName"></p>
+                <p id="fileSize"></p>
+            </div>
+            
+            <div id="configSection" class="hidden">
+                <h3>⚙️ Processing Configuration</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
+                    <div>
+                        <label>Max Frames to Process:</label>
+                        <select id="maxFrames" style="width: 100%; padding: 10px; border-radius: 5px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white;">
+                            <option value="">Process entire video</option>
+                            <option value="150">150 frames (~5 seconds)</option>
+                            <option value="300">300 frames (~10 seconds)</option>
+                            <option value="600">600 frames (~20 seconds)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Confidence Threshold:</label>
+                        <select id="confidenceThreshold" style="width: 100%; padding: 10px; border-radius: 5px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white;">
+                            <option value="0.5">0.5 - More detections</option>
+                            <option value="0.6">0.6 - Balanced</option>
+                            <option value="0.7" selected>0.7 - Recommended</option>
+                            <option value="0.8">0.8 - High accuracy</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="startProcessing()" style="background: #2196F3;">🚀 Start Processing</button>
+            </div>
+        </div>
+        
+        <div id="processingSection" style="display: none;">
+            <h2>🔄 Processing Video</h2>
+            <div style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px; margin: 20px 0;">
+                <div id="progressBar" style="background: rgba(255,255,255,0.1); height: 30px; border-radius: 15px; overflow: hidden;">
+                    <div id="progressFill" style="background: linear-gradient(90deg, #4CAF50, #2196F3); height: 100%; width: 0%; transition: width 0.5s; display: flex; align-items: center; justify-content: center;">
+                        <span id="progressText" style="color: white; font-weight: bold;">0%</span>
+                    </div>
+                </div>
+                <p id="processingStatus" style="margin-top: 10px; text-align: center;">Initializing...</p>
+            </div>
+        </div>
+        
+        <div id="resultsSection">
+            <div class="results-layout">
+                <div class="results-video">
+                    <h3>🎥 Processed Video Results</h3>
+                    <video id="processedVideo" controls style="width: 100%; margin: 20px 0;"></video>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <p>Horses Tracked</p>
+                            <h3 id="totalHorses">0</h3>
+                        </div>
+                        <div class="stat-card">
+                            <p>Frames Analyzed</p>
+                            <h3 id="totalFrames">0</h3>
+                        </div>
+                        <div class="stat-card">
+                            <p>Avg Confidence</p>
+                            <h3 id="avgConfidence">0%</h3>
+                        </div>
+                        <div class="stat-card">
+                            <p>Processing Time</p>
+                            <h3 id="processingTime">0s</h3>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="comprehensive-analysis">
+                    <h3>📊 Comprehensive Horse Analysis</h3>
+                    
+                    <div class="comprehensive-tabs">
+                        <button class="tab-button active" onclick="showTab('individual')">Individual Horses</button>
+                        <button class="tab-button" onclick="showTab('comparison')">Horse Comparison</button>
+                        <button class="tab-button" onclick="showTab('system')">System Overview</button>
+                    </div>
+                    
+                    <div id="individualTab" class="tab-content active">
+                        <div id="horseSections">
+                            <!-- Horse sections will be dynamically created here -->
+                        </div>
+                    </div>
+                    
+                    <div id="comparisonTab" class="tab-content">
+                        <div class="chart-container">
+                            <div class="chart-title">Horse Position Comparison Over Time</div>
+                            <canvas id="positionComparisonChart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <div class="chart-title">Confidence Levels Comparison</div>
+                            <canvas id="confidenceComparisonChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div id="systemTab" class="tab-content">
+                        <div class="chart-container">
+                            <div class="chart-title">Overall Detection Quality</div>
+                            <canvas id="overallQualityChart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <div class="chart-title">System Performance Metrics</div>
+                            <canvas id="systemMetricsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <button onclick="processNewVideo()" style="background: #2196F3;">🔄 Process New Video</button>
+                <button onclick="exportAnalysis()" style="background: #4CAF50;">📊 Export Analysis Report</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let uploadedFile = null;
+        let timelineData = [];
+        let currentJobId = null;
+        let charts = {};
+        
+        const stateColors = {
+            'upright': '#4CAF50',
+            'running': '#F44336',
+            'lying_down': '#9C27B0',
+            'kneeling': '#607D8B',
+            'jumping': '#E91E63',
+            'unknown': '#9E9E9E'
+        };
+        
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const videoInput = document.getElementById('videoInput');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#81C784';
+        });
+        
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#4CAF50';
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#4CAF50';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+        
+        videoInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+        
+        function handleFileSelect(file) {
+            if (!file.type.startsWith('video/')) {
+                alert('Please select a video file');
+                return;
+            }
+            
+            if (file.size > 500 * 1024 * 1024) {
+                alert('File size must be less than 500MB');
+                return;
+            }
+            
+            uploadedFile = file;
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = `Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            document.getElementById('selectedFile').classList.remove('hidden');
+            document.getElementById('configSection').classList.remove('hidden');
+            updateWorkflowStep(2);
+        }
+        
+        function updateWorkflowStep(step) {
+            document.querySelectorAll('.workflow-step').forEach((el, idx) => {
+                if (idx < step - 1) {
+                    el.classList.add('completed');
+                    el.classList.remove('active');
+                } else if (idx === step - 1) {
+                    el.classList.add('active');
+                    el.classList.remove('completed');
+                } else {
+                    el.classList.remove('active', 'completed');
+                }
+            });
+        }
+        
+        function startProcessing() {
+            if (!uploadedFile) {
+                alert('Please select a video file first');
+                return;
+            }
+            
+            updateWorkflowStep(3);
+            document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('processingSection').style.display = 'block';
+            
+            uploadAndProcess();
+        }
+        
+        function uploadAndProcess() {
+            const formData = new FormData();
+            formData.append('video', uploadedFile);
+            
+            const config = {
+                max_frames: document.getElementById('maxFrames').value,
+                confidence_threshold: document.getElementById('confidenceThreshold').value,
+                movement_threshold: 5,
+                processing_mode: 'accurate'
+            };
+            formData.append('config', JSON.stringify(config));
+            
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentJobId = data.job_id;
+                    pollProcessingStatus(data.job_id);
+                } else {
+                    alert('Upload failed: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Upload error: ' + error);
+            });
+        }
+        
+        function pollProcessingStatus(jobId) {
+            const pollInterval = setInterval(() => {
+                fetch(`/status/${jobId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('progressFill').style.width = data.progress + '%';
+                    document.getElementById('progressText').textContent = Math.round(data.progress) + '%';
+                    document.getElementById('processingStatus').textContent = data.step;
+                    
+                    if (data.status === 'completed') {
+                        clearInterval(pollInterval);
+                        handleProcessingComplete(jobId);
+                    } else if (data.status === 'failed') {
+                        clearInterval(pollInterval);
+                        alert('Processing failed: ' + data.error);
+                    }
+                });
+            }, 1000);
+        }
+        
+        function handleProcessingComplete(jobId) {
+            fetch(`/timeline/${jobId}`)
+            .then(response => response.json())
+            .then(data => {
+                timelineData = data;
+                
+                updateWorkflowStep(4);
+                document.getElementById('processingSection').style.display = 'none';
+                document.getElementById('resultsSection').style.display = 'block';
+                
+                document.getElementById('processedVideo').src = `/video/${jobId}`;
+                
+                updateStatistics();
+                createComprehensiveCharts();
+            });
+        }
+        
+        function updateStatistics() {
+            const horses = [...new Set(timelineData.map(d => d.horse_id))];
+            const frames = [...new Set(timelineData.map(d => d.frame_idx))];
+            const avgConf = timelineData.reduce((acc, d) => acc + d.body_state.confidence, 0) / timelineData.length;
+            
+            document.getElementById('totalHorses').textContent = horses.length;
+            document.getElementById('totalFrames').textContent = frames.length;
+            document.getElementById('avgConfidence').textContent = Math.round(avgConf * 100) + '%';
+            document.getElementById('processingTime').textContent = '45s';
+        }
+        
+        function showTab(tabName) {
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Add active class to selected tab
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+        
+        function createComprehensiveCharts() {
+            // Clear existing charts
+            Object.values(charts).forEach(chart => chart.destroy && chart.destroy());
+            charts = {};
+            
+            createIndividualHorseAnalysis();
+            createComparisonCharts();
+            createSystemOverviewCharts();
+        }
+        
+        function createIndividualHorseAnalysis() {
+            const horses = [...new Set(timelineData.map(d => d.horse_id))].sort();
+            const horseSectionsContainer = document.getElementById('horseSections');
+            
+            horseSectionsContainer.innerHTML = '';
+            
+            horses.forEach(horseId => {
+                const horseData = timelineData.filter(d => d.horse_id === horseId);
+                if (horseData.length === 0) return;
+                
+                // Calculate comprehensive metrics
+                const states = horseData.map(d => d.body_state.state);
+                const stateCounts = {};
+                states.forEach(state => stateCounts[state] = (stateCounts[state] || 0) + 1);
+                const mostCommonState = Object.keys(stateCounts).reduce((a, b) => 
+                    stateCounts[a] > stateCounts[b] ? a : b);
+                const avgConfidence = horseData.reduce((acc, d) => 
+                    acc + d.body_state.confidence, 0) / horseData.length;
+                const detectionCount = horseData.length;
+                const duration = Math.max(...horseData.map(d => d.timestamp)) - 
+                                Math.min(...horseData.map(d => d.timestamp));
+                
+                // Calculate position metrics
+                const positions = horseData.filter(d => d.position);
+                const avgX = positions.length > 0 ? positions.reduce((acc, d) => acc + d.position.bbox_center_x, 0) / positions.length : 0;
+                const avgY = positions.length > 0 ? positions.reduce((acc, d) => acc + d.position.bbox_center_y, 0) / positions.length : 0;
+                const avgSize = positions.length > 0 ? positions.reduce((acc, d) => acc + (d.position.bbox_width * d.position.bbox_height), 0) / positions.length : 0;
+                
+                const horseSection = document.createElement('div');
+                horseSection.className = 'horse-section';
+                horseSection.innerHTML = `
+                    <div class="horse-header">
+                        <div class="horse-id" style="color: ${stateColors[mostCommonState] || '#4CAF50'}">
+                            🐴 Horse #${horseId}
+                        </div>
+                        <div class="horse-metrics">
+                            <div class="metric-card">
+                                <div>Duration</div>
+                                <div class="metric-value">${duration.toFixed(1)}s</div>
+                            </div>
+                            <div class="metric-card">
+                                <div>Detections</div>
+                                <div class="metric-value">${detectionCount}</div>
+                            </div>
+                            <div class="metric-card">
+                                <div>Confidence</div>
+                                <div class="metric-value">${Math.round(avgConfidence * 100)}%</div>
+                            </div>
+                            <div class="metric-card">
+                                <div>Primary State</div>
+                                <div class="metric-value" style="font-size: 0.8em;">${mostCommonState.toUpperCase()}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="horse-position-section">
+                        <div class="chart-container">
+                            <div class="chart-title">Horse Position in Frame (X/Y Coordinates)</div>
+                            <canvas id="positionChart_${horseId}"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <div class="chart-title">Bounding Box Size Over Time</div>
+                            <canvas id="sizeChart_${horseId}"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="horse-charts-grid">
+                        <div class="chart-container">
+                            <div class="chart-title">Body State Timeline</div>
+                            <canvas id="bodyStateChart_${horseId}"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <div class="chart-title">Head Position Distribution</div>
+                            <canvas id="headPositionChart_${horseId}"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <div class="chart-title">Detection Confidence</div>
+                            <canvas id="confidenceChart_${horseId}"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <div class="chart-title">Head Angle Tracking</div>
+                            <canvas id="headAngleChart_${horseId}"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <div class="chart-title">Behavior Distribution</div>
+                            <canvas id="distributionChart_${horseId}"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <div class="chart-title">Activity Level (Movement)</div>
+                            <canvas id="activityChart_${horseId}"></canvas>
+                        </div>
+                    </div>
+                `;
+                
+                horseSectionsContainer.appendChild(horseSection);
+                
+                // Create charts for this horse
+                setTimeout(() => {
+                    createHorseCharts(horseId, horseData, stateCounts);
+                }, 100);
+            });
+        }
+        
+        function createHorseCharts(horseId, horseData, stateCounts) {
+            // Position tracking chart
+            const positionData = horseData.filter(d => d.position);
+            if (positionData.length > 0) {
+                const ctx1 = document.getElementById(`positionChart_${horseId}`).getContext('2d');
+                charts[`position_${horseId}`] = new Chart(ctx1, {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            label: 'Horse Position',
+                            data: positionData.map(d => ({
+                                x: d.position.bbox_center_x,
+                                y: 720 - d.position.bbox_center_y  // Flip Y for screen coordinates
+                            })),
+                            backgroundColor: stateColors[Object.keys(stateCounts)[0]] || '#4CAF50',
+                            borderColor: stateColors[Object.keys(stateCounts)[0]] || '#4CAF50',
+                            pointRadius: 3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { 
+                                title: { display: true, text: 'X Position (pixels)', color: 'white' },
+                                ticks: { color: 'white' },
+                                max: 1280
+                            },
+                            y: { 
+                                title: { display: true, text: 'Y Position (pixels)', color: 'white' },
+                                ticks: { color: 'white' },
+                                max: 720
+                            }
+                        }
+                    }
+                });
+                
+                // Bounding box size chart
+                const ctx2 = document.getElementById(`sizeChart_${horseId}`).getContext('2d');
+                charts[`size_${horseId}`] = new Chart(ctx2, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'Box Size',
+                            data: positionData.map(d => ({
+                                x: d.timestamp,
+                                y: d.position.bbox_width * d.position.bbox_height
+                            })),
+                            borderColor: '#FF9800',
+                            backgroundColor: '#FF980040',
+                            borderWidth: 2,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { 
+                                title: { display: true, text: 'Time (s)', color: 'white' },
+                                ticks: { color: 'white' }
+                            },
+                            y: { 
+                                title: { display: true, text: 'Size (pixels²)', color: 'white' },
+                                ticks: { color: 'white' }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Body state timeline
+            const ctx3 = document.getElementById(`bodyStateChart_${horseId}`).getContext('2d');
+            charts[`body_${horseId}`] = new Chart(ctx3, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Body State',
+                        data: horseData.map(d => ({ 
+                            x: d.timestamp, 
+                            y: Object.keys(stateColors).indexOf(d.body_state.state) 
+                        })),
+                        borderColor: stateColors[Object.keys(stateCounts)[0]] || '#4CAF50',
+                        backgroundColor: (stateColors[Object.keys(stateCounts)[0]] || '#4CAF50') + '40',
+                        borderWidth: 3,
+                        stepped: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { 
+                            title: { display: true, text: 'Time (s)', color: 'white' }, 
+                            ticks: { color: 'white' } 
+                        },
+                        y: { 
+                            ticks: { 
+                                color: 'white',
+                                callback: function(value) {
+                                    const states = Object.keys(stateColors);
+                                    return states[value] || '';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Head positions
+            const ctx4 = document.getElementById(`headPositionChart_${horseId}`).getContext('2d');
+            const headPositions = horseData.map(d => d.head_position?.state || 'head_neutral');
+            const positionCounts = {};
+            headPositions.forEach(pos => positionCounts[pos] = (positionCounts[pos] || 0) + 1);
+            
+            charts[`head_${horseId}`] = new Chart(ctx4, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(positionCounts).map(p => p.replace('_', ' ')),
+                    datasets: [{
+                        data: Object.values(positionCounts),
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: 'white', font: { size: 10 } } } }
+                }
+            });
+            
+            // Confidence timeline
+            const ctx5 = document.getElementById(`confidenceChart_${horseId}`).getContext('2d');
+            charts[`conf_${horseId}`] = new Chart(ctx5, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Body Confidence',
+                        data: horseData.map(d => ({ x: d.timestamp, y: d.body_state.confidence })),
+                        borderColor: '#4CAF50',
+                        borderWidth: 2
+                    }, {
+                        label: 'Head Confidence',
+                        data: horseData.map(d => ({ x: d.timestamp, y: d.head_position?.confidence || 0 })),
+                        borderColor: '#2196F3',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: 'white', font: { size: 10 } } } },
+                    scales: {
+                        x: { ticks: { color: 'white' } },
+                        y: { max: 1, ticks: { color: 'white' } }
+                    }
+                }
+            });
+            
+            // Head angle tracking
+            const ctx6 = document.getElementById(`headAngleChart_${horseId}`).getContext('2d');
+            charts[`angle_${horseId}`] = new Chart(ctx6, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Head Angle',
+                        data: horseData.map(d => ({ x: d.timestamp, y: d.head_position?.angle || 0 })),
+                        borderColor: '#9C27B0',
+                        borderWidth: 2,
+                        pointRadius: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: 'white' } },
+                        y: { 
+                            title: { display: true, text: 'Degrees', color: 'white' },
+                            ticks: { color: 'white' }
+                        }
+                    }
+                }
+            });
+            
+            // Distribution pie chart
+            const ctx7 = document.getElementById(`distributionChart_${horseId}`).getContext('2d');
+            charts[`dist_${horseId}`] = new Chart(ctx7, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(stateCounts).map(s => s.toUpperCase()),
+                    datasets: [{
+                        data: Object.values(stateCounts),
+                        backgroundColor: Object.keys(stateCounts).map(state => stateColors[state] || '#999')
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: 'white', font: { size: 10 } } } }
+                }
+            });
+            
+            // Activity level chart (movement based on position changes)
+            const ctx8 = document.getElementById(`activityChart_${horseId}`).getContext('2d');
+            const activityData = [];
+            const positionDataSorted = horseData.filter(d => d.position).sort((a, b) => a.timestamp - b.timestamp);
+            for (let i = 1; i < positionDataSorted.length; i++) {
+                const prev = positionDataSorted[i-1].position;
+                const curr = positionDataSorted[i].position;
+                const movement = Math.sqrt(
+                    Math.pow(curr.bbox_center_x - prev.bbox_center_x, 2) + 
+                    Math.pow(curr.bbox_center_y - prev.bbox_center_y, 2)
+                );
+                activityData.push({
+                    x: positionDataSorted[i].timestamp,
+                    y: movement
+                });
+            }
+            
+            charts[`activity_${horseId}`] = new Chart(ctx8, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Movement',
+                        data: activityData,
+                        borderColor: '#FF5722',
+                        backgroundColor: '#FF572240',
+                        borderWidth: 2,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: 'white' } },
+                        y: { 
+                            title: { display: true, text: 'Pixels Moved', color: 'white' },
+                            ticks: { color: 'white' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function createComparisonCharts() {
+            // Position comparison chart
+            const horses = [...new Set(timelineData.map(d => d.horse_id))];
+            const ctx1 = document.getElementById('positionComparisonChart').getContext('2d');
+            
+            charts['position_comparison'] = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    datasets: horses.map((horseId, idx) => ({
+                        label: `Horse #${horseId} X`,
+                        data: timelineData.filter(d => d.horse_id === horseId && d.position)
+                            .map(d => ({ x: d.timestamp, y: d.position.bbox_center_x })),
+                        borderColor: Object.values(stateColors)[idx % Object.keys(stateColors).length],
+                        borderWidth: 2,
+                        pointRadius: 1
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: 'white' } } },
+                    scales: {
+                        x: { ticks: { color: 'white' } },
+                        y: { ticks: { color: 'white' } }
+                    }
+                }
+            });
+            
+            // Confidence comparison
+            const ctx2 = document.getElementById('confidenceComparisonChart').getContext('2d');
+            charts['confidence_comparison'] = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    datasets: horses.map((horseId, idx) => ({
+                        label: `Horse #${horseId}`,
+                        data: timelineData.filter(d => d.horse_id === horseId)
+                            .map(d => ({ x: d.timestamp, y: d.body_state.confidence })),
+                        borderColor: Object.values(stateColors)[idx % Object.keys(stateColors).length],
+                        borderWidth: 2
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: 'white' } } },
+                    scales: {
+                        x: { ticks: { color: 'white' } },
+                        y: { max: 1, ticks: { color: 'white' } }
+                    }
+                }
+            });
+        }
+        
+        function createSystemOverviewCharts() {
+            // Overall quality chart
+            const ctx1 = document.getElementById('overallQualityChart').getContext('2d');
+            const qualityData = timelineData.map(d => ({
+                x: d.timestamp,
+                y: d.body_state.confidence
+            }));
+            
+            charts['overall_quality'] = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Detection Quality',
+                        data: qualityData,
+                        borderColor: '#4CAF50',
+                        backgroundColor: '#4CAF5040',
+                        borderWidth: 2,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: 'white' } } },
+                    scales: {
+                        x: { ticks: { color: 'white' } },
+                        y: { max: 1, ticks: { color: 'white' } }
+                    }
+                }
+            });
+            
+            // System metrics
+            const ctx2 = document.getElementById('systemMetricsChart').getContext('2d');
+            const horses = [...new Set(timelineData.map(d => d.horse_id))];
+            const systemMetrics = horses.map(horseId => {
+                const horseData = timelineData.filter(d => d.horse_id === horseId);
+                return {
+                    horse: `Horse #${horseId}`,
+                    detections: horseData.length,
+                    avgConfidence: horseData.reduce((acc, d) => acc + d.body_state.confidence, 0) / horseData.length,
+                    duration: Math.max(...horseData.map(d => d.timestamp)) - Math.min(...horseData.map(d => d.timestamp))
+                };
+            });
+            
+            charts['system_metrics'] = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: systemMetrics.map(m => m.horse),
+                    datasets: [{
+                        label: 'Detection Count',
+                        data: systemMetrics.map(m => m.detections),
+                        backgroundColor: '#2196F3',
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Avg Confidence',
+                        data: systemMetrics.map(m => m.avgConfidence * 100),
+                        backgroundColor: '#4CAF50',
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: 'white' } } },
+                    scales: {
+                        x: { ticks: { color: 'white' } },
+                        y: { 
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            ticks: { color: 'white' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            max: 100,
+                            ticks: { color: 'white' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function processNewVideo() {
+            location.reload();
+        }
+        
+        function exportAnalysis() {
+            // Create comprehensive analysis report
+            const horses = [...new Set(timelineData.map(d => d.horse_id))];
+            let report = `Horse Detection Analysis Report\n`;
+            report += `Generated: ${new Date().toLocaleString()}\n`;
+            report += `Total Horses: ${horses.length}\n`;
+            report += `Total Frames: ${[...new Set(timelineData.map(d => d.frame_idx))].length}\n\n`;
+            
+            horses.forEach(horseId => {
+                const horseData = timelineData.filter(d => d.horse_id === horseId);
+                const positions = horseData.filter(d => d.position);
+                const states = horseData.map(d => d.body_state.state);
+                const stateCounts = {};
+                states.forEach(state => stateCounts[state] = (stateCounts[state] || 0) + 1);
+                
+                report += `Horse #${horseId}:\n`;
+                report += `  Detections: ${horseData.length}\n`;
+                report += `  Duration: ${(Math.max(...horseData.map(d => d.timestamp)) - Math.min(...horseData.map(d => d.timestamp))).toFixed(1)}s\n`;
+                report += `  Avg Confidence: ${(horseData.reduce((acc, d) => acc + d.body_state.confidence, 0) / horseData.length * 100).toFixed(1)}%\n`;
+                if (positions.length > 0) {
+                    report += `  Avg Position: (${Math.round(positions.reduce((acc, d) => acc + d.position.bbox_center_x, 0) / positions.length)}, ${Math.round(positions.reduce((acc, d) => acc + d.position.bbox_center_y, 0) / positions.length)})\n`;
+                }
+                report += `  States: ${Object.entries(stateCounts).map(([state, count]) => `${state}(${count})`).join(', ')}\n\n`;
+            });
+            
+            const blob = new Blob([report], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `horse_analysis_report_${new Date().toISOString().slice(0,10)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

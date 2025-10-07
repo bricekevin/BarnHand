@@ -50,9 +50,11 @@ export const validateSchema = <T>(
       if (source === 'body') {
         req.body = validated;
       } else if (source === 'query') {
-        req.query = validated as Record<string, any>;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        req.query = validated as any;
       } else {
-        req.params = validated as Record<string, any>;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        req.params = validated as any;
       }
 
       next();

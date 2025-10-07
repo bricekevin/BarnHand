@@ -1,13 +1,23 @@
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
 
 // Types
+
 interface Stream {
   id: string;
   name: string;
   url: string;
+  type: 'local' | 'rtsp' | 'rtmp' | 'http';
   status: 'active' | 'inactive' | 'processing' | 'error';
   processedUrl?: string;
+  horseCount?: number;
+  accuracy?: number;
+  lastUpdate?: string;
+  config?: {
+    username?: string;
+    password?: string;
+    useAuth?: boolean;
+  };
 }
 
 interface Horse {
@@ -41,6 +51,7 @@ interface Detection {
   timestamp: Date;
 }
 
+
 interface AppState {
   // Streams
   streams: Stream[];
@@ -55,6 +66,7 @@ interface AppState {
 
   // UI State
   selectedStream: string | null;
+  selectedHorse: string | null;
   isLoading: boolean;
   error: string | null;
 
@@ -71,10 +83,12 @@ interface AppState {
 interface AppActions {
   // Stream actions
   addStream: (stream: Omit<Stream, 'id'>) => void;
+  addStreamWithId: (id: string, stream: Omit<Stream, 'id'>) => void;
   updateStream: (id: string, updates: Partial<Stream>) => void;
   removeStream: (id: string) => void;
   toggleStream: (id: string) => void;
   setActiveStreams: (streamIds: string[]) => void;
+
 
   // Horse actions
   addHorse: (horse: Omit<Horse, 'id'>) => void;
@@ -87,6 +101,7 @@ interface AppActions {
 
   // UI actions
   setSelectedStream: (streamId: string | null) => void;
+  setSelectedHorse: (horseId: string | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 
@@ -106,6 +121,7 @@ const initialState: AppState = {
   activeHorses: [],
   detections: [],
   selectedStream: null,
+  selectedHorse: null,
   isLoading: false,
   error: null,
   settings: {
@@ -119,13 +135,21 @@ const initialState: AppState = {
 
 export const useAppStore = create<AppStore>()(
   devtools(
-    (set, _get) => ({
-      ...initialState,
+    persist(
+      (set, _get) => ({
+        ...initialState,
 
       // Stream actions
       addStream: stream =>
         set(state => ({
-          streams: [...state.streams, { ...stream, id: crypto.randomUUID() }],
+          streams: [...state.streams, { ...stream, id: `stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` }],
+        })),
+
+      addStreamWithId: (id, stream) =>
+        set(state => ({
+          streams: state.streams.find(s => s.id === id)
+            ? state.streams // Stream already exists, don't add duplicate
+            : [...state.streams, { ...stream, id }],
         })),
 
       updateStream: (id, updates) =>
@@ -157,10 +181,11 @@ export const useAppStore = create<AppStore>()(
 
       setActiveStreams: streamIds => set({ activeStreams: streamIds }),
 
+
       // Horse actions
       addHorse: horse =>
         set(state => ({
-          horses: [...state.horses, { ...horse, id: crypto.randomUUID() }],
+          horses: [...state.horses, { ...horse, id: `horse-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` }],
         })),
 
       updateHorse: (id, updates) =>
@@ -190,8 +215,11 @@ export const useAppStore = create<AppStore>()(
             : [],
         })),
 
+
       // UI actions
       setSelectedStream: streamId => set({ selectedStream: streamId }),
+
+      setSelectedHorse: horseId => set({ selectedHorse: horseId }),
 
       setLoading: loading => set({ isLoading: loading }),
 
@@ -208,7 +236,15 @@ export const useAppStore = create<AppStore>()(
     }),
     {
       name: 'barnhand-store',
+      partialize: (state) => ({
+        streams: state.streams,
+        settings: state.settings
+      }),
     }
+  ),
+  {
+    name: 'barnhand-devtools',
+  }
   )
 );
 
@@ -220,5 +256,8 @@ export const useDetections = () => useAppStore(state => state.detections);
 export const useSettings = () => useAppStore(state => state.settings);
 export const useSelectedStream = () =>
   useAppStore(state => state.selectedStream);
+export const useSelectedHorse = () =>
+  useAppStore(state => state.selectedHorse);
 export const useLoading = () => useAppStore(state => state.isLoading);
 export const useError = () => useAppStore(state => state.error);
+

@@ -12,8 +12,7 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json* ./
-COPY ../../shared/package.json ../../shared/
-RUN npm ci
+RUN npm install
 
 # Development image
 FROM base as development
@@ -57,7 +56,7 @@ RUN apk add --no-cache \
     curl
 
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --only=production && npm cache clean --force
 
 # Build stage
 FROM base as builder

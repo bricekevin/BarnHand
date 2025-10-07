@@ -69,11 +69,11 @@ const startServer = async () => {
       console.log(`   • http://localhost:${env.PORT}/stream2/playlist.m3u8`);
       console.log(`   • http://localhost:${env.PORT}/stream3/playlist.m3u8`);
       console.log(`   • http://localhost:${env.PORT}/stream4/playlist.m3u8`);
-      console.log(`   • http://localhost:${env.PORT}/stream5/playlist.m3u8`);
       console.log(`❤️  Health Check: http://localhost:${env.PORT}/health`);
     });
 
-    // Store stream manager globally for graceful shutdown
+    // Store app and stream manager globally for graceful shutdown and auto-start
+    (global as any).app = app;
     (global as any).streamManager = (app as any).streamManager;
 
     // Handle server errors
@@ -111,8 +111,8 @@ const autoStartStreams = async () => {
           availableVideos: videos.length,
         });
 
-        // Start up to 5 streams with available videos
-        const streamsToStart = Math.min(5, videos.length);
+        // Start up to 4 streams with available videos
+        const streamsToStart = Math.min(4, videos.length);
 
         for (let i = 0; i < streamsToStart; i++) {
           try {
@@ -145,8 +145,9 @@ const autoStartStreams = async () => {
 
 // Start the server
 startServer().then(() => {
-  // Auto-start streams after server is ready
-  if (process.env.NODE_ENV !== 'test') {
+  // Auto-start streams after server is ready (disabled by default)
+  // Set ENABLE_AUTO_STREAMS=true to enable auto-start
+  if (process.env.NODE_ENV !== 'test' && process.env.ENABLE_AUTO_STREAMS === 'true') {
     autoStartStreams();
   }
 });

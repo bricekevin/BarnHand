@@ -2,10 +2,13 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { logger } from '../config/logger';
-import { authenticateToken, requireRole } from '../middleware/auth';
+import {
+  authenticateToken,
+  requireRole,
+  createAuthenticatedRoute,
+} from '../middleware/auth';
 import { validateSchema } from '../middleware/validation';
 import { UserRole } from '../types/auth';
-import { AuthenticatedRequest } from '../types/requests';
 
 // Validation schemas
 const metricsQuerySchema = z.object({
@@ -14,14 +17,6 @@ const metricsQuerySchema = z.object({
   hours: z.coerce.number().min(1).max(168).default(24), // 1 hour to 7 days
 });
 
-const exportQuerySchema = z.object({
-  farm_id: z.string().uuid().optional(),
-  start_date: z.string().datetime(),
-  end_date: z.string().datetime(),
-  format: z.enum(['json', 'csv', 'xlsx']).default('json'),
-  include_pose: z.coerce.boolean().default(false),
-  include_images: z.coerce.boolean().default(false),
-});
 
 const performanceQuerySchema = z.object({
   service: z
@@ -40,8 +35,12 @@ router.get(
   '/metrics',
   validateSchema(metricsQuerySchema, 'query'),
   requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
-  async (req: AuthenticatedRequest, res) => {
+  createAuthenticatedRoute(async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
       const { farm_id, stream_id, hours } = req.query;
 
       // Filter farm access for non-super-admin users
@@ -99,70 +98,26 @@ router.get(
         hours,
       });
 
-      res.json(mockMetrics);
+      return res.json(mockMetrics);
     } catch (error) {
       logger.error('Get analytics metrics error', { error });
-      res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
-// GET /api/v1/analytics/export - Data export
-router.get(
-  '/export',
-  validateSchema(exportQuerySchema, 'query'),
-  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN]),
-  async (req: AuthenticatedRequest, res) => {
-    try {
-      const {
-        farm_id,
-        start_date,
-        end_date,
-        format,
-        include_pose,
-        include_images,
-      } = req.query;
-
-      // Filter farm access for non-super-admin users
-      const targetFarmId =
-        req.user.role === UserRole.SUPER_ADMIN ? farm_id : req.user.farmId;
-
-      // TODO: Implement actual data export with DetectionRepository
-      const exportId = `export_${Date.now()}`;
-
-      logger.info('Data export requested', {
-        userId: req.user.userId,
-        exportId,
-        farmId: targetFarmId,
-        dateRange: { start_date, end_date },
-        format,
-        options: { include_pose, include_images },
-      });
-
-      // In production, this would trigger an async export job
-      res.json({
-        exportId,
-        status: 'processing',
-        estimatedCompletionTime: new Date(Date.now() + 60 * 1000), // 1 minute
-        downloadUrl: null, // Will be populated when complete
-        format,
-        options: { include_pose, include_images },
-        createdAt: new Date(),
-      });
-    } catch (error) {
-      logger.error('Data export error', { error });
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  }
-);
 
 // GET /api/v1/analytics/performance - System performance metrics
 router.get(
   '/performance',
   validateSchema(performanceQuerySchema, 'query'),
   requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN]),
-  async (req: AuthenticatedRequest, res) => {
+  createAuthenticatedRoute(async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
       const { service, hours } = req.query;
 
       // TODO: Replace with actual service health monitoring
@@ -215,12 +170,12 @@ router.get(
         hours,
       });
 
-      res.json(mockPerformance);
+      return res.json(mockPerformance);
     } catch (error) {
       logger.error('Get performance metrics error', { error });
-      res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: 'Internal server error' });
     }
-  }
+  })
 );
 
 export default router;

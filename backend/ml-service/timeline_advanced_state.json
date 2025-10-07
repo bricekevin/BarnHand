@@ -1,0 +1,4450 @@
+[
+  {
+    "frame_idx": 1,
+    "timestamp": 0.03333333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 154.4579891289837
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7976038385840023,
+      "bbox_aspect_ratio": 1.345564446812234,
+      "frame_count": 1
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 1,
+    "timestamp": 0.03333333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 154.4579891289837
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7976038385840023,
+      "bbox_aspect_ratio": 1.345564446812234,
+      "frame_count": 2
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 2,
+    "timestamp": 0.06666666666666667,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 155.94265500304812
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7818824298241559,
+      "bbox_aspect_ratio": 1.3328517841985175,
+      "frame_count": 3
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 4,
+    "timestamp": 0.13333333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 153.63116340319124
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7368373099495383,
+      "bbox_aspect_ratio": 1.3151690388844104,
+      "frame_count": 4
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 5,
+    "timestamp": 0.16666666666666666,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 151.66954804997096
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7538216008859522,
+      "bbox_aspect_ratio": 1.3060851394187318,
+      "frame_count": 5
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 8,
+    "timestamp": 0.26666666666666666,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 152.57666691204193
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.764265684520497,
+      "bbox_aspect_ratio": 1.2841022552825032,
+      "frame_count": 6
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 10,
+    "timestamp": 0.3333333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 153.43493599054239
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7193906868205351,
+      "bbox_aspect_ratio": 1.346720932710392,
+      "frame_count": 7
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 11,
+    "timestamp": 0.36666666666666664,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 152.39332749423258
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7469719543176538,
+      "bbox_aspect_ratio": 1.3123219370417374,
+      "frame_count": 8
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 16,
+    "timestamp": 0.5333333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 161.2586590943286
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8285287197898416,
+      "bbox_aspect_ratio": 1.3171262673330821,
+      "frame_count": 9
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 17,
+    "timestamp": 0.5666666666666667,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 158.55227166724285
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8105007655480329,
+      "bbox_aspect_ratio": 1.3297776918608846,
+      "frame_count": 10
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 18,
+    "timestamp": 0.6,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 161.40892656620474
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8087950313792509,
+      "bbox_aspect_ratio": 1.3764142201115699,
+      "frame_count": 11
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 19,
+    "timestamp": 0.6333333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 157.83366299924685
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.812013773357167,
+      "bbox_aspect_ratio": 1.3401815983597987,
+      "frame_count": 12
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 20,
+    "timestamp": 0.6666666666666666,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 161.25864414650965
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8168713520554935,
+      "bbox_aspect_ratio": 1.2517785398767867,
+      "frame_count": 13
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 20,
+    "timestamp": 0.6666666666666666,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.0,
+      "angle": 0.0
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.22176853479707942,
+      "bbox_aspect_ratio": 0.6883821106323256,
+      "frame_count": 1
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 21,
+    "timestamp": 0.7,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 162.61761505018384
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8203510010943693,
+      "bbox_aspect_ratio": 1.238414922917369,
+      "frame_count": 14
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 23,
+    "timestamp": 0.7666666666666667,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 159.70824247470583
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8583613038063049,
+      "bbox_aspect_ratio": 1.1969378171978766,
+      "frame_count": 15
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 24,
+    "timestamp": 0.8,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 161.7005126563291
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8023778726072872,
+      "bbox_aspect_ratio": 1.2112524151620898,
+      "frame_count": 16
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 25,
+    "timestamp": 0.8333333333333334,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 161.83405347688287
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7886014510603512,
+      "bbox_aspect_ratio": 1.2066885745183327,
+      "frame_count": 17
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 25,
+    "timestamp": 0.8333333333333334,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.0,
+      "angle": 0.0
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.2737428318051731,
+      "bbox_aspect_ratio": 0.6549264636787102,
+      "frame_count": 2
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 27,
+    "timestamp": 0.9,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.0,
+      "angle": 0.0
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.2829234341488165,
+      "bbox_aspect_ratio": 0.6588471119611043,
+      "frame_count": 3
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 28,
+    "timestamp": 0.9333333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 161.0534958071758
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8041225321152631,
+      "bbox_aspect_ratio": 1.2732036086704943,
+      "frame_count": 18
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 31,
+    "timestamp": 1.0333333333333334,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 159.0202573919051
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7917907939237707,
+      "bbox_aspect_ratio": 1.2919881663775232,
+      "frame_count": 19
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 31,
+    "timestamp": 1.0333333333333334,
+    "horse_id": 3,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 84.64417084970759
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.585574225467794,
+      "bbox_aspect_ratio": 1.2233529196103883,
+      "frame_count": 1
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 33,
+    "timestamp": 1.1,
+    "horse_id": 3,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 85.36452517571232
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5341394157970653,
+      "bbox_aspect_ratio": 1.3095944094425245,
+      "frame_count": 2
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 34,
+    "timestamp": 1.1333333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 154.57312864792968
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7779413005884956,
+      "bbox_aspect_ratio": 1.3105607304651263,
+      "frame_count": 20
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 35,
+    "timestamp": 1.1666666666666667,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 157.0362230530407
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7028380457092734,
+      "bbox_aspect_ratio": 1.3496638521867506,
+      "frame_count": 21
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 36,
+    "timestamp": 1.2,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 153.2288484467447
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7590395194642684,
+      "bbox_aspect_ratio": 1.2974234570561949,
+      "frame_count": 22
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 37,
+    "timestamp": 1.2333333333333334,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 147.20912182417902
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7410607653505662,
+      "bbox_aspect_ratio": 1.3846910042495133,
+      "frame_count": 23
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 39,
+    "timestamp": 1.3,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 145.92281163497304
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7423980060745689,
+      "bbox_aspect_ratio": 1.3324343488105654,
+      "frame_count": 24
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 43,
+    "timestamp": 1.4333333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 143.0223866859059
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8300936502568862,
+      "bbox_aspect_ratio": 1.2153937447754037,
+      "frame_count": 25
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 43,
+    "timestamp": 1.4333333333333333,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.85,
+      "angle": 93.67450828490186
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.47558874943677115,
+      "bbox_aspect_ratio": 0.4543503195192245,
+      "frame_count": 4
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 44,
+    "timestamp": 1.4666666666666666,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.8,
+      "angle": 141.4993384215653
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8431913922814762,
+      "bbox_aspect_ratio": 1.2322742402214817,
+      "frame_count": 26
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 44,
+    "timestamp": 1.4666666666666666,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.85,
+      "angle": 99.59692578734033
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.4804198724382064,
+      "bbox_aspect_ratio": 0.47158737929984657,
+      "frame_count": 5
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 45,
+    "timestamp": 1.5,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.7,
+      "angle": 139.4608547793127
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7980068711673513,
+      "bbox_aspect_ratio": 1.2370678500460461,
+      "frame_count": 27
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 48,
+    "timestamp": 1.6,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.85,
+      "angle": 92.0617616455281
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5356607542318457,
+      "bbox_aspect_ratio": 0.5027004966962306,
+      "frame_count": 6
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 50,
+    "timestamp": 1.6666666666666667,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.7,
+      "angle": 130.23638445332196
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8015625932637382,
+      "bbox_aspect_ratio": 1.104413851962485,
+      "frame_count": 28
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 51,
+    "timestamp": 1.7,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.7,
+      "angle": 123.8351085867812
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7483960390090942,
+      "bbox_aspect_ratio": 0.9814489808380119,
+      "frame_count": 29
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 55,
+    "timestamp": 1.8333333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.7,
+      "angle": 116.32830042254271
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.617401601637111,
+      "bbox_aspect_ratio": 0.9050005530296285,
+      "frame_count": 30
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 56,
+    "timestamp": 1.8666666666666667,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_left_back",
+      "confidence": 0.7,
+      "angle": 114.17911131905495
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5854399274377262,
+      "bbox_aspect_ratio": 0.9248831671984822,
+      "frame_count": 31
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 57,
+    "timestamp": 1.9,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.7,
+      "angle": 115.51385000132021
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.668935074525721,
+      "bbox_aspect_ratio": 0.9016531584011145,
+      "frame_count": 32
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 58,
+    "timestamp": 1.9333333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.7,
+      "angle": 107.70043916225853
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.6567699295632979,
+      "bbox_aspect_ratio": 0.90362831132498,
+      "frame_count": 33
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 59,
+    "timestamp": 1.9666666666666666,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.7,
+      "angle": 122.00537875965392
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5751107615583083,
+      "bbox_aspect_ratio": 0.9253390172082455,
+      "frame_count": 34
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 59,
+    "timestamp": 1.9666666666666666,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 119.12716819379098
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5335170924663544,
+      "bbox_aspect_ratio": 0.6715086108239082,
+      "frame_count": 1
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 60,
+    "timestamp": 2.0,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.7,
+      "angle": 106.75574961193172
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5996840263114256,
+      "bbox_aspect_ratio": 0.9252720339345846,
+      "frame_count": 35
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 60,
+    "timestamp": 2.0,
+    "horse_id": 5,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 121.32009839152182
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.9593718858326182,
+      "bbox_aspect_ratio": 0.6656122324284064,
+      "frame_count": 1
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 61,
+    "timestamp": 2.033333333333333,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 122.4711804543196
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.4743375778198242,
+      "bbox_aspect_ratio": 0.6876917964096295,
+      "frame_count": 2
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 61,
+    "timestamp": 2.033333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.0,
+      "angle": 0.0
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5430288008030724,
+      "bbox_aspect_ratio": 0.9160290635738607,
+      "frame_count": 36
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 62,
+    "timestamp": 2.066666666666667,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 125.42968033296307
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5910111227456261,
+      "bbox_aspect_ratio": 0.7364024244793927,
+      "frame_count": 3
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 62,
+    "timestamp": 2.066666666666667,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.7,
+      "angle": 113.60018869887233
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.6701320918167338,
+      "bbox_aspect_ratio": 0.8616639670697122,
+      "frame_count": 37
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 63,
+    "timestamp": 2.1,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 126.69320936720796
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5614930496496313,
+      "bbox_aspect_ratio": 0.7587664611090453,
+      "frame_count": 4
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 63,
+    "timestamp": 2.1,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.7,
+      "angle": 113.25920576531315
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.47751593063859377,
+      "bbox_aspect_ratio": 0.940820696839912,
+      "frame_count": 38
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 64,
+    "timestamp": 2.1333333333333333,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 127.55467985651214
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5192411349100226,
+      "bbox_aspect_ratio": 0.8071091820661884,
+      "frame_count": 5
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 64,
+    "timestamp": 2.1333333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.7,
+      "angle": 107.7648384811988
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.47209905701525073,
+      "bbox_aspect_ratio": 0.9423205720420365,
+      "frame_count": 39
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 65,
+    "timestamp": 2.1666666666666665,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 132.16588839849513
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5895696597940782,
+      "bbox_aspect_ratio": 0.8538891611635177,
+      "frame_count": 6
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 65,
+    "timestamp": 2.1666666666666665,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.7,
+      "angle": 112.05107161293404
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5179023392060224,
+      "bbox_aspect_ratio": 0.9443033249724009,
+      "frame_count": 40
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 66,
+    "timestamp": 2.2,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 132.9228134374983
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.42822596167816834,
+      "bbox_aspect_ratio": 0.833474159281425,
+      "frame_count": 7
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 67,
+    "timestamp": 2.2333333333333334,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 134.23200922719238
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5053044084240409,
+      "bbox_aspect_ratio": 0.8971320684553244,
+      "frame_count": 8
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 68,
+    "timestamp": 2.2666666666666666,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 136.28573534277407
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.48334034400827747,
+      "bbox_aspect_ratio": 0.9204020406892939,
+      "frame_count": 9
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 69,
+    "timestamp": 2.3,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 134.65063239956604
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5453704963712132,
+      "bbox_aspect_ratio": 0.959600511588142,
+      "frame_count": 10
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 70,
+    "timestamp": 2.3333333333333335,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 134.37038973549144
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5796882177100462,
+      "bbox_aspect_ratio": 0.9613907125165869,
+      "frame_count": 11
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 71,
+    "timestamp": 2.3666666666666667,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 134.68517451512645
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.6003724091193255,
+      "bbox_aspect_ratio": 1.093959803059449,
+      "frame_count": 12
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 71,
+    "timestamp": 2.3666666666666667,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.7,
+      "angle": 111.42527225587018
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.6046124188339009,
+      "bbox_aspect_ratio": 0.7349376615999373,
+      "frame_count": 41
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 72,
+    "timestamp": 2.4,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 134.8358289814487
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.587545642081429,
+      "bbox_aspect_ratio": 1.0363219522598963,
+      "frame_count": 13
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 73,
+    "timestamp": 2.433333333333333,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 134.33381546829446
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5596605977591347,
+      "bbox_aspect_ratio": 1.1221470104290798,
+      "frame_count": 14
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 73,
+    "timestamp": 2.433333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.7,
+      "angle": 122.77487369448936
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5976407738292918,
+      "bbox_aspect_ratio": 0.6852840626895592,
+      "frame_count": 42
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 74,
+    "timestamp": 2.466666666666667,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 134.82040888028038
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5818910493570215,
+      "bbox_aspect_ratio": 1.1624145963783477,
+      "frame_count": 15
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 75,
+    "timestamp": 2.5,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 135.74891082132444
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5675519967780394,
+      "bbox_aspect_ratio": 1.203301375493007,
+      "frame_count": 16
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 76,
+    "timestamp": 2.533333333333333,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 134.80036427135488
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.6024515944368699,
+      "bbox_aspect_ratio": 1.3093237874214207,
+      "frame_count": 17
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 76,
+    "timestamp": 2.533333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.8,
+      "angle": 132.4142292014581
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5703094005584717,
+      "bbox_aspect_ratio": 0.6997301240044224,
+      "frame_count": 43
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 77,
+    "timestamp": 2.566666666666667,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 135.0
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.631913539241342,
+      "bbox_aspect_ratio": 1.4028667707871783,
+      "frame_count": 18
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 77,
+    "timestamp": 2.566666666666667,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.8,
+      "angle": 132.34581392526317
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5376743884647593,
+      "bbox_aspect_ratio": 0.6859402133845612,
+      "frame_count": 44
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 78,
+    "timestamp": 2.6,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 138.43767986178668
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.6418291067375856,
+      "bbox_aspect_ratio": 1.3441462482896716,
+      "frame_count": 19
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 79,
+    "timestamp": 2.6333333333333333,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 138.70462983041895
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.6420707071528715,
+      "bbox_aspect_ratio": 1.313157817819762,
+      "frame_count": 20
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 79,
+    "timestamp": 2.6333333333333333,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.7,
+      "angle": 123.2749207454851
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5663871677482829,
+      "bbox_aspect_ratio": 0.7382231359888312,
+      "frame_count": 45
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 81,
+    "timestamp": 2.7,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 141.34018332493227
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.571896484669517,
+      "bbox_aspect_ratio": 1.3211652273455616,
+      "frame_count": 21
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 81,
+    "timestamp": 2.7,
+    "horse_id": 1,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_neutral",
+      "confidence": 0.8,
+      "angle": 121.32869717459403
+    },
+    "action_1s": {
+      "action": "running_pattern",
+      "confidence": 0.8
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5549829724956962,
+      "bbox_aspect_ratio": 0.6307258979759369,
+      "frame_count": 46
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 84,
+    "timestamp": 2.8,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 142.57088666806806
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7240400945439058,
+      "bbox_aspect_ratio": 1.3557196516884613,
+      "frame_count": 22
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 86,
+    "timestamp": 2.8666666666666667,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 142.5708915683924
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7156870365142822,
+      "bbox_aspect_ratio": 1.3635883642019277,
+      "frame_count": 23
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 87,
+    "timestamp": 2.9,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 138.95755560412573
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7804448078660404,
+      "bbox_aspect_ratio": 1.3359237624426334,
+      "frame_count": 24
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 88,
+    "timestamp": 2.933333333333333,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 136.63657418993876
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.6968411487691543,
+      "bbox_aspect_ratio": 1.3578655262610526,
+      "frame_count": 25
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 89,
+    "timestamp": 2.966666666666667,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 137.6754293543629
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7380734892452464,
+      "bbox_aspect_ratio": 1.3899893917736277,
+      "frame_count": 26
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 90,
+    "timestamp": 3.0,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 136.8806788516221
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7311921891044167,
+      "bbox_aspect_ratio": 1.3790582837765843,
+      "frame_count": 27
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 91,
+    "timestamp": 3.033333333333333,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.7,
+      "angle": 83.99095600622528
+    },
+    "action_1s": {
+      "action": "running_pattern",
+      "confidence": 0.8
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.9844915866851807,
+      "bbox_aspect_ratio": 0.6548144640342828,
+      "frame_count": 28
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 91,
+    "timestamp": 3.033333333333333,
+    "horse_id": 4,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.7,
+      "angle": 83.99095600622528
+    },
+    "action_1s": {
+      "action": "running_pattern",
+      "confidence": 0.8
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.9844915866851807,
+      "bbox_aspect_ratio": 0.6548144640342828,
+      "frame_count": 29
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 92,
+    "timestamp": 3.066666666666667,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 136.20423755750025
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7691470594967112,
+      "bbox_aspect_ratio": 1.3806134348871735,
+      "frame_count": 7
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 93,
+    "timestamp": 3.1,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 136.9504857310954
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7325708235011381,
+      "bbox_aspect_ratio": 1.3701854908860538,
+      "frame_count": 8
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 94,
+    "timestamp": 3.1333333333333333,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 137.5367571807463
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7260433786055621,
+      "bbox_aspect_ratio": 1.3723712900881218,
+      "frame_count": 9
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 98,
+    "timestamp": 3.2666666666666666,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 140.85601445932758
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7841193079948425,
+      "bbox_aspect_ratio": 1.417977284925293,
+      "frame_count": 10
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 99,
+    "timestamp": 3.3,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 141.4739503512589
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8152340685620028,
+      "bbox_aspect_ratio": 1.558150034634496,
+      "frame_count": 11
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 100,
+    "timestamp": 3.3333333333333335,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 141.063620851692
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8023867536993587,
+      "bbox_aspect_ratio": 1.6111323663452126,
+      "frame_count": 12
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 101,
+    "timestamp": 3.3666666666666667,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 140.12316522873118
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7744628716917599,
+      "bbox_aspect_ratio": 1.5455764825195235,
+      "frame_count": 13
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 102,
+    "timestamp": 3.4,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 141.76617649228737
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8369970637209275,
+      "bbox_aspect_ratio": 1.539565424454525,
+      "frame_count": 14
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 103,
+    "timestamp": 3.433333333333333,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 143.87485241470637
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7567531606730293,
+      "bbox_aspect_ratio": 1.5029548586064954,
+      "frame_count": 15
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 104,
+    "timestamp": 3.466666666666667,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 143.24070810302396
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.788067456553964,
+      "bbox_aspect_ratio": 1.5652688353796271,
+      "frame_count": 16
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 105,
+    "timestamp": 3.5,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 143.9305844204644
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.819667819668265,
+      "bbox_aspect_ratio": 1.6103756111684107,
+      "frame_count": 17
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 106,
+    "timestamp": 3.533333333333333,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 144.1228922810029
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.798606185352101,
+      "bbox_aspect_ratio": 1.692892319373239,
+      "frame_count": 18
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 107,
+    "timestamp": 3.566666666666667,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 143.13010235415598
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8573997441460105,
+      "bbox_aspect_ratio": 1.7863821977460457,
+      "frame_count": 19
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 108,
+    "timestamp": 3.6,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 143.3374423201223
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7717509655391469,
+      "bbox_aspect_ratio": 1.7683000558183701,
+      "frame_count": 20
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 109,
+    "timestamp": 3.6333333333333333,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 141.5738580043972
+    },
+    "action_1s": {
+      "action": "running_pattern",
+      "confidence": 0.8
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8256860726019916,
+      "bbox_aspect_ratio": 1.7859933898200724,
+      "frame_count": 21
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 110,
+    "timestamp": 3.6666666666666665,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 140.50041043214082
+    },
+    "action_1s": {
+      "action": "running_pattern",
+      "confidence": 0.8
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7933035177343032,
+      "bbox_aspect_ratio": 1.7857908466560837,
+      "frame_count": 22
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 111,
+    "timestamp": 3.7,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 140.77432623109112
+    },
+    "action_1s": {
+      "action": "running_pattern",
+      "confidence": 0.8
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8319182501119726,
+      "bbox_aspect_ratio": 1.853554266371283,
+      "frame_count": 23
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 112,
+    "timestamp": 3.7333333333333334,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 137.8084820607891
+    },
+    "action_1s": {
+      "action": "running_pattern",
+      "confidence": 0.8
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8727206202114329,
+      "bbox_aspect_ratio": 1.9242478839358048,
+      "frame_count": 24
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 113,
+    "timestamp": 3.7666666666666666,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 135.9548345400596
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7479717135429382,
+      "bbox_aspect_ratio": 2.0293358216716126,
+      "frame_count": 25
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 114,
+    "timestamp": 3.8,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 134.7383722030119
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.6794000934152042,
+      "bbox_aspect_ratio": 2.0744176488306727,
+      "frame_count": 26
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 115,
+    "timestamp": 3.8333333333333335,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 134.19307150492736
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7550426265772652,
+      "bbox_aspect_ratio": 2.1195854122713707,
+      "frame_count": 27
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 116,
+    "timestamp": 3.8666666666666667,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 131.72951505600258
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7329491166507497,
+      "bbox_aspect_ratio": 2.1242801308048636,
+      "frame_count": 28
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 117,
+    "timestamp": 3.9,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 132.77603320245188
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7322385872111601,
+      "bbox_aspect_ratio": 2.1532215670553527,
+      "frame_count": 29
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 118,
+    "timestamp": 3.933333333333333,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 136.05118422167692
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5795932850416969,
+      "bbox_aspect_ratio": 2.0541429756784226,
+      "frame_count": 30
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 119,
+    "timestamp": 3.966666666666667,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 131.15587077900264
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.731617363060222,
+      "bbox_aspect_ratio": 1.9132085596589559,
+      "frame_count": 31
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 120,
+    "timestamp": 4.0,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 132.52994362865437
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8131020244430093,
+      "bbox_aspect_ratio": 1.7434342655721329,
+      "frame_count": 32
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 121,
+    "timestamp": 4.033333333333333,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 128.9801468602131
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8624302744865417,
+      "bbox_aspect_ratio": 1.6793848159163425,
+      "frame_count": 33
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 122,
+    "timestamp": 4.066666666666666,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 125.50461409996899
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7134746874079985,
+      "bbox_aspect_ratio": 1.7295626218865052,
+      "frame_count": 34
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 123,
+    "timestamp": 4.1,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 125.40109457891697
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7339722829706529,
+      "bbox_aspect_ratio": 1.7170090805780338,
+      "frame_count": 35
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 124,
+    "timestamp": 4.133333333333334,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 123.52752280910912
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.682828335201039,
+      "bbox_aspect_ratio": 1.7133223906763857,
+      "frame_count": 36
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 125,
+    "timestamp": 4.166666666666667,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 124.64094851407991
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5506533857654122,
+      "bbox_aspect_ratio": 1.7114032935584431,
+      "frame_count": 37
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 126,
+    "timestamp": 4.2,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 125.21759483457792
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.5595387781367582,
+      "bbox_aspect_ratio": 1.6994161042706337,
+      "frame_count": 38
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 127,
+    "timestamp": 4.233333333333333,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 124.12854906897367
+    },
+    "action_1s": {
+      "action": "walking_pattern",
+      "confidence": 0.75
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.6546624688541188,
+      "bbox_aspect_ratio": 1.6643875936525665,
+      "frame_count": 39
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 128,
+    "timestamp": 4.266666666666667,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 121.41704095460622
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.6836488509879393,
+      "bbox_aspect_ratio": 1.6475085538268577,
+      "frame_count": 40
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 129,
+    "timestamp": 4.3,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 121.24691821581139
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7415489010951098,
+      "bbox_aspect_ratio": 1.6189869161993606,
+      "frame_count": 41
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 130,
+    "timestamp": 4.333333333333333,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 121.00978205221318
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7788165930439445,
+      "bbox_aspect_ratio": 1.581065602287803,
+      "frame_count": 42
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 131,
+    "timestamp": 4.366666666666666,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 119.71256781886709
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7922818380243638,
+      "bbox_aspect_ratio": 1.5638781639426012,
+      "frame_count": 43
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 132,
+    "timestamp": 4.4,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 118.50243099077052
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7422438614508685,
+      "bbox_aspect_ratio": 1.5701428276642853,
+      "frame_count": 44
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 133,
+    "timestamp": 4.433333333333334,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 119.34303926197047
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.7809441685676575,
+      "bbox_aspect_ratio": 1.6176500692093165,
+      "frame_count": 45
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 134,
+    "timestamp": 4.466666666666667,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 118.87877237416876
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.874208118985681,
+      "bbox_aspect_ratio": 1.5888335405024636,
+      "frame_count": 46
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 135,
+    "timestamp": 4.5,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 118.62985454618806
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8306367327185238,
+      "bbox_aspect_ratio": 1.533567507732502,
+      "frame_count": 47
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 136,
+    "timestamp": 4.533333333333333,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 117.30637073075371
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.877103493494146,
+      "bbox_aspect_ratio": 1.484219926695074,
+      "frame_count": 48
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 137,
+    "timestamp": 4.566666666666666,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 117.40757603263216
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.9519499890944537,
+      "bbox_aspect_ratio": 1.4700696872821812,
+      "frame_count": 49
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 138,
+    "timestamp": 4.6,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 118.91542530414709
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.9185932348756229,
+      "bbox_aspect_ratio": 1.4887800705909076,
+      "frame_count": 50
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 139,
+    "timestamp": 4.633333333333334,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 120.35811409711485
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.948770473985111,
+      "bbox_aspect_ratio": 1.4700824078696184,
+      "frame_count": 51
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 140,
+    "timestamp": 4.666666666666667,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 122.45103477191533
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8806163002462948,
+      "bbox_aspect_ratio": 1.6021226864383096,
+      "frame_count": 52
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 141,
+    "timestamp": 4.7,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 123.3885159252908
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.9266505592009601,
+      "bbox_aspect_ratio": 1.6783762836059841,
+      "frame_count": 53
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 142,
+    "timestamp": 4.733333333333333,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 124.22480245101669
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.9139123734305886,
+      "bbox_aspect_ratio": 1.6886457447160916,
+      "frame_count": 54
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 143,
+    "timestamp": 4.766666666666667,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 123.61357483973535
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.959065482896917,
+      "bbox_aspect_ratio": 1.6983608503498244,
+      "frame_count": 55
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 144,
+    "timestamp": 4.8,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 123.91359475236595
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.9044071821605458,
+      "bbox_aspect_ratio": 1.6807235861044914,
+      "frame_count": 56
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 145,
+    "timestamp": 4.833333333333333,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 123.91742320968396
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.9404004917425268,
+      "bbox_aspect_ratio": 1.7178988080760698,
+      "frame_count": 57
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 146,
+    "timestamp": 4.866666666666666,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 121.80353707597918
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.878368780893438,
+      "bbox_aspect_ratio": 1.6909730920305543,
+      "frame_count": 58
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 147,
+    "timestamp": 4.9,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 120.33733311856817
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.9221643665257622,
+      "bbox_aspect_ratio": 1.6845398045251505,
+      "frame_count": 59
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 148,
+    "timestamp": 4.933333333333334,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 121.2550974846295
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.9534051909166223,
+      "bbox_aspect_ratio": 1.729110501457386,
+      "frame_count": 60
+    },
+    "alerts": []
+  },
+  {
+    "frame_idx": 149,
+    "timestamp": 4.966666666666667,
+    "horse_id": 2,
+    "body_state": {
+      "state": "standing_still",
+      "confidence": 0.7,
+      "raw_scores": {
+        "standing": 0.7
+      }
+    },
+    "head_position": {
+      "state": "head_down",
+      "confidence": 0.85,
+      "angle": 121.39027308050181
+    },
+    "action_1s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "action_5s": {
+      "action": "none",
+      "confidence": 0.0
+    },
+    "measurements": {
+      "keypoints_detected": 17,
+      "avg_keypoint_confidence": 0.8736948861795313,
+      "bbox_aspect_ratio": 1.6949012567835122,
+      "frame_count": 61
+    },
+    "alerts": []
+  }
+]

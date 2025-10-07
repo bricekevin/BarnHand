@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
 
-import { AdvancedSettings } from '../components/AdvancedSettings';
-import { ModelConfiguration } from '../components/ModelConfiguration';
+import { StreamControl } from '../components/StreamControl';
 import { StreamSettings } from '../components/StreamSettings';
-import { useSettings, useAppStore } from '../stores/useAppStore';
 
 export const Settings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'model' | 'stream' | 'advanced'>('model');
+  const [activeTab, setActiveTab] = useState<'control' | 'settings'>('control');
 
   const tabs = [
-    { id: 'model', label: 'ML Configuration', icon: '🧠' },
-    { id: 'stream', label: 'Stream Settings', icon: '📹' },
-    { id: 'advanced', label: 'Advanced', icon: '⚙️' },
+    { id: 'control', label: 'Stream Control', icon: '🎬' },
+    { id: 'settings', label: 'Stream Settings', icon: '⚙️' },
   ];
 
   return (
@@ -25,7 +22,7 @@ export const Settings: React.FC = () => {
                 System Settings
               </h1>
               <p className="text-slate-400 text-sm mt-1">
-                Configure ML models, streaming, and system preferences
+                Manage video streams and system configuration
               </p>
             </div>
             <div className="flex items-center space-x-3">
@@ -60,9 +57,8 @@ export const Settings: React.FC = () => {
         {/* Tab Content */}
         <div className="pb-8">
           <div className="transition-all duration-300">
-            {activeTab === 'model' && <ModelConfiguration />}
-            {activeTab === 'stream' && <StreamSettings />}
-            {activeTab === 'advanced' && <AdvancedSettings />}
+            {activeTab === 'control' && <StreamControl />}
+            {activeTab === 'settings' && <StreamSettings />}
           </div>
         </div>
       </div>

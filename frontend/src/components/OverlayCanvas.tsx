@@ -88,7 +88,7 @@ export const OverlayCanvas: React.FC<OverlayCanvasProps> = ({
   className = '',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number>(0);
 
   const getHorseColor = useCallback((trackingId: string) => {
     const hash = trackingId
@@ -217,7 +217,7 @@ export const OverlayCanvas: React.FC<OverlayCanvasProps> = ({
     });
 
     // Request next frame
-    animationFrameRef.current = requestAnimationFrame(drawDetections);
+    animationFrameRef.current = requestAnimationFrame(() => drawDetections());
   }, [detections, showPose, showTrackingIds, getHorseColor, videoRef]);
 
   useEffect(() => {
