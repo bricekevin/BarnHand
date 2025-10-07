@@ -27,6 +27,15 @@ COPY requirements-dev.txt ./
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir numpy
+
+# Install openmim for mmcv management
+RUN pip install --no-cache-dir openmim==0.3.9
+
+# Install mmcv with compiled extensions using mim (recommended by OpenMMLab)
+# This will compile from source on ARM (15-20 min), use pre-built wheels on x86
+RUN mim install "mmcv>=2.0.0,<2.2.0"
+
+# Install remaining dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Development image
