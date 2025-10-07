@@ -284,6 +284,15 @@ export class VideoChunkService {
       // Extract metadata using ffprobe
       await this.extractMetadata(chunk);
 
+      // Trigger ML processing asynchronously (fire and forget)
+      // This won't block the response to the client
+      this.triggerMLProcessing(chunk).catch(error => {
+        logger.error('ML processing trigger failed (non-blocking)', {
+          error,
+          chunkId: id,
+        });
+      });
+
       // Remove from active recordings
       this.activeRecordings.delete(id);
 
@@ -627,6 +636,129 @@ export class VideoChunkService {
       path: this.chunkStoragePath,
       activeRecordings: this.activeRecordings.size,
     };
+  }
+
+  /**
+   * Trigger ML processing for a video chunk
+   * This method sends the chunk to the ML service for processing asynchronously
+   */
+  async triggerMLProcessing(chunk: VideoChunk): Promise<void> {
+    const {
+      id: chunkId,
+      stream_id: streamId,
+      farm_id: farmId,
+      file_path: chunkPath,
+    } = chunk;
+
+    try {
+      // Define output paths for processed video and detections
+      const processedDir = path.join(
+        this.chunkStoragePath,
+        farmId,
+        streamId,
+        'processed'
+      );
+      const detectionsDir = path.join(
+        this.chunkStoragePath,
+        farmId,
+        streamId,
+        'detections'
+      );
+
+      // Ensure output directories exist
+      await fs.mkdir(processedDir, { recursive: true });
+      await fs.mkdir(detectionsDir, { recursive: true });
+
+      const outputVideoPath = path.join(
+        processedDir,
+        `${path.basename(chunkPath, '.mp4')}_processed.mp4`
+      );
+      const outputJsonPath = path.join(
+        detectionsDir,
+        `${path.basename(chunkPath, '.mp4')}_detections.json`
+      );
+
+      // ML Service URL - use Docker service name when running in container
+      const mlServiceUrl =
+        process.env.ML_SERVICE_URL || 'http://ml-service:8002';
+      const processEndpoint = `${mlServiceUrl}/api/process-chunk`;
+
+      logger.info('Triggering ML processing for chunk', {
+        chunkId,
+        streamId,
+        farmId,
+        chunkPath,
+        outputVideoPath,
+        outputJsonPath,
+        mlServiceUrl: processEndpoint,
+      });
+
+      // TODO: Update database to mark chunk as queued for ML processing
+      // await query(
+      //   `UPDATE video_chunks SET
+      //     processing_status = 'queued',
+      //     ml_started_at = NOW()
+      //   WHERE id = $1`,
+      //   [chunkId]
+      // );
+
+      // Call ML service asynchronously (fire and forget)
+      // The ML service will take care of updating the database when complete
+      fetch(processEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chunk_id: chunkId,
+          chunk_path: chunkPath,
+          farm_id: farmId,
+          stream_id: streamId,
+          output_video_path: outputVideoPath,
+          output_json_path: outputJsonPath,
+        }),
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(
+              `ML service responded with status ${response.status}`
+            );
+          }
+          return response.json();
+        })
+        .then(result => {
+          logger.info('ML processing started successfully', {
+            chunkId,
+            result,
+          });
+        })
+        .catch(error => {
+          logger.error('Failed to trigger ML processing', {
+            error: error.message,
+            chunkId,
+            streamId,
+            farmId,
+          });
+          // TODO: Update database to mark processing as failed
+          // await query(
+          //   `UPDATE video_chunks SET
+          //     processing_status = 'failed',
+          //     ml_completed_at = NOW()
+          //   WHERE id = $1`,
+          //   [chunkId]
+          //);
+        });
+
+      logger.info('ML processing request sent (async)', { chunkId });
+    } catch (error) {
+      logger.error('Failed to prepare ML processing request', {
+        error,
+        chunkId,
+        streamId,
+        farmId,
+      });
+      // Don't throw - we want chunk recording to succeed even if ML processing fails
+    }
   }
 }
 
