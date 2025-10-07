@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { VideoPlayer } from './VideoPlayer';
+import React, { useState, useEffect } from 'react';
+
 import { OverlayCanvas } from './OverlayCanvas';
-import { useAppStore } from '../stores/useAppStore';
+import { VideoPlayer } from './VideoPlayer';
 
 interface VideoChunk {
   id: string;
@@ -18,6 +18,15 @@ interface VideoChunk {
     fps?: number;
   };
   created_at: string;
+  ml_processed?: boolean;
+  processing_status?:
+    | 'pending'
+    | 'queued'
+    | 'processing'
+    | 'complete'
+    | 'failed'
+    | 'timeout';
+  isProcessed?: boolean;
 }
 
 interface PrimaryVideoPlayerProps {
@@ -30,19 +39,32 @@ interface PrimaryVideoPlayerProps {
   onClose?: () => void;
 }
 
-export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, onClose }) => {
+export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
+  stream,
+  onClose,
+}) => {
   const [viewMode, setViewMode] = useState<'live' | 'playback'>('live');
   const [selectedChunk, setSelectedChunk] = useState<VideoChunk | null>(null);
   const [videoChunks, setVideoChunks] = useState<VideoChunk[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(5);
-  const [videoRef, setVideoRef] = useState<React.RefObject<HTMLVideoElement> | null>(null);
+  const [videoRef, setVideoRef] =
+    useState<React.RefObject<HTMLVideoElement> | null>(null);
   const [showChunkNotification, setShowChunkNotification] = useState(false);
+  const [showRawVideo, setShowRawVideo] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<string | null>(null);
 
   // Load video chunks for this stream
   useEffect(() => {
     loadVideoChunks();
   }, [stream.id]);
+
+  // Reload video when raw toggle changes
+  useEffect(() => {
+    if (selectedChunk && viewMode === 'playback') {
+      handleChunkSelect(selectedChunk);
+    }
+  }, [showRawVideo]);
 
   const getAuthToken = async () => {
     let token = localStorage.getItem('authToken');
@@ -56,7 +78,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
         },
         body: JSON.stringify({
           email: 'admin@barnhand.com',
-          password: 'admin123'
+          password: 'admin123',
         }),
       });
 
@@ -85,12 +107,15 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
         return;
       }
 
-      const response = await fetch(`http://localhost:8000/api/v1/streams/${stream.id}/chunks`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(
+        `http://localhost:8000/api/v1/streams/${stream.id}/chunks`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -115,54 +140,66 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
         return;
       }
 
-      const response = await fetch(`http://localhost:8000/api/v1/streams/${stream.id}/record-chunk`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ duration: recordingDuration }),
-      });
+      const response = await fetch(
+        `http://localhost:8000/api/v1/streams/${stream.id}/record-chunk`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ duration: recordingDuration }),
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
         console.log('Recording started:', data);
 
         // Reload chunks after a delay to get the completed recording
-        setTimeout(async () => {
-          await loadVideoChunks();
-          setIsRecording(false);
-
-          // Show notification and auto-switch to playback
-          console.log('Recording completed, switching to playback mode');
-          setShowChunkNotification(true);
-          setTimeout(() => setShowChunkNotification(false), 3000); // Hide after 3 seconds
-          setViewMode('playback');
-
-          // Wait a bit more for chunks to load, then select the latest
-          setTimeout(async () => {
-            // Reload chunks to get the latest data
+        setTimeout(
+          async () => {
             await loadVideoChunks();
+            setIsRecording(false);
 
-            // Get the latest chunk after reload
-            const updatedResponse = await fetch(`http://localhost:8000/api/v1/streams/${stream.id}/chunks`, {
-              headers: {
-                'Authorization': `Bearer ${await getAuthToken()}`,
-                'Content-Type': 'application/json',
-              },
-            });
+            // Show notification and auto-switch to playback
+            console.log('Recording completed, switching to playback mode');
+            setShowChunkNotification(true);
+            setTimeout(() => setShowChunkNotification(false), 3000); // Hide after 3 seconds
+            setViewMode('playback');
 
-            if (updatedResponse.ok) {
-              const updatedData = await updatedResponse.json();
-              const latestChunk = updatedData.chunks?.[0]; // First item is newest
+            // Wait a bit more for chunks to load, then select the latest
+            setTimeout(async () => {
+              // Reload chunks to get the latest data
+              await loadVideoChunks();
 
-              if (latestChunk && latestChunk.status === 'completed') {
-                console.log('Auto-playing latest chunk:', latestChunk.filename);
-                await handleChunkSelect(latestChunk);
+              // Get the latest chunk after reload
+              const updatedResponse = await fetch(
+                `http://localhost:8000/api/v1/streams/${stream.id}/chunks`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${await getAuthToken()}`,
+                    'Content-Type': 'application/json',
+                  },
+                }
+              );
+
+              if (updatedResponse.ok) {
+                const updatedData = await updatedResponse.json();
+                const latestChunk = updatedData.chunks?.[0]; // First item is newest
+
+                if (latestChunk && latestChunk.status === 'completed') {
+                  console.log(
+                    'Auto-playing latest chunk:',
+                    latestChunk.filename
+                  );
+                  await handleChunkSelect(latestChunk);
+                }
               }
-            }
-          }, 1000);
-        }, (recordingDuration + 2) * 1000);
+            }, 1000);
+          },
+          (recordingDuration + 2) * 1000
+        );
       } else {
         console.error('Failed to start recording:', response.statusText);
         setIsRecording(false);
@@ -170,6 +207,30 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
     } catch (error) {
       console.error('Error starting recording:', error);
       setIsRecording(false);
+    }
+  };
+
+  const fetchProcessingStatus = async (chunkId: string) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) return;
+
+      const response = await fetch(
+        `http://localhost:8000/api/v1/streams/${stream.id}/chunks/${chunkId}/status`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setProcessingStatus(data.processing_status || 'pending');
+      }
+    } catch (error) {
+      console.error('Error fetching processing status:', error);
     }
   };
 
@@ -183,9 +244,17 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
         return;
       }
 
-      const response = await fetch(`http://localhost:8000/api/v1/streams/${stream.id}/chunks/${chunk.id}/stream`, {
+      // Build URL with raw parameter if needed
+      const url = new URL(
+        `http://localhost:8000/api/v1/streams/${stream.id}/chunks/${chunk.id}/stream`
+      );
+      if (showRawVideo) {
+        url.searchParams.append('raw', 'true');
+      }
+
+      const response = await fetch(url.toString(), {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -195,8 +264,12 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
         setSelectedChunk({
           ...chunk,
           streamUrl: data.streamUrl,
+          isProcessed: data.isProcessed,
         } as VideoChunk & { streamUrl: string });
         setViewMode('playback');
+
+        // Fetch processing status
+        fetchProcessingStatus(chunk.id);
       } else {
         console.error('Failed to get chunk stream URL:', response.statusText);
       }
@@ -215,7 +288,9 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
 
     // Auto-select first chunk if available and none currently selected
     if (videoChunks.length > 0 && !selectedChunk) {
-      const firstCompletedChunk = videoChunks.find(chunk => chunk.status === 'completed');
+      const firstCompletedChunk = videoChunks.find(
+        chunk => chunk.status === 'completed'
+      );
       if (firstCompletedChunk) {
         await handleChunkSelect(firstCompletedChunk);
       }
@@ -236,9 +311,10 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const currentVideoUrl = viewMode === 'live'
-    ? stream.url
-    : (selectedChunk as VideoChunk & { streamUrl: string })?.streamUrl;
+  const currentVideoUrl =
+    viewMode === 'live'
+      ? stream.url
+      : (selectedChunk as VideoChunk & { streamUrl: string })?.streamUrl;
 
   return (
     <div className="primary-video-player space-y-4">
@@ -248,12 +324,17 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
           <h2 className="text-xl font-display font-bold text-slate-100">
             {stream.name}
           </h2>
-          <div className={`px-2 py-1 rounded text-xs font-medium ${
-            stream.status === 'active' ? 'bg-green-500/20 text-green-400' :
-            stream.status === 'processing' ? 'bg-yellow-500/20 text-yellow-400' :
-            stream.status === 'error' ? 'bg-red-500/20 text-red-400' :
-            'bg-gray-500/20 text-gray-400'
-          }`}>
+          <div
+            className={`px-2 py-1 rounded text-xs font-medium ${
+              stream.status === 'active'
+                ? 'bg-green-500/20 text-green-400'
+                : stream.status === 'processing'
+                  ? 'bg-yellow-500/20 text-yellow-400'
+                  : stream.status === 'error'
+                    ? 'bg-red-500/20 text-red-400'
+                    : 'bg-gray-500/20 text-gray-400'
+            }`}
+          >
             {stream.status.toUpperCase()}
           </div>
         </div>
@@ -263,8 +344,18 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
             className="flex items-center space-x-2 px-3 py-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 rounded-lg transition-all"
             title="Back to Dashboard"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
             <span className="text-sm">Close</span>
           </button>
@@ -290,8 +381,8 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
             viewMode === 'playback'
               ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
               : videoChunks.length === 0
-              ? 'text-slate-600 cursor-not-allowed'
-              : 'text-slate-400 hover:text-slate-300 hover:bg-slate-700/50'
+                ? 'text-slate-600 cursor-not-allowed'
+                : 'text-slate-400 hover:text-slate-300 hover:bg-slate-700/50'
           }`}
         >
           ▶ Recorded Chunks ({videoChunks.length})
@@ -300,14 +391,15 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
 
       {/* Main Video Display */}
       <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-        {(stream.status === 'active' && viewMode === 'live') || (viewMode === 'playback' && currentVideoUrl) ? (
+        {(stream.status === 'active' && viewMode === 'live') ||
+        (viewMode === 'playback' && currentVideoUrl) ? (
           <>
             <VideoPlayer
               src={currentVideoUrl}
               streamId={stream.id}
               className="w-full h-full object-cover"
               onLoad={() => {}}
-              onError={(error) => console.error('Video error:', error)}
+              onError={error => console.error('Video error:', error)}
               onVideoRef={setVideoRef}
             />
             {viewMode === 'live' && videoRef && videoRef.current && (
@@ -319,29 +411,94 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
             )}
 
             {/* Video Mode Indicator */}
-            <div className="absolute top-4 left-4">
-              <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                viewMode === 'live'
-                  ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                  : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-              }`}>
+            <div className="absolute top-4 left-4 flex flex-col gap-2">
+              <div
+                className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  viewMode === 'live'
+                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                }`}
+              >
                 {viewMode === 'live' ? '● LIVE' : '▶ PLAYBACK'}
               </div>
+
+              {/* Processing Status Badge (only in playback mode) */}
+              {viewMode === 'playback' && processingStatus && (
+                <div
+                  className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    processingStatus === 'complete'
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : processingStatus === 'processing'
+                        ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                        : processingStatus === 'failed' ||
+                            processingStatus === 'timeout'
+                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          : 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                  }`}
+                >
+                  {processingStatus === 'complete'
+                    ? '✓ Processed'
+                    : processingStatus === 'processing'
+                      ? '🔄 Processing...'
+                      : processingStatus === 'failed'
+                        ? '✗ Failed'
+                        : processingStatus === 'timeout'
+                          ? '⏱ Timeout'
+                          : '○ Pending'}
+                </div>
+              )}
             </div>
 
             {/* Recording Indicator */}
             {isRecording && (
               <div className="absolute top-4 right-4 flex items-center space-x-2 px-3 py-1 bg-red-500/20 text-red-400 border border-red-500/30 rounded-full">
                 <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                <span className="text-xs font-medium">Recording {recordingDuration}s</span>
+                <span className="text-xs font-medium">
+                  Recording {recordingDuration}s
+                </span>
+              </div>
+            )}
+
+            {/* Raw Video Toggle (only in playback mode) */}
+            {viewMode === 'playback' && (
+              <div className="absolute bottom-4 right-4">
+                <button
+                  onClick={() => setShowRawVideo(!showRawVideo)}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    showRawVideo
+                      ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                      : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/50'
+                  }`}
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d={
+                        showRawVideo
+                          ? 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'
+                          : 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21'
+                      }
+                    />
+                  </svg>
+                  <span>{showRawVideo ? 'Show Processed' : 'Show Raw'}</span>
+                </button>
               </div>
             )}
 
             {/* New Chunk Notification */}
             {showChunkNotification && (
-              <div className="absolute bottom-4 right-4 flex items-center space-x-2 px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg animate-in slide-in-from-right-4 fade-in duration-300">
+              <div className="absolute bottom-4 left-4 flex items-center space-x-2 px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg animate-in slide-in-from-left-4 fade-in duration-300">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm font-medium">New chunk ready for playback!</span>
+                <span className="text-sm font-medium">
+                  New chunk ready for playback!
+                </span>
                 <button
                   onClick={() => setShowChunkNotification(false)}
                   className="ml-2 text-green-400/70 hover:text-green-400 transition-colors"
@@ -355,7 +512,11 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
           <div className="flex items-center justify-center h-full bg-slate-900 text-slate-400">
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-700/50 flex items-center justify-center">
-                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                <svg
+                  className="w-8 h-8"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
                   <path d="M2 6a2 2 0 012-2h6l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM5 8a1 1 0 000 2h8a1 1 0 100-2H5z" />
                 </svg>
               </div>
@@ -375,7 +536,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
               <label className="text-sm text-slate-300">Duration:</label>
               <select
                 value={recordingDuration}
-                onChange={(e) => setRecordingDuration(Number(e.target.value))}
+                onChange={e => setRecordingDuration(Number(e.target.value))}
                 className="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-white"
                 disabled={isRecording}
               >
@@ -397,7 +558,9 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
                 : 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30'
             }`}
           >
-            {isRecording ? 'Recording...' : `Process ${recordingDuration} Seconds`}
+            {isRecording
+              ? 'Recording...'
+              : `Process ${recordingDuration} Seconds`}
           </button>
         </div>
       )}
@@ -406,12 +569,14 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
       {viewMode === 'playback' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-white">Processed Video Chunks</h3>
+            <h3 className="text-lg font-medium text-white">
+              Processed Video Chunks
+            </h3>
           </div>
 
           {videoChunks.length > 0 ? (
             <div className="space-y-2 max-h-64 overflow-y-auto overflow-x-hidden">
-              {videoChunks.map((chunk) => (
+              {videoChunks.map(chunk => (
                 <div
                   key={chunk.id}
                   onClick={() => handleChunkSelect(chunk)}
@@ -425,15 +590,23 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
                 >
                   <div className="flex items-start justify-between gap-3 w-full">
                     <div className="flex items-start space-x-3 min-w-0 flex-1">
-                      <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
-                        chunk.status === 'completed' ? 'bg-green-500' :
-                        chunk.status === 'recording' ? 'bg-yellow-500 animate-pulse' :
-                        'bg-red-500'
-                      }`}></div>
+                      <div
+                        className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
+                          chunk.status === 'completed'
+                            ? 'bg-green-500'
+                            : chunk.status === 'recording'
+                              ? 'bg-yellow-500 animate-pulse'
+                              : 'bg-red-500'
+                        }`}
+                      ></div>
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium text-sm truncate">{chunk.filename}</div>
+                        <div className="font-medium text-sm truncate">
+                          {chunk.filename}
+                        </div>
                         <div className="text-xs opacity-75 whitespace-nowrap">
-                          {formatDuration(chunk.duration)} • {formatFileSize(chunk.file_size)} • {new Date(chunk.created_at).toLocaleTimeString()}
+                          {formatDuration(chunk.duration)} •{' '}
+                          {formatFileSize(chunk.file_size)} •{' '}
+                          {new Date(chunk.created_at).toLocaleTimeString()}
                         </div>
                       </div>
                     </div>
@@ -449,11 +622,15 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
                           Playing
                         </span>
                       )}
-                      <span className={`px-2 py-1 rounded whitespace-nowrap ${
-                        chunk.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                        chunk.status === 'recording' ? 'bg-yellow-500/20 text-yellow-400' :
-                        'bg-red-500/20 text-red-400'
-                      }`}>
+                      <span
+                        className={`px-2 py-1 rounded whitespace-nowrap ${
+                          chunk.status === 'completed'
+                            ? 'bg-green-500/20 text-green-400'
+                            : chunk.status === 'recording'
+                              ? 'bg-yellow-500/20 text-yellow-400'
+                              : 'bg-red-500/20 text-red-400'
+                        }`}
+                      >
                         {chunk.status}
                       </span>
                     </div>
@@ -465,13 +642,19 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({ stream, 
             <div className="flex items-center justify-center h-32 bg-slate-800/30 border border-slate-700/30 rounded-lg">
               <div className="text-center text-slate-500">
                 <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-slate-700/50 flex items-center justify-center">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                  <svg
+                    className="w-6 h-6"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
                     <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                     <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                   </svg>
                 </div>
                 <p className="text-sm">No recorded chunks yet</p>
-                <p className="text-xs opacity-75">Switch to Live tab to record video chunks</p>
+                <p className="text-xs opacity-75">
+                  Switch to Live tab to record video chunks
+                </p>
               </div>
             </div>
           )}
