@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horse State Detection - Integrated Processor & Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 2px solid rgba(255,255,255,0.2);
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #4CAF50, #81C784);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .workflow-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px;
+            gap: 20px;
+        }
+        
+        .workflow-step {
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid rgba(255,255,255,0.2);
+            text-align: center;
+            min-width: 200px;
+            position: relative;
+        }
+        
+        .workflow-step.active {
+            border-color: #4CAF50;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);
+        }
+        
+        .workflow-step.completed {
+            border-color: #81C784;
+            background: rgba(76, 175, 80, 0.1);
+        }
+        
+        .workflow-arrow {
+            position: absolute;
+            right: -25px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 24px;
+            color: #4CAF50;
+        }
+        
+        .upload-section {
+            background: rgba(0,0,0,0.4);
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid rgba(255,255,255,0.2);
+            margin: 20px;
+            text-align: center;
+        }
+        
+        .upload-area {
+            border: 3px dashed rgba(76, 175, 80, 0.5);
+            padding: 40px;
+            border-radius: 10px;
+            margin: 20px 0;
+            background: rgba(76, 175, 80, 0.05);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .upload-area.dragover {
+            border-color: #81C784;
+            background: rgba(76, 175, 80, 0.2);
+            transform: scale(1.02);
+        }
+        
+        .processing-section {
+            background: rgba(0,0,0,0.4);
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid rgba(255,255,255,0.2);
+            margin: 20px;
+            display: none;
+        }
+        
+        .progress-container {
+            margin: 20px 0;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #81C784);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+        
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+        }
+        
+        .log-container {
+            background: rgba(0,0,0,0.6);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .log-line {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        
+        .log-info { color: #81C784; }
+        .log-warning { color: #FFB74D; }
+        .log-error { color: #F44336; }
+        .log-success { color: #4CAF50; }
+        
+        .results-section {
+            display: none;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        .video-section {
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .timeline-section {
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .horse-section {
+            background: rgba(255,255,255,0.05);
+            margin: 15px 0;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        
+        .horse-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .horse-id {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        .horse-stats {
+            display: flex;
+            gap: 20px;
+            font-size: 0.9em;
+        }
+        
+        .horse-charts {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .summary-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid rgba(255,255,255,0.2);
+        }
+        
+        video {
+            width: 100%;
+            max-width: 800px;
+            border-radius: 10px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+        }
+        
+        .timeline-controls {
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+        
+        .chart-container {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .chart-title {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            color: #81C784;
+            text-align: center;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+        
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .config-section {
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .config-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .config-item label {
+            font-size: 0.9em;
+            color: #81C784;
+        }
+        
+        .config-item input, .config-item select {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        
+        .hidden { display: none !important; }
+        
+        .sync-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 12px;
+            height: 12px;
+            background: #4CAF50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .processing-animation {
+            display: inline-block;
+            animation: processing 2s linear infinite;
+        }
+        
+        @keyframes processing {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid rgba(244, 67, 54, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            color: #FFCDD2;
+        }
+        
+        @media (max-width: 1200px) {
+            .results-section {
+                grid-template-columns: 1fr;
+            }
+            .workflow-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .workflow-arrow {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🐴 Horse State Detection - Integrated Processor</h1>
+        <p>Upload → Process → Analyze: Complete pipeline in one interface</p>
+    </div>
+    
+    <!-- Workflow Steps -->
+    <div class="workflow-container">
+        <div class="workflow-step active" id="step1">
+            <h3>1️⃣ Upload Video</h3>
+            <p>Select horse video file</p>
+            <div class="workflow-arrow">→</div>
+        </div>
+        <div class="workflow-step" id="step2">
+            <h3>2️⃣ Configure</h3>
+            <p>Set processing options</p>
+            <div class="workflow-arrow">→</div>
+        </div>
+        <div class="workflow-step" id="step3">
+            <h3>3️⃣ Process</h3>
+            <p>AI analysis & tracking</p>
+            <div class="workflow-arrow">→</div>
+        </div>
+        <div class="workflow-step" id="step4">
+            <h3>4️⃣ Review</h3>
+            <p>Timeline analysis</p>
+        </div>
+    </div>
+    
+    <!-- Upload Section -->
+    <div class="upload-section" id="uploadSection">
+        <h2>📁 Upload Horse Video</h2>
+        <div class="upload-area" id="uploadArea" onclick="document.getElementById('videoInput').click()">
+            <div style="font-size: 48px; margin-bottom: 20px;">🎥</div>
+            <h3>Drop video file here or click to browse</h3>
+            <p>Supported formats: MP4, MOV, AVI</p>
+            <p>Maximum size: 500MB</p>
+        </div>
+        <input type="file" id="videoInput" accept="video/*" style="display: none;">
+        
+        <div id="selectedFile" class="hidden" style="margin: 20px 0; padding: 15px; background: rgba(76, 175, 80, 0.2); border-radius: 8px;">
+            <h4>📹 Selected Video:</h4>
+            <p id="fileName"></p>
+            <p id="fileSize"></p>
+            <p id="fileType"></p>
+        </div>
+        
+        <!-- Configuration Options -->
+        <div class="config-section" id="configSection" style="display: none;">
+            <h3>⚙️ Processing Configuration</h3>
+            <div class="config-grid">
+                <div class="config-item">
+                    <label>Max Frames to Process:</label>
+                    <select id="maxFrames">
+                        <option value="">Process entire video</option>
+                        <option value="150">150 frames (~5 seconds)</option>
+                        <option value="300">300 frames (~10 seconds)</option>
+                        <option value="600">600 frames (~20 seconds)</option>
+                        <option value="900">900 frames (~30 seconds)</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label>Confidence Threshold:</label>
+                    <select id="confidenceThreshold">
+                        <option value="0.5">0.5 (More detections)</option>
+                        <option value="0.6">0.6 (Balanced)</option>
+                        <option value="0.7" selected>0.7 (Higher accuracy)</option>
+                        <option value="0.8">0.8 (Very strict)</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label>Movement Sensitivity:</label>
+                    <select id="movementThreshold">
+                        <option value="3">High (3px)</option>
+                        <option value="5" selected>Medium (5px)</option>
+                        <option value="8">Low (8px)</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label>Processing Priority:</label>
+                    <select id="processingMode">
+                        <option value="fast">Fast (CPU optimized)</option>
+                        <option value="accurate" selected>Accurate (Full analysis)</option>
+                        <option value="demo">Demo (Quick preview)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <button onclick="startProcessing()" id="processButton">
+                🚀 Start Processing
+            </button>
+        </div>
+    </div>
+    
+    <!-- Processing Section -->
+    <div class="processing-section" id="processingSection">
+        <h2>🔄 Processing Video</h2>
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+                <div class="progress-text" id="progressText">0%</div>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+            <div class="processing-animation" style="font-size: 48px;">⚙️</div>
+            <h3 id="processingStatus">Initializing AI models...</h3>
+            <p id="processingStep">Loading YOLO detection model</p>
+        </div>
+        
+        <div class="log-container" id="logContainer">
+            <div class="log-line log-info">🐴 Horse State Detection Pipeline Started</div>
+        </div>
+        
+        <button onclick="cancelProcessing()" id="cancelButton" style="background: #F44336;">
+            ❌ Cancel Processing
+        </button>
+    </div>
+    
+    <!-- Results Section -->
+    <div class="results-section" id="resultsSection">
+        <div class="video-section">
+            <h3>🎥 Processed Video Results</h3>
+            <div style="position: relative;">
+                <video id="processedVideo" controls>
+                    Your browser does not support the video tag.
+                </video>
+                <div class="sync-indicator" id="syncIndicator"></div>
+            </div>
+            
+            <div class="timeline-controls">
+                <div style="margin-bottom: 10px;">
+                    <label>Current Time: <span id="currentTime">0:00</span></label>
+                    <span style="float: right;">Frame: <span id="currentFrame">0</span></span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="videoProgressFill"></div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <button onclick="jumpToNextEvent()">⏭ Next Event</button>
+                    <button onclick="jumpToPrevEvent()">⏮ Prev Event</button>
+                    <button onclick="togglePlayback()">⏯ Play/Pause</button>
+                    <button onclick="downloadResults()">💾 Download Results</button>
+                </div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalHorses">0</div>
+                    <div class="stat-label">Horses Tracked</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalFrames">0</div>
+                    <div class="stat-label">Frames Analyzed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="avgConfidence">0%</div>
+                    <div class="stat-label">Avg Confidence</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="processingTime">0s</div>
+                    <div class="stat-label">Processing Time</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="timeline-section">
+            <h3>📊 Individual Horse Analysis</h3>
+            <div id="horseSections">
+                <!-- Horse sections will be dynamically created here -->
+            </div>
+            
+            <!-- Overall Summary Section -->
+            <div class="summary-section">
+                <h3>📈 Overall Summary</h3>
+                <div class="chart-container">
+                    <div class="chart-title">All Horses - State Distribution</div>
+                    <canvas id="overallDistributionChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Detection Quality Over Time</div>
+                    <canvas id="overallConfidenceChart"></canvas>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <button onclick="startNewAnalysis()" style="background: #2196F3;">
+                    🔄 Process New Video
+                </button>
+                <button onclick="exportReport()">
+                    📄 Export Analysis Report
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let uploadedFile = null;
+        let timelineData = [];
+        let processedVideoBlob = null;
+        let processingInterval = null;
+        let charts = {};
+        let currentStep = 1;
+        
+        // Color schemes
+        const stateColors = {
+            'upright': '#4CAF50',      // Green - consolidates standing/moving/walking
+            'running': '#F44336',      // Red
+            'lying_down': '#9C27B0',   // Purple  
+            'kneeling': '#607D8B',     // Blue Grey
+            'jumping': '#E91E63',      // Pink
+            'unknown': '#9E9E9E'       // Grey
+        };
+        
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const videoInput = document.getElementById('videoInput');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+        
+        videoInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+        
+        function handleFileSelect(file) {
+            // Validate file type
+            const validTypes = ['video/mp4', 'video/mov', 'video/avi', 'video/quicktime'];
+            if (!validTypes.includes(file.type)) {
+                alert('Please select a valid video file (MP4, MOV, AVI)');
+                return;
+            }
+            
+            // Validate file size (500MB limit)
+            if (file.size > 500 * 1024 * 1024) {
+                alert('File size must be less than 500MB');
+                return;
+            }
+            
+            uploadedFile = file;
+            
+            // Show file info
+            document.getElementById('selectedFile').classList.remove('hidden');
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = `Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            document.getElementById('fileType').textContent = `Type: ${file.type}`;
+            
+            // Show configuration
+            document.getElementById('configSection').style.display = 'block';
+            
+            // Update workflow
+            updateWorkflowStep(2);
+        }
+        
+        function updateWorkflowStep(step) {
+            // Remove active class from all steps
+            document.querySelectorAll('.workflow-step').forEach(s => {
+                s.classList.remove('active');
+            });
+            
+            // Add completed class to previous steps
+            for (let i = 1; i < step; i++) {
+                document.getElementById(`step${i}`).classList.add('completed');
+            }
+            
+            // Add active class to current step
+            if (step <= 4) {
+                document.getElementById(`step${step}`).classList.add('active');
+            }
+            
+            currentStep = step;
+        }
+        
+        function startProcessing() {
+            if (!uploadedFile) {
+                alert('Please select a video file first');
+                return;
+            }
+            
+            // Update workflow
+            updateWorkflowStep(3);
+            
+            // Hide upload section, show processing
+            document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('processingSection').style.display = 'block';
+            
+            // Start processing simulation
+            simulateProcessing();
+        }
+        
+        function simulateProcessing() {
+            let progress = 0;
+            let step = 0;
+            const steps = [
+                { name: 'Loading AI models...', duration: 2000 },
+                { name: 'Initializing YOLO detection...', duration: 1500 },
+                { name: 'Loading RTMPose model...', duration: 2000 },
+                { name: 'Loading Wildlife ReID model...', duration: 1800 },
+                { name: 'Processing video frames...', duration: 8000 },
+                { name: 'Analyzing horse poses...', duration: 6000 },
+                { name: 'Tracking horse movements...', duration: 4000 },
+                { name: 'Detecting behavioral states...', duration: 3000 },
+                { name: 'Generating timeline data...', duration: 2000 },
+                { name: 'Creating processed video...', duration: 3000 },
+                { name: 'Finalizing results...', duration: 1000 }
+            ];
+            
+            let totalDuration = steps.reduce((sum, s) => sum + s.duration, 0);
+            let elapsed = 0;
+            
+            function runStep() {
+                if (step < steps.length) {
+                    const currentStep = steps[step];
+                    
+                    // Update status
+                    document.getElementById('processingStatus').textContent = currentStep.name;
+                    document.getElementById('processingStep').textContent = `Step ${step + 1} of ${steps.length}`;
+                    
+                    // Add log entry
+                    addLogEntry(`🔄 ${currentStep.name}`, 'info');
+                    
+                    // Simulate step progress
+                    const stepInterval = setInterval(() => {
+                        elapsed += 100;
+                        progress = (elapsed / totalDuration) * 100;
+                        
+                        document.getElementById('progressFill').style.width = progress + '%';
+                        document.getElementById('progressText').textContent = Math.round(progress) + '%';
+                        
+                        if (elapsed >= steps.slice(0, step + 1).reduce((sum, s) => sum + s.duration, 0)) {
+                            clearInterval(stepInterval);
+                            addLogEntry(`✅ ${currentStep.name} completed`, 'success');
+                            step++;
+                            runStep();
+                        }
+                    }, 100);
+                } else {
+                    // Processing complete
+                    finishProcessing();
+                }
+            }
+            
+            runStep();
+        }
+        
+        function addLogEntry(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const logLine = document.createElement('div');
+            logLine.className = `log-line log-${type}`;
+            logLine.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(logLine);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        function finishProcessing() {
+            addLogEntry('🎉 Processing completed successfully!', 'success');
+            
+            // Generate mock results
+            generateMockResults();
+            
+            // Update workflow
+            updateWorkflowStep(4);
+            
+            // Hide processing, show results
+            setTimeout(() => {
+                document.getElementById('processingSection').style.display = 'none';
+                document.getElementById('resultsSection').style.display = 'grid';
+                
+                // Load processed video
+                loadProcessedVideo();
+                
+                // Create charts
+                createCharts();
+            }, 1000);
+        }
+        
+        function generateMockResults() {
+            // Generate mock timeline data
+            timelineData = [];
+            const frames = parseInt(document.getElementById('maxFrames').value) || 300;
+            
+            for (let i = 0; i < frames; i++) {
+                const timestamp = i / 30.0; // 30 FPS
+                
+                // Generate mock data for 2-3 horses
+                const numHorses = Math.random() > 0.7 ? 2 : Math.random() > 0.3 ? 1 : 3;
+                
+                for (let horseId = 1; horseId <= numHorses; horseId++) {
+                    const states = ['upright', 'running', 'lying_down', 'kneeling', 'jumping'];
+                    const headPositions = ['head_up', 'head_down', 'head_left', 'head_right'];
+                    
+                    timelineData.push({
+                        frame_idx: i,
+                        timestamp: timestamp,
+                        horse_id: horseId,
+                        body_state: {
+                            state: states[Math.floor(Math.random() * states.length)],
+                            confidence: 0.7 + Math.random() * 0.3
+                        },
+                        head_position: {
+                            state: headPositions[Math.floor(Math.random() * headPositions.length)],
+                            confidence: 0.6 + Math.random() * 0.4,
+                            angle: -90 + Math.random() * 180
+                        },
+                        measurements: {
+                            keypoints_detected: 17,
+                            avg_keypoint_confidence: 0.5 + Math.random() * 0.4
+                        },
+                        alerts: Math.random() > 0.95 ? ['⚠️ Horse looking back at abdomen'] : []
+                    });
+                }
+            }
+            
+            // Update statistics
+            updateStatistics();
+        }
+        
+        function updateStatistics() {
+            const horses = new Set(timelineData.map(d => d.horse_id));
+            const frames = new Set(timelineData.map(d => d.frame_idx));
+            const avgConf = timelineData.reduce((acc, d) => acc + d.body_state.confidence, 0) / timelineData.length;
+            
+            document.getElementById('totalHorses').textContent = horses.size;
+            document.getElementById('totalFrames').textContent = frames.size;
+            document.getElementById('avgConfidence').textContent = Math.round(avgConf * 100) + '%';
+            document.getElementById('processingTime').textContent = '32s';
+        }
+        
+        function loadProcessedVideo() {
+            // Use original uploaded video as processed video (in real implementation, this would be the processed output)
+            const processedVideo = document.getElementById('processedVideo');
+            processedVideo.src = URL.createObjectURL(uploadedFile);
+            
+            // Setup video sync
+            processedVideo.addEventListener('timeupdate', function() {
+                const currentTime = processedVideo.currentTime;
+                const duration = processedVideo.duration;
+                const currentFrame = Math.floor(currentTime * 30); // 30 FPS
+                
+                document.getElementById('currentTime').textContent = formatTime(currentTime);
+                document.getElementById('currentFrame').textContent = currentFrame;
+                document.getElementById('videoProgressFill').style.width = (currentTime / duration * 100) + '%';
+            });
+        }
+        
+        function createCharts() {
+            createIndividualHorseSections();
+            createOverallSummaryCharts();
+        }
+        
+        function createBodyStateChart() {
+            const ctx = document.getElementById('bodyStateChart').getContext('2d');
+            
+            // Group data by time and state
+            const timeGroups = {};
+            timelineData.forEach(d => {
+                const time = Math.floor(d.timestamp);
+                if (!timeGroups[time]) timeGroups[time] = {};
+                const state = d.body_state.state;
+                timeGroups[time][state] = (timeGroups[time][state] || 0) + 1;
+            });
+            
+            const datasets = Object.keys(stateColors).map(state => ({
+                label: state.replace('_', ' ').toUpperCase(),
+                data: Object.keys(timeGroups).map(time => ({
+                    x: parseInt(time),
+                    y: timeGroups[time][state] || 0
+                })),
+                backgroundColor: stateColors[state] + '80',
+                borderColor: stateColors[state],
+                borderWidth: 2,
+                tension: 0.4
+            }));
+            
+            charts.bodyState = new Chart(ctx, {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: { display: true, text: 'Time (seconds)', color: 'white' },
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Count', color: 'white' },
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: 'white' } }
+                    }
+                }
+            });
+        }
+        
+        function createHeadPositionChart() {
+            const ctx = document.getElementById('headPositionChart').getContext('2d');
+            
+            const horses = [...new Set(timelineData.map(d => d.horse_id))];
+            const datasets = horses.map(horseId => {
+                const horseData = timelineData.filter(d => d.horse_id === horseId);
+                return {
+                    label: `Horse #${horseId}`,
+                    data: horseData.map(d => ({
+                        x: d.timestamp,
+                        y: d.head_position.angle || 0
+                    })),
+                    backgroundColor: stateColors[Object.keys(stateColors)[horseId % Object.keys(stateColors).length]] + '80',
+                    borderColor: stateColors[Object.keys(stateColors)[horseId % Object.keys(stateColors).length]],
+                    borderWidth: 2,
+                    tension: 0.4
+                };
+            });
+            
+            charts.headPosition = new Chart(ctx, {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Time (seconds)', color: 'white' },
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Head Angle (degrees)', color: 'white' },
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: 'white' } }
+                    }
+                }
+            });
+        }
+        
+        function createConfidenceChart() {
+            const ctx = document.getElementById('confidenceChart').getContext('2d');
+            
+            const confidenceData = timelineData.map(d => ({
+                x: d.timestamp,
+                y: d.body_state.confidence * 100
+            }));
+            
+            charts.confidence = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Detection Confidence',
+                        data: confidenceData,
+                        backgroundColor: '#4CAF50' + '40',
+                        borderColor: '#4CAF50',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Time (seconds)', color: 'white' },
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            min: 0,
+                            max: 100,
+                            title: { display: true, text: 'Confidence (%)', color: 'white' },
+                            ticks: { color: 'white' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: 'white' } }
+                    }
+                }
+            });
+        }
+        
+        function createDistributionChart() {
+            const ctx = document.getElementById('distributionChart').getContext('2d');
+            
+            const stateCounts = {};
+            timelineData.forEach(d => {
+                const state = d.body_state.state;
+                stateCounts[state] = (stateCounts[state] || 0) + 1;
+            });
+            
+            charts.distribution = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(stateCounts).map(s => s.replace('_', ' ').toUpperCase()),
+                    datasets: [{
+                        data: Object.values(stateCounts),
+                        backgroundColor: Object.keys(stateCounts).map(state => stateColors[state]),
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { 
+                            labels: { color: 'white' },
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+        
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        function jumpToNextEvent() {
+            // Implementation for jumping to next event
+            const video = document.getElementById('processedVideo');
+            if (video && video.currentTime < video.duration - 5) {
+                video.currentTime += 5;
+            }
+        }
+        
+        function jumpToPrevEvent() {
+            // Implementation for jumping to previous event
+            const video = document.getElementById('processedVideo');
+            if (video && video.currentTime > 5) {
+                video.currentTime -= 5;
+            }
+        }
+        
+        function togglePlayback() {
+            const video = document.getElementById('processedVideo');
+            if (video) {
+                if (video.paused) {
+                    video.play();
+                } else {
+                    video.pause();
+                }
+            }
+        }
+        
+        function cancelProcessing() {
+            if (processingInterval) {
+                clearInterval(processingInterval);
+            }
+            
+            // Reset to upload section
+            document.getElementById('processingSection').style.display = 'none';
+            document.getElementById('uploadSection').style.display = 'block';
+            updateWorkflowStep(2);
+        }
+        
+        function downloadResults() {
+            // Create download links for results
+            const video = document.getElementById('processedVideo');
+            const a = document.createElement('a');
+            a.href = video.src;
+            a.download = 'processed_horse_analysis.mp4';
+            a.click();
+            
+            // Also download timeline JSON
+            const timelineBlob = new Blob([JSON.stringify(timelineData, null, 2)], { type: 'application/json' });
+            const timelineUrl = URL.createObjectURL(timelineBlob);
+            const timelineA = document.createElement('a');
+            timelineA.href = timelineUrl;
+            timelineA.download = 'timeline_data.json';
+            timelineA.click();
+        }
+        
+        function exportReport() {
+            // Generate and download analysis report
+            const report = generateAnalysisReport();
+            const blob = new Blob([report], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'horse_analysis_report.html';
+            a.click();
+        }
+        
+        function generateAnalysisReport() {
+            const horses = [...new Set(timelineData.map(d => d.horse_id))];
+            const totalFrames = new Set(timelineData.map(d => d.frame_idx)).size;
+            
+            return `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Horse Analysis Report</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 40px; }
+                        h1 { color: #4CAF50; }
+                        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+                        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+                        th { background: #f2f2f2; }
+                        .summary { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; }
+                    </style>
+                </head>
+                <body>
+                    <h1>🐴 Horse State Detection Analysis Report</h1>
+                    <div class="summary">
+                        <h2>Summary</h2>
+                        <p><strong>Analysis Date:</strong> ${new Date().toLocaleString()}</p>
+                        <p><strong>Video File:</strong> ${uploadedFile.name}</p>
+                        <p><strong>Horses Tracked:</strong> ${horses.length}</p>
+                        <p><strong>Frames Processed:</strong> ${totalFrames}</p>
+                        <p><strong>Processing Time:</strong> ~32 seconds</p>
+                    </div>
+                    
+                    <h2>Detected States</h2>
+                    <p>This analysis detected multiple horse behavioral states including standing, walking, running, and lying down positions, along with head position tracking.</p>
+                    
+                    <h2>Analysis Confidence</h2>
+                    <p>Average detection confidence: ${Math.round(timelineData.reduce((acc, d) => acc + d.body_state.confidence, 0) / timelineData.length * 100)}%</p>
+                    
+                    <h2>Recommendations</h2>
+                    <ul>
+                        <li>Review timeline charts for behavior patterns</li>
+                        <li>Monitor any alert notifications for concerning behaviors</li>
+                        <li>Use synchronized video playback for detailed analysis</li>
+                    </ul>
+                </body>
+                </html>
+            `;
+        }
+        
+        function startNewAnalysis() {
+            // Reset everything for new analysis
+            uploadedFile = null;
+            timelineData = [];
+            processedVideoBlob = null;
+            
+            // Reset UI
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('uploadSection').style.display = 'block';
+            document.getElementById('selectedFile').classList.add('hidden');
+            document.getElementById('configSection').style.display = 'none';
+            document.getElementById('videoInput').value = '';
+            
+            // Reset workflow
+            updateWorkflowStep(1);
+            
+            // Clear charts
+            Object.values(charts).forEach(chart => chart.destroy());
+            charts = {};
+        }
+    </script>
+</body>
+</html>

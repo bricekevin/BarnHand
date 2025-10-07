@@ -2,7 +2,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Dict, Any, Optional
 import time
 from loguru import logger
@@ -26,6 +26,8 @@ class BatchProcessRequest(BaseModel):
 
 
 class ProcessingResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     chunk_id: str
     stream_id: str
     status: str
@@ -150,8 +152,21 @@ async def process_chunk(request: ChunkProcessRequest):
         
         if result["status"] == "failed":
             raise HTTPException(status_code=500, detail=f"Processing failed: {result.get('error')}")
+        
+        # Transform processor result to match ProcessingResponse model
+        response_data = {
+            "chunk_id": result.get("chunk_id"),
+            "stream_id": result.get("stream_id"), 
+            "status": result.get("status"),
+            "processing_time_ms": result.get("processing_time_ms"),
+            "detections": result.get("frame_results", []),  # Use frame_results as detections
+            "tracked_horses": [],  # TODO: Extract from tracking_stats
+            "overlay_data": result.get("overlay_data", {}),
+            "model_info": result.get("model_info", {}),
+            "tracking_stats": result.get("tracking_stats", {})
+        }
             
-        return ProcessingResponse(**result)
+        return ProcessingResponse(**response_data)
         
     except Exception as error:
         logger.error(f"Chunk processing API error: {error}")
@@ -286,7 +301,7 @@ async def health_check():
                 "total": psutil.virtual_memory().total,
                 "percent": psutil.virtual_memory().percent
             },
-            "gpu": self._get_gpu_info()
+            "gpu": _get_gpu_info()
         }
         
         status = "healthy" if processor else "unhealthy"

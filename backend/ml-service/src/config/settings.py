@@ -20,10 +20,10 @@ class Settings(BaseSettings):
         default="auto", description="ML processing device"
     )
     model_path: str = Field(
-        default="../../models", description="Path to ML models directory"
+        default="./models", description="Path to ML models directory"
     )
     yolo_model: str = Field(
-        default="downloads/yolo11m.pt", description="Primary YOLO model file"
+        default="downloads/yolov5m.pt", description="Primary YOLO model file"
     )
     yolo_fallback: str = Field(
         default="downloads/yolov5m.pt", description="Fallback YOLO model file"
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     
     # Processing Configuration
     confidence_threshold: float = Field(
-        default=0.5, ge=0.0, le=1.0, description="Detection confidence threshold"
+        default=0.7, ge=0.0, le=1.0, description="Detection confidence threshold"
     )
     pose_confidence_threshold: float = Field(
         default=0.3, ge=0.0, le=1.0, description="Pose keypoint confidence threshold"
@@ -71,13 +71,13 @@ class Settings(BaseSettings):
     
     # Database Configuration
     database_host: str = Field(
-        default="localhost", description="Database host"
+        default="postgres", description="Database host"
     )
     database_port: int = Field(
         default=5432, description="Database port"
     )
     database_name: str = Field(
-        default="horsestream", description="Database name"
+        default="barnhand", description="Database name"
     )
     database_user: str = Field(
         default="admin", description="Database user"
@@ -88,7 +88,7 @@ class Settings(BaseSettings):
     
     # Redis Configuration
     redis_url: str = Field(
-        default="redis://localhost:6379", description="Redis connection URL"
+        default="redis://redis:6379", description="Redis connection URL"
     )
     redis_timeout: int = Field(
         default=30, description="Redis operation timeout in seconds"
@@ -125,6 +125,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+        protected_namespaces = ('settings_',)  # Fix pydantic model_ namespace conflict
 
 
 # Global settings instance

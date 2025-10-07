@@ -26,6 +26,7 @@ COPY requirements-dev.txt ./
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir numpy
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Development image
@@ -43,14 +44,16 @@ RUN groupadd --system --gid 1001 python
 RUN useradd --system --uid 1001 --gid python mlservice
 
 # Create directories and set permissions
-RUN mkdir -p /app/chunks /models
-RUN chown -R mlservice:python /app /models
+RUN mkdir -p /app/chunks /models /tmp/matplotlib /tmp/ultralytics
+RUN chown -R mlservice:python /app /models /tmp/matplotlib /tmp/ultralytics
 USER mlservice
 
 # Expose port
 EXPOSE 8002
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
+ENV MPLCONFIGDIR=/tmp/matplotlib
+ENV YOLO_CONFIG_DIR=/tmp/ultralytics
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
@@ -72,8 +75,8 @@ RUN groupadd --system --gid 1001 python
 RUN useradd --system --uid 1001 --gid python mlservice
 
 # Create directories and set permissions
-RUN mkdir -p /app/chunks /models
-RUN chown -R mlservice:python /app /models
+RUN mkdir -p /app/chunks /models /tmp/matplotlib /tmp/ultralytics
+RUN chown -R mlservice:python /app /models /tmp/matplotlib /tmp/ultralytics
 USER mlservice
 
 # Expose port
@@ -81,6 +84,8 @@ EXPOSE 8002
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
 ENV ENVIRONMENT=production
+ENV MPLCONFIGDIR=/tmp/matplotlib
+ENV YOLO_CONFIG_DIR=/tmp/ultralytics
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \

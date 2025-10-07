@@ -1,5 +1,5 @@
-import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import request from 'supertest';
 
 import app from '../app';
 import { env } from '../config/env';
@@ -56,9 +56,7 @@ describe('Streams API', () => {
     });
 
     it('should reject requests without auth', async () => {
-      await request(app)
-        .get('/api/v1/streams')
-        .expect(401);
+      await request(app).get('/api/v1/streams').expect(401);
     });
 
     it('should filter streams by farm for non-super-admin users', async () => {
@@ -167,7 +165,9 @@ describe('Streams API', () => {
         .expect(200);
 
       // Mock data should belong to the same farm as the user
-      expect(response.body.farm_id).toBe('123e4567-e89b-12d3-a456-426614174010');
+      expect(response.body.farm_id).toBe(
+        '123e4567-e89b-12d3-a456-426614174010'
+      );
     });
   });
 
@@ -231,7 +231,10 @@ describe('Streams API', () => {
         .set('Authorization', `Bearer ${farmUserToken}`)
         .expect(200);
 
-      expect(response.body).toHaveProperty('message', 'Stream processing started');
+      expect(response.body).toHaveProperty(
+        'message',
+        'Stream processing started'
+      );
       expect(response.body).toHaveProperty('streamId', streamId);
       expect(response.body).toHaveProperty('status', 'starting');
     });
@@ -253,7 +256,10 @@ describe('Streams API', () => {
         .set('Authorization', `Bearer ${farmUserToken}`)
         .expect(200);
 
-      expect(response.body).toHaveProperty('message', 'Stream processing stopped');
+      expect(response.body).toHaveProperty(
+        'message',
+        'Stream processing stopped'
+      );
       expect(response.body).toHaveProperty('streamId', streamId);
       expect(response.body).toHaveProperty('status', 'stopped');
     });

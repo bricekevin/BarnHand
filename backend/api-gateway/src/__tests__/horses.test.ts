@@ -1,5 +1,5 @@
-import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import request from 'supertest';
 
 import app from '../app';
 import { env } from '../config/env';
@@ -7,7 +7,6 @@ import { UserRole } from '../types/auth';
 
 describe('Horses API', () => {
   let authToken: string;
-  let farmAdminToken: string;
   let farmUserToken: string;
 
   beforeAll(() => {
@@ -16,16 +15,6 @@ describe('Horses API', () => {
         userId: '123e4567-e89b-12d3-a456-426614174000',
         farmId: '123e4567-e89b-12d3-a456-426614174010',
         role: UserRole.SUPER_ADMIN,
-      },
-      env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-
-    farmAdminToken = jwt.sign(
-      {
-        userId: '123e4567-e89b-12d3-a456-426614174001',
-        farmId: '123e4567-e89b-12d3-a456-426614174010',
-        role: UserRole.FARM_ADMIN,
       },
       env.JWT_SECRET,
       { expiresIn: '1h' }
@@ -77,7 +66,7 @@ describe('Horses API', () => {
 
       if (response.body.horses.length > 0) {
         const horse = response.body.horses[0];
-        
+
         expect(horse).toHaveProperty('id');
         expect(horse).toHaveProperty('farm_id');
         expect(horse).toHaveProperty('name');
@@ -98,9 +87,7 @@ describe('Horses API', () => {
     });
 
     it('should reject requests without auth', async () => {
-      await request(app)
-        .get('/api/v1/horses')
-        .expect(401);
+      await request(app).get('/api/v1/horses').expect(401);
     });
 
     it('should allow super admin to query specific farm', async () => {
@@ -147,13 +134,13 @@ describe('Horses API', () => {
         .expect(200);
 
       // Mock data should belong to the same farm as the user
-      expect(response.body.farm_id).toBe('123e4567-e89b-12d3-a456-426614174010');
+      expect(response.body.farm_id).toBe(
+        '123e4567-e89b-12d3-a456-426614174010'
+      );
     });
 
     it('should reject requests without auth', async () => {
-      await request(app)
-        .get(`/api/v1/horses/${horseId}`)
-        .expect(401);
+      await request(app).get(`/api/v1/horses/${horseId}`).expect(401);
     });
   });
 
@@ -173,10 +160,19 @@ describe('Horses API', () => {
         .send(validIdentificationData)
         .expect(200);
 
-      expect(response.body).toHaveProperty('message', 'Horse identified successfully');
+      expect(response.body).toHaveProperty(
+        'message',
+        'Horse identified successfully'
+      );
       expect(response.body.horse).toHaveProperty('id', horseId);
-      expect(response.body.horse).toHaveProperty('name', validIdentificationData.name);
-      expect(response.body.horse).toHaveProperty('description', validIdentificationData.description);
+      expect(response.body.horse).toHaveProperty(
+        'name',
+        validIdentificationData.name
+      );
+      expect(response.body.horse).toHaveProperty(
+        'description',
+        validIdentificationData.description
+      );
       expect(response.body.horse).toHaveProperty('identified_by');
       expect(response.body.horse).toHaveProperty('identified_at');
     });
@@ -296,7 +292,7 @@ describe('Horses API', () => {
 
       if (response.body.detections.length > 0) {
         const detection = response.body.detections[0];
-        
+
         expect(detection).toHaveProperty('time');
         expect(detection).toHaveProperty('stream_id');
         expect(detection).toHaveProperty('bbox');
@@ -326,9 +322,7 @@ describe('Horses API', () => {
     });
 
     it('should reject requests without auth', async () => {
-      await request(app)
-        .get(`/api/v1/horses/${horseId}/timeline`)
-        .expect(401);
+      await request(app).get(`/api/v1/horses/${horseId}/timeline`).expect(401);
     });
   });
 
@@ -341,7 +335,7 @@ describe('Horses API', () => {
 
       if (response.body.horses.length > 0) {
         const horse = response.body.horses[0];
-        
+
         expect(horse).toHaveProperty('tracking_id');
         expect(horse).toHaveProperty('color_assignment');
         expect(horse).toHaveProperty('last_seen');
@@ -361,7 +355,7 @@ describe('Horses API', () => {
 
       if (response.body.horses.length > 0) {
         const horse = response.body.horses[0];
-        
+
         expect(horse).toHaveProperty('metadata');
         expect(typeof horse.metadata).toBe('object');
 

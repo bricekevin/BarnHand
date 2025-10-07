@@ -109,16 +109,18 @@ export class ChunkExtractor {
   }
 
   private async runFFmpegExtraction(
-    streamSource: StreamSource, 
-    outputFile: string, 
+    streamSource: StreamSource,
+    outputFile: string,
     startTime: number
   ): Promise<void> {
     return new Promise((resolve, reject) => {
-      // FFmpeg command to extract chunk from HLS stream
+      // FFmpeg command to extract chunk from HLS stream (live edge)
+      // For live HLS streams, we extract from the current position without seeking
+      // since older segments are no longer available in the sliding window
       const ffmpegArgs = [
+        '-live_start_index', '-3',       // Start 3 segments from live edge
         '-i', streamSource.url,           // Input HLS stream
-        '-ss', startTime.toString(),      // Start time
-        '-t', env.CHUNK_DURATION.toString(), // Duration
+        '-t', env.CHUNK_DURATION.toString(), // Duration (10 seconds)
         '-c', 'copy',                     // Copy streams (no re-encoding)
         '-avoid_negative_ts', 'make_zero', // Handle timestamp issues
         '-f', 'mp4',                      // Output format

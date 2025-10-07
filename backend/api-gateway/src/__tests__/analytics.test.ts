@@ -1,5 +1,5 @@
-import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import request from 'supertest';
 
 import app from '../app';
 import { env } from '../config/env';
@@ -89,7 +89,7 @@ describe('Analytics API', () => {
         .expect(200);
 
       expect(Array.isArray(response.body.streams)).toBe(true);
-      
+
       if (response.body.streams.length > 0) {
         const stream = response.body.streams[0];
         expect(stream).toHaveProperty('streamId');
@@ -113,7 +113,7 @@ describe('Analytics API', () => {
         .expect(200);
 
       expect(Array.isArray(response.body.horses)).toBe(true);
-      
+
       if (response.body.horses.length > 0) {
         const horse = response.body.horses[0];
         expect(horse).toHaveProperty('horseId');
@@ -200,9 +200,7 @@ describe('Analytics API', () => {
     });
 
     it('should reject requests without auth', async () => {
-      await request(app)
-        .get('/api/v1/analytics/metrics')
-        .expect(401);
+      await request(app).get('/api/v1/analytics/metrics').expect(401);
     });
   });
 
@@ -230,7 +228,7 @@ describe('Analytics API', () => {
 
     it('should support different export formats', async () => {
       const formats = ['json', 'csv', 'xlsx'];
-      
+
       for (const format of formats) {
         const response = await request(app)
           .get('/api/v1/analytics/export')
@@ -428,9 +426,7 @@ describe('Analytics API', () => {
     });
 
     it('should reject requests without auth', async () => {
-      await request(app)
-        .get('/api/v1/analytics/performance')
-        .expect(401);
+      await request(app).get('/api/v1/analytics/performance').expect(401);
     });
   });
 
@@ -441,7 +437,9 @@ describe('Analytics API', () => {
         .set('Authorization', `Bearer ${farmUserToken}`)
         .expect(200);
 
-      expect(response.body.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+      expect(response.body.generatedAt).toMatch(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/
+      );
     });
 
     it('should handle timezone considerations', async () => {
@@ -464,7 +462,7 @@ describe('Analytics API', () => {
         .expect(200);
 
       const overview = response.body.overview;
-      
+
       // Confidence should be precise to reasonable decimal places
       expect(overview.avgConfidence).toBeCloseTo(overview.avgConfidence, 2);
       expect(overview.errorRate).toBeCloseTo(overview.errorRate, 3);

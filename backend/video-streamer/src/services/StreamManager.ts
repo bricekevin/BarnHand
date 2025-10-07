@@ -19,12 +19,13 @@ export interface StreamInfo {
   lastError?: string;
   playlistUrl: string;
   outputPath: string;
+  manuallyStopped?: boolean;
 }
 
 export class StreamManager {
   private streams = new Map<string, StreamInfo>();
   private outputPath: string;
-  private cleanupJob?: any;
+  private cleanupJob?: cron.ScheduledTask;
 
   constructor() {
     this.outputPath = env.OUTPUT_PATH;
@@ -67,6 +68,7 @@ export class StreamManager {
       restartCount: 0,
       playlistUrl: `/stream${streamId.slice(-1)}/playlist.m3u8`,
       outputPath: streamOutputPath,
+      manuallyStopped: false,
     };
 
     this.streams.set(streamId, streamInfo);
@@ -93,8 +95,9 @@ export class StreamManager {
   private async startFFmpegProcess(streamInfo: StreamInfo): Promise<void> {
     const { id: streamId, videoFile, outputPath } = streamInfo;
 
-    // FFmpeg command for HLS streaming with loop
+    // Simplified FFmpeg command for reliable HLS streaming
     const ffmpegArgs = [
+      '-re', // Read input at native frame rate
       '-stream_loop',
       '-1', // Loop input infinitely
       '-i',
@@ -102,31 +105,25 @@ export class StreamManager {
       '-c:v',
       'libx264', // Video codec
       '-preset',
-      'veryfast', // Encoding speed
-      '-tune',
-      'zerolatency', // Low latency
+      'veryfast', // Faster encoding for real-time
       '-crf',
-      '23', // Quality setting
+      '23', // Good quality setting
       '-maxrate',
       env.BITRATE, // Max bitrate
       '-bufsize',
       '2M', // Buffer size
-      '-g',
-      '60', // Keyframe interval
       '-c:a',
       'aac', // Audio codec
       '-b:a',
       '128k', // Audio bitrate
-      '-ar',
-      '44100', // Audio sample rate
       '-f',
       'hls', // Output format
       '-hls_time',
       env.SEGMENT_DURATION.toString(), // Segment duration
       '-hls_list_size',
-      env.PLAYLIST_SIZE.toString(), // Playlist size
+      env.PLAYLIST_SIZE.toString(), // Keep segments in playlist
       '-hls_flags',
-      'delete_segments+append_list', // Cleanup old segments
+      'delete_segments', // Clean up old segments
       '-hls_segment_filename',
       path.join(outputPath, 'segment_%03d.ts'),
       path.join(outputPath, 'playlist.m3u8'),
@@ -191,8 +188,13 @@ export class StreamManager {
         restartCount: streamInfo.restartCount,
       });
 
-      // Auto-restart if it was running and exit was unexpected
-      if (wasActive && code !== 0 && streamInfo.restartCount < 3) {
+      // Auto-restart if it was running and exit was unexpected (but not manually stopped)
+      if (
+        wasActive &&
+        code !== 0 &&
+        streamInfo.restartCount < 3 &&
+        !streamInfo.manuallyStopped
+      ) {
         setTimeout(() => this.restartStream(streamId), 5000);
       }
     });
@@ -213,6 +215,7 @@ export class StreamManager {
     }
 
     streamInfo.restartCount++;
+    streamInfo.manuallyStopped = false; // Clear manual stop flag on restart
     logger.info('Restarting stream', {
       streamId,
       attempt: streamInfo.restartCount,
@@ -243,6 +246,9 @@ export class StreamManager {
     }
 
     logger.info('Stopping stream', { streamId });
+
+    // Mark as manually stopped to prevent auto-restart
+    streamInfo.manuallyStopped = true;
 
     if (streamInfo.process && !streamInfo.process.killed) {
       streamInfo.process.kill('SIGTERM');
@@ -352,7 +358,7 @@ export class StreamManager {
   private async cleanupOldSegments(outputPath: string): Promise<void> {
     try {
       const files = await fs.readdir(outputPath);
-      const segmentFiles = files.filter(f => f.endsWith('.ts'));
+      const segmentFiles = files.filter((f: string) => f.endsWith('.ts'));
 
       // Keep only recent segments (beyond playlist size)
       if (segmentFiles.length > env.PLAYLIST_SIZE * 2) {
@@ -389,7 +395,7 @@ export class StreamManager {
 
     // Stop cleanup job
     if (this.cleanupJob) {
-      this.cleanupJob.destroy();
+      this.cleanupJob.stop();
     }
 
     // Stop all streams

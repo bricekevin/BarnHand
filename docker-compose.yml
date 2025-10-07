@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile
       target: development
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "${FRONTEND_PORT:-5174}:5173"
     environment:
       - NODE_ENV=development
       - REACT_APP_API_URL=http://localhost:${API_GATEWAY_PORT:-8000}
@@ -41,8 +41,10 @@ services:
       - ML_SERVICE_URL=http://ml-service:8002
       - VIDEO_STREAMER_URL=http://video-streamer:8003
       - CORS_ORIGIN=http://localhost:${FRONTEND_PORT:-3000}
+      - CHUNK_STORAGE_PATH=/app/storage/chunks
     volumes:
       - ./backend/api-gateway/src:/app/src
+      - ./chunks:/app/storage/chunks
       - /app/node_modules
     depends_on:
       - postgres
@@ -71,6 +73,7 @@ services:
       - CHUNK_DURATION=${CHUNK_DURATION:-10}
       - PROCESSING_DELAY=${PROCESSING_DELAY:-20}
       - ML_SERVICE_URL=http://ml-service:8002
+      - VIDEO_STREAMER_URL=http://video-streamer:8003
       - VIDEO_FOLDER=/media
     volumes:
       - ./backend/stream-service/src:/app/src
@@ -136,12 +139,16 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8003
+      - MEDIA_PATH=/media
       - VIDEO_FOLDER=/media
       - STREAM_COUNT=${STREAM_COUNT:-5}
       - HLS_SEGMENT_TIME=${HLS_SEGMENT_TIME:-2}
+      - CHUNK_STORAGE_PATH=/app/storage/chunks
+      - ENABLE_AUTO_STREAMS=true
     volumes:
       - ./backend/video-streamer/src:/app/src
       - ./media:/media:ro
+      - ./chunks:/app/storage/chunks
       - /app/node_modules
     networks:
       - barnhand-network

@@ -91,9 +91,12 @@ class HorseDetectionModel:
             results = model(frame, conf=settings.confidence_threshold, verbose=False)
             processing_time = (time.time() - start_time) * 1000
             
-            # Extract horse detections (class 0 in COCO is 'person', but for horses we need custom class)
-            # For now, we'll detect all objects and filter by confidence
+            # Extract horse detections with 70% confidence threshold
+            # COCO class ID for horse: 17
+            HORSE_CLASS_ID = 17
+            
             detections = []
+            all_detections_debug = []
             
             for result in results:
                 boxes = result.boxes
@@ -104,21 +107,38 @@ class HorseDetectionModel:
                         confidence = float(box.conf[0].cpu().numpy())
                         class_id = int(box.cls[0].cpu().numpy())
                         
-                        # For demo purposes, treat all detections as horses
-                        # In production, you'd train a custom model or use a horse-specific class
-                        detection = {
-                            "bbox": {
-                                "x": float(x1),
-                                "y": float(y1), 
-                                "width": float(x2 - x1),
-                                "height": float(y2 - y1)
-                            },
-                            "confidence": confidence,
-                            "class_id": class_id,
-                            "class_name": "horse",  # Assuming all detections are horses
-                            "model_used": self.current_model
-                        }
-                        detections.append(detection)
+                        # Debug: log all detections above 10% to see what we're getting
+                        if confidence > 0.1:
+                            all_detections_debug.append({
+                                "class_id": class_id,
+                                "confidence": confidence,
+                                "bbox_area": (x2-x1) * (y2-y1)
+                            })
+                        
+                        # STRICT FILTERING: Only accept horses with 70%+ confidence
+                        if class_id == HORSE_CLASS_ID and confidence >= settings.confidence_threshold:
+                            detection = {
+                                "bbox": {
+                                    "x": float(x1),
+                                    "y": float(y1), 
+                                    "width": float(x2 - x1),
+                                    "height": float(y2 - y1)
+                                },
+                                "confidence": confidence,
+                                "class_id": class_id,
+                                "class_name": "horse",
+                                "model_used": self.current_model,
+                                "is_primary_horse": True
+                            }
+                            detections.append(detection)
+            
+            # Debug logging
+            if all_detections_debug:
+                logger.debug(f"All detections found: {len(all_detections_debug)}")
+                for i, det in enumerate(all_detections_debug[:5]):  # Log first 5
+                    logger.debug(f"  Detection {i+1}: class_id={det['class_id']}, conf={det['confidence']:.3f}")
+            else:
+                logger.debug("No detections found by YOLO model")
             
             # Update performance metrics
             self._update_performance_metrics(processing_time)

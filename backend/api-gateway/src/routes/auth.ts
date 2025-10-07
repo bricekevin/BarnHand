@@ -5,11 +5,15 @@ import { z } from 'zod';
 
 import { env } from '../config/env';
 import { logger } from '../config/logger';
-import { authenticateToken, generateTokens } from '../middleware/auth';
+import {
+  authenticateToken,
+  generateTokens,
+  createAuthenticatedRoute,
+} from '../middleware/auth';
 import { authRateLimit } from '../middleware/rateLimiting';
 import { validateSchema } from '../middleware/validation';
 import { UserRole, JwtPayload } from '../types/auth';
-import { AuthenticatedRequest } from '../types/requests';
+// AuthenticatedRequest is now handled by createAuthenticatedRoute wrapper
 
 // TODO: Replace with actual user service/repository when implemented
 interface MockUser {
@@ -29,6 +33,7 @@ const mockUsers: MockUser[] = [
     password: '$2b$10$okFC7FS49v2bQjTqOkmH7OdGDddF6Al7d1GQVCiefTmLiX/f2sAIq', // 'admin123'
     name: 'System Administrator',
     role: 'super_admin',
+    farm_id: '123e4567-e89b-12d3-a456-426614174010',
   },
   {
     id: '123e4567-e89b-12d3-a456-426614174001',
@@ -56,112 +61,132 @@ const router = Router();
 router.use(authRateLimit);
 
 // POST /api/v1/auth/login
-router.post('/login', validateSchema(loginSchema), async (req, res) => {
-  try {
-    const { email, password } = req.body;
+router.post(
+  '/login',
+  validateSchema(loginSchema),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      const { email, password } = req.body;
 
-    // Find user (replace with database query)
-    const user = mockUsers.find(u => u.email === email);
-    if (!user) {
-      logger.warn('Login attempt with invalid email', { email });
-      return res.status(401).json({ error: 'Invalid credentials' });
+      // Find user (replace with database query)
+      const user = mockUsers.find(u => u.email === email);
+      if (!user) {
+        logger.warn('Login attempt with invalid email', { email });
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        logger.warn('Login attempt with invalid password', { userId: user.id });
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+
+      // Generate tokens
+      const payload = {
+        userId: user.id,
+        email: user.email,
+        role: user.role as UserRole,
+        farmId: user.farm_id,
+      };
+
+      const { accessToken, refreshToken } = generateTokens(payload);
+
+      logger.info('User logged in successfully', {
+        userId: user.id,
+        email: user.email,
+      });
+
+      return res.json({
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          farm_id: user.farm_id,
+        },
+        accessToken,
+        refreshToken,
+        expiresIn: '24h',
+      });
+    } catch (error) {
+      logger.error('Login error', { error });
+      return res.status(500).json({ error: 'Internal server error' });
     }
+  })
+);
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      logger.warn('Login attempt with invalid password', { userId: user.id });
-      return res.status(401).json({ error: 'Invalid credentials' });
+// POST /api/v1/auth/refresh
+router.post(
+  '/refresh',
+  validateSchema(refreshSchema),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      const { refreshToken } = req.body;
+
+      // Verify refresh token
+      const payload = jwt.verify(refreshToken, env.JWT_SECRET) as JwtPayload;
+
+      // Generate new access token
+      const { accessToken: newAccessToken } = generateTokens({
+        userId: payload.userId,
+        email: payload.email,
+        role: payload.role,
+        farmId: payload.farmId,
+      });
+
+      return res.json({
+        accessToken: newAccessToken,
+        expiresIn: '24h',
+      });
+    } catch (error) {
+      logger.warn('Invalid refresh token', {
+        error: error instanceof Error ? error.message : error,
+      });
+      return res.status(401).json({ error: 'Invalid refresh token' });
     }
+  })
+);
 
-    // Generate tokens
-    const payload = {
-      userId: user.id,
-      email: user.email,
-      role: user.role as UserRole,
-      farmId: user.farm_id,
-    };
+// GET /api/v1/auth/me - Get current user info
+router.get(
+  '/me',
+  authenticateToken,
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
 
-    const { accessToken, refreshToken } = generateTokens(payload);
+      // Find user (replace with database query)
+      const user = mockUsers.find(u => u.id === req.user!.userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
 
-    logger.info('User logged in successfully', {
-      userId: user.id,
-      email: user.email,
-    });
-
-    return res.json({
-      user: {
+      return res.json({
         id: user.id,
         email: user.email,
         name: user.name,
         role: user.role,
         farm_id: user.farm_id,
-      },
-      accessToken,
-      refreshToken,
-      expiresIn: '24h',
-    });
-  } catch (error) {
-    logger.error('Login error', { error });
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// POST /api/v1/auth/refresh
-router.post('/refresh', validateSchema(refreshSchema), async (req, res) => {
-  try {
-    const { refreshToken } = req.body;
-
-    // Verify refresh token
-    const payload = jwt.verify(refreshToken, env.JWT_SECRET) as JwtPayload;
-
-    // Generate new access token
-    const { accessToken: newAccessToken } = generateTokens({
-      userId: payload.userId,
-      email: payload.email,
-      role: payload.role,
-      farmId: payload.farmId,
-    });
-
-    return res.json({
-      accessToken: newAccessToken,
-      expiresIn: '24h',
-    });
-  } catch (error) {
-    logger.warn('Invalid refresh token', {
-      error: error instanceof Error ? error.message : error,
-    });
-    return res.status(401).json({ error: 'Invalid refresh token' });
-  }
-});
-
-// GET /api/v1/auth/me - Get current user info
-router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
-  try {
-    // Find user (replace with database query)
-    const user = mockUsers.find(u => u.id === req.user.userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      });
+    } catch (error) {
+      logger.error('Get user info error', { error });
+      return res.status(500).json({ error: 'Internal server error' });
     }
-
-    return res.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      farm_id: user.farm_id,
-    });
-  } catch (error) {
-    logger.error('Get user info error', { error });
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
+  })
+);
 
 // POST /api/v1/auth/logout
-router.post('/logout', authenticateToken, (req: AuthenticatedRequest, res) => {
-  // In production, add token to blacklist or revoke refresh tokens
-  logger.info('User logged out', { userId: req.user?.userId });
-  return res.json({ message: 'Logged out successfully' });
-});
+router.post(
+  '/logout',
+  authenticateToken,
+  createAuthenticatedRoute((req, res) => {
+    // In production, add token to blacklist or revoke refresh tokens
+    logger.info('User logged out', { userId: req.user?.userId });
+    return res.json({ message: 'Logged out successfully' });
+  })
+);
 
 export default router;

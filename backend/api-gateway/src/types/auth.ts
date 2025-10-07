@@ -23,6 +23,14 @@ export interface JwtPayload {
   exp?: number;
 }
 
+export interface UserPayload {
+  id: string;
+  userId: string;
+  email: string;
+  role: UserRole;
+  farmId: string | undefined;
+}
+
 export interface AuthRequest extends Request {
   user?: User;
 }

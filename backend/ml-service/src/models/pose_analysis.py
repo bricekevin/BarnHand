@@ -105,8 +105,16 @@ class PoseAnalyzer:
         """
         angles = {}
         
+        # Ensure keypoints is a numpy array with proper shape
+        if not isinstance(keypoints, np.ndarray):
+            keypoints = np.array(keypoints)
+        
+        if keypoints.shape[0] < 17:
+            return angles  # Not enough keypoints
+        
         # Front left leg angles
-        if all(keypoints[[5, 6, 7], 2] > self.confidence_threshold):
+        indices = [5, 6, 7]
+        if all(idx < len(keypoints) and keypoints[idx, 2] > self.confidence_threshold for idx in indices):
             angles["front_left_shoulder"] = self.calculate_angle(
                 keypoints[3, :2], keypoints[5, :2], keypoints[6, :2]
             )
@@ -115,7 +123,8 @@ class PoseAnalyzer:
             )
         
         # Front right leg angles
-        if all(keypoints[[8, 9, 10], 2] > self.confidence_threshold):
+        indices = [8, 9, 10]
+        if all(idx < len(keypoints) and keypoints[idx, 2] > self.confidence_threshold for idx in indices):
             angles["front_right_shoulder"] = self.calculate_angle(
                 keypoints[3, :2], keypoints[8, :2], keypoints[9, :2]
             )
@@ -124,7 +133,8 @@ class PoseAnalyzer:
             )
         
         # Back left leg angles
-        if all(keypoints[[11, 12, 13], 2] > self.confidence_threshold):
+        indices = [11, 12, 13]
+        if all(idx < len(keypoints) and keypoints[idx, 2] > self.confidence_threshold for idx in indices):
             angles["back_left_hip"] = self.calculate_angle(
                 keypoints[4, :2], keypoints[11, :2], keypoints[12, :2]
             )
@@ -133,7 +143,8 @@ class PoseAnalyzer:
             )
         
         # Back right leg angles
-        if all(keypoints[[14, 15, 16], 2] > self.confidence_threshold):
+        indices = [14, 15, 16]
+        if all(idx < len(keypoints) and keypoints[idx, 2] > self.confidence_threshold for idx in indices):
             angles["back_right_hip"] = self.calculate_angle(
                 keypoints[4, :2], keypoints[14, :2], keypoints[15, :2]
             )
@@ -142,7 +153,8 @@ class PoseAnalyzer:
             )
         
         # Neck angle
-        if all(keypoints[[2, 3, 4], 2] > self.confidence_threshold):
+        indices = [2, 3, 4]
+        if all(idx < len(keypoints) and keypoints[idx, 2] > self.confidence_threshold for idx in indices):
             angles["neck"] = self.calculate_angle(
                 keypoints[2, :2], keypoints[3, :2], keypoints[4, :2]
             )
@@ -160,22 +172,32 @@ class PoseAnalyzer:
         """
         metrics = {}
         
+        # Ensure keypoints is a numpy array with proper shape
+        if not isinstance(keypoints, np.ndarray):
+            keypoints = np.array(keypoints)
+        
+        if keypoints.shape[0] < 17:
+            return metrics  # Not enough keypoints
+        
         # Front hooves distance (stride width)
-        if all(keypoints[[7, 10], 2] > self.confidence_threshold):
+        if 7 < len(keypoints) and 10 < len(keypoints) and \
+           keypoints[7, 2] > self.confidence_threshold and keypoints[10, 2] > self.confidence_threshold:
             front_distance = np.linalg.norm(
                 keypoints[7, :2] - keypoints[10, :2]
             )
             metrics["front_stride_width"] = front_distance
         
         # Back hooves distance
-        if all(keypoints[[13, 16], 2] > self.confidence_threshold):
+        if 13 < len(keypoints) and 16 < len(keypoints) and \
+           keypoints[13, 2] > self.confidence_threshold and keypoints[16, 2] > self.confidence_threshold:
             back_distance = np.linalg.norm(
                 keypoints[13, :2] - keypoints[16, :2]
             )
             metrics["back_stride_width"] = back_distance
         
         # Diagonal stride (left front to right back)
-        if all(keypoints[[7, 16], 2] > self.confidence_threshold):
+        if 7 < len(keypoints) and 16 < len(keypoints) and \
+           keypoints[7, 2] > self.confidence_threshold and keypoints[16, 2] > self.confidence_threshold:
             diagonal_distance = np.linalg.norm(
                 keypoints[7, :2] - keypoints[16, :2]
             )
@@ -192,8 +214,16 @@ class PoseAnalyzer:
         Returns:
             Back angle in degrees (0 = straight)
         """
+        # Ensure keypoints is a numpy array with proper shape
+        if not isinstance(keypoints, np.ndarray):
+            keypoints = np.array(keypoints)
+        
+        if keypoints.shape[0] < 5:
+            return 0.0  # Not enough keypoints
+        
         # Check if spine keypoints are valid
-        if all(keypoints[[3, 4], 2] > self.confidence_threshold):
+        if 3 < len(keypoints) and 4 < len(keypoints) and \
+           keypoints[3, 2] > self.confidence_threshold and keypoints[4, 2] > self.confidence_threshold:
             # Get neck and tail base positions
             neck = keypoints[3, :2]
             tail = keypoints[4, :2]
@@ -229,8 +259,12 @@ class PoseAnalyzer:
         total_weight = 0
         weighted_sum = np.zeros(2)
         
+        # Ensure keypoints is a numpy array with proper shape
+        if not isinstance(keypoints, np.ndarray):
+            keypoints = np.array(keypoints)
+        
         for idx, weight in weights.items():
-            if keypoints[idx, 2] > self.confidence_threshold:
+            if idx < len(keypoints) and keypoints[idx, 2] > self.confidence_threshold:
                 weighted_sum += keypoints[idx, :2] * weight
                 total_weight += weight
         
@@ -282,17 +316,36 @@ class PoseAnalyzer:
                 for frame_idx in range(n_frames):
                     if frame_idx >= len(smoothed):
                         smoothed.append(np.zeros_like(keypoints_sequence[0]))
-                    smoothed[frame_idx][kp_idx] = [
-                        x_smooth[frame_idx],
-                        y_smooth[frame_idx],
-                        c_vals[frame_idx]
-                    ]
+                    
+                    # Ensure proper array dimensions before indexing
+                    try:
+                        if len(smoothed[frame_idx].shape) >= 2 and smoothed[frame_idx].shape[0] > kp_idx:
+                            smoothed[frame_idx][kp_idx] = [
+                                x_smooth[frame_idx],
+                                y_smooth[frame_idx],
+                                c_vals[frame_idx]
+                            ]
+                        else:
+                            # Skip if array structure is wrong
+                            continue
+                    except (IndexError, AttributeError) as e:
+                        # Skip problematic keypoint indexing
+                        continue
             else:
                 # Keep original if confidence too low
                 for frame_idx in range(n_frames):
                     if frame_idx >= len(smoothed):
                         smoothed.append(np.zeros_like(keypoints_sequence[0]))
-                    smoothed[frame_idx][kp_idx] = keypoints_sequence[frame_idx][kp_idx]
+                    
+                    try:
+                        if (len(smoothed[frame_idx].shape) >= 2 and 
+                            smoothed[frame_idx].shape[0] > kp_idx and
+                            len(keypoints_sequence[frame_idx].shape) >= 2 and
+                            keypoints_sequence[frame_idx].shape[0] > kp_idx):
+                            smoothed[frame_idx][kp_idx] = keypoints_sequence[frame_idx][kp_idx]
+                    except (IndexError, AttributeError):
+                        # Skip problematic keypoint indexing
+                        continue
         
         return smoothed
     

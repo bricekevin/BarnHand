@@ -17,10 +17,13 @@ export function createStreamRoutes(
       const streams = streamManager.getAllStreams();
       const activeCount = streamManager.getActiveStreamCount();
 
-      logger.info('Streams listed', {
-        totalStreams: streams.length,
-        activeStreams: activeCount,
-      });
+      // Only log when there are actual changes or in debug mode
+      if (env.LOG_LEVEL === 'debug') {
+        logger.debug('Streams listed', {
+          totalStreams: streams.length,
+          activeStreams: activeCount,
+        });
+      }
 
       res.json({
         streams: streams.map(stream => ({
