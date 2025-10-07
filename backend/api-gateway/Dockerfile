@@ -12,7 +12,7 @@ RUN npm install
 
 # Development image
 FROM base as development
-RUN apk add --no-cache ffmpeg
+RUN apk add --no-cache ffmpeg curl
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -50,6 +50,7 @@ RUN npm run build
 
 # Production image
 FROM node:18-alpine as production
+RUN apk add --no-cache curl
 WORKDIR /app
 
 # Create non-root user
