@@ -1,6 +1,29 @@
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
 import { createApp } from './app';
 import { env } from './config/env';
 import { logger } from './config/logger';
+
+const execAsync = promisify(exec);
+
+// Kill any orphaned FFmpeg processes on startup (from previous hot-reloads)
+const killOrphanedFFmpegProcesses = async () => {
+  try {
+    // Find all ffmpeg processes owned by this user
+    const { stdout } = await execAsync('ps aux | grep "[f]fmpeg.*hls" || true');
+    if (stdout.trim()) {
+      logger.warn(
+        'Found orphaned FFmpeg processes from previous runs, cleaning up...'
+      );
+      await execAsync('pkill -f "ffmpeg.*hls" || true');
+      logger.info('Orphaned FFmpeg processes cleaned up');
+    }
+  } catch (error) {
+    // Ignore errors - process might not exist
+    logger.debug('No orphaned FFmpeg processes found');
+  }
+};
 
 // Handle uncaught exceptions
 process.on('uncaughtException', error => {
@@ -38,10 +61,15 @@ const gracefulShutdown = async (signal: string) => {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+// Handle SIGUSR2 from tsx watch hot-reload
+process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2'));
 
 // Start server
 const startServer = async () => {
   try {
+    // Clean up any orphaned FFmpeg processes from previous runs/hot-reloads
+    await killOrphanedFFmpegProcesses();
+
     const app = await createApp();
 
     const server = app.listen(env.PORT, () => {
@@ -145,10 +173,23 @@ const autoStartStreams = async () => {
 
 // Start the server
 startServer().then(() => {
-  // Auto-start streams after server is ready (disabled by default)
-  // Set ENABLE_AUTO_STREAMS=true to enable auto-start
-  if (process.env.NODE_ENV !== 'test' && process.env.ENABLE_AUTO_STREAMS === 'true') {
+  // Auto-start streams after server is ready
+  // DISABLED in development to prevent FFmpeg process accumulation during hot-reload
+  // Enable with: ENABLE_AUTO_STREAMS=true (production default)
+  const shouldAutoStart =
+    process.env.NODE_ENV !== 'test' &&
+    (process.env.NODE_ENV === 'production' ||
+      process.env.ENABLE_AUTO_STREAMS === 'true');
+
+  if (shouldAutoStart) {
+    logger.info(
+      'Auto-starting streams (ENABLE_AUTO_STREAMS=true or production mode)'
+    );
     autoStartStreams();
+  } else {
+    logger.info(
+      'Auto-start disabled. Manually create streams via API or set ENABLE_AUTO_STREAMS=true'
+    );
   }
 });
 
