@@ -526,7 +526,7 @@ class ChunkProcessor:
         """Generate per-horse summary across all frames."""
         horse_data = {}
 
-        for frame_result in frame_results:
+        for frame_idx, frame_result in enumerate(frame_results):
             for track in frame_result["tracked_horses"]:
                 horse_id = str(track.get("tracking_id"))
 
@@ -536,8 +536,13 @@ class ChunkProcessor:
                         "color": track.get("color", [255, 255, 255]),
                         "total_detections": 0,
                         "confidences": [],
-                        "states": []
+                        "states": [],
+                        "first_frame": frame_idx,
+                        "last_frame": frame_idx
                     }
+                else:
+                    # Update last frame
+                    horse_data[horse_id]["last_frame"] = frame_idx
 
                 horse_data[horse_id]["total_detections"] += 1
                 horse_data[horse_id]["confidences"].append(track.get("confidence", 0.0))
@@ -564,6 +569,8 @@ class ChunkProcessor:
             horse_summaries.append({
                 "id": horse_id,
                 "color": data["color"],
+                "first_detected_frame": data["first_frame"],
+                "last_detected_frame": data["last_frame"],
                 "total_detections": data["total_detections"],
                 "avg_confidence": round(avg_confidence, 3),
                 "state_distribution": state_counts
