@@ -7,8 +7,10 @@ RUN apk add --no-cache libc6-compat ffmpeg
 WORKDIR /app
 
 # Copy package files
-COPY package.json package-lock.json* ./
-RUN npm install
+COPY package.json ./
+# Note: Skip package-lock.json since it's for the monorepo workspace
+# Install dependencies fresh
+RUN npm install && npm install redis
 
 # Development image
 FROM base as development
@@ -20,6 +22,10 @@ COPY . .
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 apigateway
+
+# Change ownership before switching user
+RUN chown -R apigateway:nodejs /app
+
 USER apigateway
 
 # Expose port
@@ -36,7 +42,7 @@ CMD ["npm", "run", "dev"]
 # Production dependencies
 FROM base as production-deps
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json ./
 RUN npm install --only=production && npm cache clean --force
 
 # Build stage

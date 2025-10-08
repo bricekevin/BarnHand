@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 
-import { createClient } from 'redis';
+//import { createClient } from 'redis';
 import { v4 as uuidv4 } from 'uuid';
 
 import { logger } from '../config/logger';
@@ -46,7 +46,7 @@ export class VideoChunkService {
   private activeRecordings: Map<string, ActiveRecording> = new Map();
   private ffmpegPath: string;
   private ffprobePath: string;
-  private redisClient: ReturnType<typeof createClient> | null = null;
+  private redisClient: any | null = null; // TODO: Re-enable when redis package installs properly
 
   constructor() {
     // Configure storage path - will be mounted volume in Docker
@@ -68,20 +68,11 @@ export class VideoChunkService {
   }
 
   private async initRedis() {
-    try {
-      const redisUrl = process.env.REDIS_URL || 'redis://redis:6379';
-      this.redisClient = createClient({ url: redisUrl });
-
-      this.redisClient.on('error', (err) => {
-        logger.error('Redis client error:', err);
-      });
-
-      await this.redisClient.connect();
-      logger.info('Redis client connected for progress tracking');
-    } catch (error) {
-      logger.warn('Failed to connect to Redis, progress tracking disabled:', error);
-      this.redisClient = null;
-    }
+    // TODO: Fix Docker redis npm package installation issue
+    // Progress tracking temporarily disabled - ML service still writes to Redis
+    // Frontend ready to display progress when re-enabled
+    this.redisClient = null;
+    logger.info('Redis progress tracking disabled - awaiting Docker fix');
   }
 
   private detectFFmpegPath(): string {
