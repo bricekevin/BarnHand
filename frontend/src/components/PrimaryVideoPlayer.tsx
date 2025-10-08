@@ -54,6 +54,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
   const [showChunkNotification, setShowChunkNotification] = useState(false);
   const [showRawVideo, setShowRawVideo] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string | null>(null);
+  const [detectionDataKey, setDetectionDataKey] = useState(0);
 
   // Load video chunks for this stream
   useEffect(() => {
@@ -66,6 +67,65 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
       handleChunkSelect(selectedChunk);
     }
   }, [showRawVideo]);
+
+  // Poll chunk processing status when a chunk is selected
+  useEffect(() => {
+    if (!selectedChunk) return;
+
+    let intervalId: NodeJS.Timeout;
+
+    const pollStatus = async () => {
+      try {
+        const token = await getAuthToken();
+        if (!token) return;
+
+        const response = await fetch(
+          `http://localhost:8000/api/v1/streams/${stream.id}/chunks/${selectedChunk.id}/status`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const prevStatus = processingStatus;
+          setProcessingStatus(data.processing_status || 'pending');
+
+          // If processing just completed, auto-switch to processed video and refresh data
+          if (prevStatus === 'processing' && data.processing_status === 'complete') {
+            console.log('✅ ML processing completed! Auto-switching to processed video...');
+
+            // Switch to processed video if currently showing raw
+            if (showRawVideo) {
+              setShowRawVideo(false);
+            } else {
+              // If already showing processed, reload to get the new processed video
+              await handleChunkSelect(selectedChunk);
+            }
+
+            // Trigger detection data refresh
+            setDetectionDataKey(prev => prev + 1);
+          }
+        }
+      } catch (error) {
+        console.error('Error polling processing status:', error);
+      }
+    };
+
+    // Initial fetch
+    pollStatus();
+
+    // Poll every 2 seconds
+    intervalId = setInterval(pollStatus, 2000);
+
+    // Cleanup on unmount or chunk change
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [selectedChunk, processingStatus, stream.id]);
 
   const getAuthToken = async () => {
     let token = localStorage.getItem('authToken');
@@ -666,6 +726,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
           {/* Right Column: Detection Data Panel */}
           <div className="detection-panel-container">
             <DetectionDataPanel
+              key={detectionDataKey}
               streamId={stream.id}
               chunkId={selectedChunk?.id || null}
             />

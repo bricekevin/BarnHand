@@ -428,10 +428,20 @@ class ChunkProcessor:
             }
 
         except Exception as error:
+            import traceback
             processing_time = (time.time() - start_time) * 1000
-            logger.error(f"Chunk processing with video output failed: {error}",
-                        chunk_id=chunk_id,
-                        error=str(error))
+
+            # Log with full traceback
+            logger.exception(f"Chunk processing with video output failed: {error}",
+                           chunk_id=chunk_id,
+                           error=str(error))
+
+            # Also print traceback to stdout for debugging
+            print(f"=== CHUNK PROCESSING ERROR ===")
+            print(f"Chunk ID: {chunk_id}")
+            print(f"Error: {error}")
+            print(f"Traceback:")
+            traceback.print_exc()
 
             return {
                 "chunk_id": chunk_id,
@@ -499,8 +509,9 @@ class ChunkProcessor:
 
                 if keypoints and len(keypoints) > 0:
                     for i, kp in enumerate(keypoints):
-                        if len(kp) >= 2:
-                            x, y = int(kp[0]), int(kp[1])
+                        # Keypoints are dicts with 'x', 'y', 'confidence' keys
+                        if isinstance(kp, dict) and 'x' in kp and 'y' in kp:
+                            x, y = int(kp['x']), int(kp['y'])
                             if x > 0 and y > 0:  # Valid keypoint
                                 # Color code by body part
                                 if i < 5:  # Head/neck
