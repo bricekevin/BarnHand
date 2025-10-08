@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
+import { DetectionDataPanel } from './DetectionDataPanel';
 import { OverlayCanvas } from './OverlayCanvas';
 import { VideoPlayer } from './VideoPlayer';
 
@@ -565,99 +566,110 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* Playback Mode - Video Chunks List */}
+      {/* Playback Mode - Video Chunks List and Detection Panel */}
       {viewMode === 'playback' && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-white">
-              Processed Video Chunks
-            </h3>
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Left Column: Video Chunks List */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-white">
+                Processed Video Chunks
+              </h3>
+            </div>
 
-          {videoChunks.length > 0 ? (
-            <div className="space-y-2 max-h-64 overflow-y-auto overflow-x-hidden">
-              {videoChunks.map(chunk => (
-                <div
-                  key={chunk.id}
-                  onClick={() => handleChunkSelect(chunk)}
-                  className={`p-3 border rounded-lg transition-all duration-200 cursor-pointer hover:scale-[1.02] w-full ${
-                    chunk.status === 'completed'
-                      ? selectedChunk?.id === chunk.id
-                        ? 'bg-blue-500/20 border-blue-500/50 text-blue-300 shadow-lg shadow-blue-500/20'
-                        : 'bg-slate-800/50 border-slate-700/50 text-slate-300 hover:bg-slate-700/50 hover:border-slate-600/50'
-                      : 'bg-slate-800/30 border-slate-700/30 text-slate-500 cursor-not-allowed opacity-60'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3 w-full">
-                    <div className="flex items-start space-x-3 min-w-0 flex-1">
-                      <div
-                        className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
-                          chunk.status === 'completed'
-                            ? 'bg-green-500'
-                            : chunk.status === 'recording'
-                              ? 'bg-yellow-500 animate-pulse'
-                              : 'bg-red-500'
-                        }`}
-                      ></div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium text-sm truncate">
-                          {chunk.filename}
-                        </div>
-                        <div className="text-xs opacity-75 whitespace-nowrap">
-                          {formatDuration(chunk.duration)} •{' '}
-                          {formatFileSize(chunk.file_size)} •{' '}
-                          {new Date(chunk.created_at).toLocaleTimeString()}
+            {videoChunks.length > 0 ? (
+              <div className="space-y-2 max-h-64 overflow-y-auto overflow-x-hidden">
+                {videoChunks.map(chunk => (
+                  <div
+                    key={chunk.id}
+                    onClick={() => handleChunkSelect(chunk)}
+                    className={`p-3 border rounded-lg transition-all duration-200 cursor-pointer hover:scale-[1.02] w-full ${
+                      chunk.status === 'completed'
+                        ? selectedChunk?.id === chunk.id
+                          ? 'bg-blue-500/20 border-blue-500/50 text-blue-300 shadow-lg shadow-blue-500/20'
+                          : 'bg-slate-800/50 border-slate-700/50 text-slate-300 hover:bg-slate-700/50 hover:border-slate-600/50'
+                        : 'bg-slate-800/30 border-slate-700/30 text-slate-500 cursor-not-allowed opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3 w-full">
+                      <div className="flex items-start space-x-3 min-w-0 flex-1">
+                        <div
+                          className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
+                            chunk.status === 'completed'
+                              ? 'bg-green-500'
+                              : chunk.status === 'recording'
+                                ? 'bg-yellow-500 animate-pulse'
+                                : 'bg-red-500'
+                          }`}
+                        ></div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-sm truncate">
+                            {chunk.filename}
+                          </div>
+                          <div className="text-xs opacity-75 whitespace-nowrap">
+                            {formatDuration(chunk.duration)} •{' '}
+                            {formatFileSize(chunk.file_size)} •{' '}
+                            {new Date(chunk.created_at).toLocaleTimeString()}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center space-x-2 text-xs flex-shrink-0">
-                      {chunk.metadata.resolution && (
-                        <span className="px-2 py-1 bg-slate-700/50 rounded whitespace-nowrap">
-                          {chunk.metadata.resolution}
+                      <div className="flex items-center space-x-2 text-xs flex-shrink-0">
+                        {chunk.metadata.resolution && (
+                          <span className="px-2 py-1 bg-slate-700/50 rounded whitespace-nowrap">
+                            {chunk.metadata.resolution}
+                          </span>
+                        )}
+                        {selectedChunk?.id === chunk.id && (
+                          <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded whitespace-nowrap">
+                            Playing
+                          </span>
+                        )}
+                        <span
+                          className={`px-2 py-1 rounded whitespace-nowrap ${
+                            chunk.status === 'completed'
+                              ? 'bg-green-500/20 text-green-400'
+                              : chunk.status === 'recording'
+                                ? 'bg-yellow-500/20 text-yellow-400'
+                                : 'bg-red-500/20 text-red-400'
+                          }`}
+                        >
+                          {chunk.status}
                         </span>
-                      )}
-                      {selectedChunk?.id === chunk.id && (
-                        <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded whitespace-nowrap">
-                          Playing
-                        </span>
-                      )}
-                      <span
-                        className={`px-2 py-1 rounded whitespace-nowrap ${
-                          chunk.status === 'completed'
-                            ? 'bg-green-500/20 text-green-400'
-                            : chunk.status === 'recording'
-                              ? 'bg-yellow-500/20 text-yellow-400'
-                              : 'bg-red-500/20 text-red-400'
-                        }`}
-                      >
-                        {chunk.status}
-                      </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-32 bg-slate-800/30 border border-slate-700/30 rounded-lg">
-              <div className="text-center text-slate-500">
-                <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-slate-700/50 flex items-center justify-center">
-                  <svg
-                    className="w-6 h-6"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                  </svg>
-                </div>
-                <p className="text-sm">No recorded chunks yet</p>
-                <p className="text-xs opacity-75">
-                  Switch to Live tab to record video chunks
-                </p>
+                ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex items-center justify-center h-32 bg-slate-800/30 border border-slate-700/30 rounded-lg">
+                <div className="text-center text-slate-500">
+                  <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-slate-700/50 flex items-center justify-center">
+                    <svg
+                      className="w-6 h-6"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                      <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm">No recorded chunks yet</p>
+                  <p className="text-xs opacity-75">
+                    Switch to Live tab to record video chunks
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column: Detection Data Panel */}
+          <div className="detection-panel-container">
+            <DetectionDataPanel
+              streamId={stream.id}
+              chunkId={selectedChunk?.id || null}
+            />
+          </div>
         </div>
       )}
     </div>
