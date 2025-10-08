@@ -294,6 +294,17 @@ class ChunkProcessor:
             total_tracks = 0
             processed_frames = []  # Store frames for FFmpeg writing
 
+            # Initialize progress tracking in Redis
+            if self.horse_db.redis_client:
+                try:
+                    self.horse_db.redis_client.setex(
+                        f"chunk:{chunk_id}:progress",
+                        3600,  # 1 hour TTL
+                        f"0/{total_frames}"
+                    )
+                except Exception as redis_error:
+                    logger.warning(f"Failed to initialize progress in Redis: {redis_error}")
+
             while cap.isOpened() and frame_idx < total_frames:
                 ret, frame = cap.read()
                 if not ret:
@@ -367,6 +378,18 @@ class ChunkProcessor:
                 }
                 frame_results.append(frame_result)
 
+                # Update progress in Redis every 10 frames
+                if frame_idx % 10 == 0 or frame_idx == total_frames - 1:
+                    if self.horse_db.redis_client:
+                        try:
+                            self.horse_db.redis_client.setex(
+                                f"chunk:{chunk_id}:progress",
+                                3600,  # 1 hour TTL
+                                f"{frame_idx + 1}/{total_frames}"
+                            )
+                        except Exception as redis_error:
+                            logger.debug(f"Failed to update progress in Redis: {redis_error}")
+
                 # Progress logging
                 if frame_idx % 30 == 0 and frame_idx > 0:
                     progress = (frame_idx / total_frames) * 100
@@ -416,6 +439,17 @@ class ChunkProcessor:
                        output_video=output_video_path,
                        output_json=output_json_path)
 
+            # Mark progress as complete and cleanup after short delay
+            if self.horse_db.redis_client:
+                try:
+                    self.horse_db.redis_client.setex(
+                        f"chunk:{chunk_id}:progress",
+                        10,  # Keep for 10 seconds then auto-delete
+                        f"{total_frames}/{total_frames}"
+                    )
+                except Exception as redis_error:
+                    logger.warning(f"Failed to mark progress complete in Redis: {redis_error}")
+
             return {
                 "chunk_id": chunk_id,
                 "stream_id": chunk_metadata.get("stream_id"),
@@ -442,6 +476,13 @@ class ChunkProcessor:
             print(f"Error: {error}")
             print(f"Traceback:")
             traceback.print_exc()
+
+            # Cleanup progress tracking on error
+            if self.horse_db.redis_client:
+                try:
+                    self.horse_db.redis_client.delete(f"chunk:{chunk_id}:progress")
+                except Exception as redis_error:
+                    logger.warning(f"Failed to cleanup progress in Redis: {redis_error}")
 
             return {
                 "chunk_id": chunk_id,

@@ -54,6 +54,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
   const [showChunkNotification, setShowChunkNotification] = useState(false);
   const [showRawVideo, setShowRawVideo] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string | null>(null);
+  const [processingProgress, setProcessingProgress] = useState<{ frames_processed: number; total_frames: number } | null>(null);
   const [detectionDataKey, setDetectionDataKey] = useState(0);
 
   // Load video chunks for this stream
@@ -71,8 +72,6 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
   // Poll chunk processing status when a chunk is selected
   useEffect(() => {
     if (!selectedChunk) return;
-
-    let intervalId: NodeJS.Timeout;
 
     const pollStatus = async () => {
       try {
@@ -94,6 +93,16 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
           const prevStatus = processingStatus;
           setProcessingStatus(data.processing_status || 'pending');
 
+          // Update progress if available
+          if (data.frames_processed !== undefined && data.total_frames !== undefined) {
+            setProcessingProgress({
+              frames_processed: data.frames_processed,
+              total_frames: data.total_frames
+            });
+          } else {
+            setProcessingProgress(null);
+          }
+
           // If processing just completed, auto-switch to processed video and refresh data
           if (prevStatus === 'processing' && data.processing_status === 'complete') {
             console.log('✅ ML processing completed! Auto-switching to processed video...');
@@ -108,6 +117,9 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
 
             // Trigger detection data refresh
             setDetectionDataKey(prev => prev + 1);
+
+            // Clear progress
+            setProcessingProgress(null);
           }
         }
       } catch (error) {
@@ -119,11 +131,11 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
     pollStatus();
 
     // Poll every 2 seconds
-    intervalId = setInterval(pollStatus, 2000);
+    const intervalId = setInterval(pollStatus, 2000);
 
     // Cleanup on unmount or chunk change
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      clearInterval(intervalId);
     };
   }, [selectedChunk, processingStatus, stream.id]);
 
@@ -500,7 +512,9 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
                   {processingStatus === 'complete'
                     ? '✓ Processed'
                     : processingStatus === 'processing'
-                      ? '🔄 Processing...'
+                      ? processingProgress
+                        ? `🔄 Processing: ${processingProgress.frames_processed}/${processingProgress.total_frames} frames`
+                        : '🔄 Processing...'
                       : processingStatus === 'failed'
                         ? '✗ Failed'
                         : processingStatus === 'timeout'

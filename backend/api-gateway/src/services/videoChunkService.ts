@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 
+import { createClient } from 'redis';
 import { v4 as uuidv4 } from 'uuid';
 
 import { logger } from '../config/logger';
@@ -45,6 +46,7 @@ export class VideoChunkService {
   private activeRecordings: Map<string, ActiveRecording> = new Map();
   private ffmpegPath: string;
   private ffprobePath: string;
+  private redisClient: ReturnType<typeof createClient> | null = null;
 
   constructor() {
     // Configure storage path - will be mounted volume in Docker
@@ -56,12 +58,30 @@ export class VideoChunkService {
     this.ffprobePath = this.detectFFprobePath();
 
     this.ensureStorageDirectory();
+    this.initRedis();
 
     logger.info('VideoChunkService initialized', {
       chunkStoragePath: this.chunkStoragePath,
       ffmpegPath: this.ffmpegPath,
       ffprobePath: this.ffprobePath,
     });
+  }
+
+  private async initRedis() {
+    try {
+      const redisUrl = process.env.REDIS_URL || 'redis://redis:6379';
+      this.redisClient = createClient({ url: redisUrl });
+
+      this.redisClient.on('error', (err) => {
+        logger.error('Redis client error:', err);
+      });
+
+      await this.redisClient.connect();
+      logger.info('Redis client connected for progress tracking');
+    } catch (error) {
+      logger.warn('Failed to connect to Redis, progress tracking disabled:', error);
+      this.redisClient = null;
+    }
   }
 
   private detectFFmpegPath(): string {
@@ -679,6 +699,8 @@ export class VideoChunkService {
     processing_status: string;
     has_processed_video: boolean;
     has_detections: boolean;
+    frames_processed?: number;
+    total_frames?: number;
     file_size?: number;
     duration?: number;
     created_at?: Date;
@@ -737,6 +759,28 @@ export class VideoChunkService {
       processing_status = 'processing'; // Partial files - still processing
     }
 
+    // Get frame processing progress from Redis
+    let frames_processed: number | undefined;
+    let total_frames: number | undefined;
+
+    if (this.redisClient && processing_status === 'processing') {
+      try {
+        const progressKey = `chunk:${chunkId}:progress`;
+        const progressValue = await this.redisClient.get(progressKey);
+
+        if (progressValue) {
+          // Format: "58/149"
+          const [processed, total] = progressValue.split('/').map(Number);
+          if (!isNaN(processed) && !isNaN(total)) {
+            frames_processed = processed;
+            total_frames = total;
+          }
+        }
+      } catch (error) {
+        logger.debug('Failed to fetch progress from Redis:', error);
+      }
+    }
+
     return {
       chunk_id: chunkId,
       recording_status: chunk.status,
@@ -744,6 +788,8 @@ export class VideoChunkService {
       processing_status,
       has_processed_video: hasProcessedVideo,
       has_detections: hasDetections,
+      frames_processed,
+      total_frames,
       file_size: chunk.file_size,
       duration: chunk.duration,
       created_at: chunk.created_at,
