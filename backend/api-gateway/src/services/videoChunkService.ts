@@ -906,9 +906,12 @@ export class VideoChunkService {
         .catch(error => {
           logger.error('Failed to trigger ML processing', {
             error: error.message,
+            errorStack: error.stack,
+            errorType: error.constructor.name,
             chunkId,
             streamId,
             farmId,
+            mlServiceUrl: processEndpoint,
           });
           // TODO: Update database to mark processing as failed
           // await query(
