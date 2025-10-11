@@ -398,68 +398,65 @@ test_cfg = model_cfg
     def estimate_pose(self, frame: np.ndarray, horse_bbox: Dict[str, float]) -> Tuple[Optional[Dict[str, Any]], float]:
         """
         Estimate horse pose using REAL RTMPose with MMPose framework - NO SHORTCUTS.
-        
+
         Args:
             frame: Input video frame
             horse_bbox: Horse bounding box with x, y, width, height
-            
+
         Returns:
             Tuple of (pose_data, processing_time_ms)
         """
         start_time = time.time()
-        
+
         if not self.model or not self.use_real_mmpose:
             logger.debug("REAL RTMPose model not available, skipping pose estimation")
             return None, 0.0
-            
+
         try:
             # Step 1: Add 10% buffer to horse bounding box (as user requested)
             buffer_percent = 0.10
             x, y, w, h = horse_bbox["x"], horse_bbox["y"], horse_bbox["width"], horse_bbox["height"]
-            
+
             # Convert to xyxy format for RTMPose - exactly like user's working code
             bbox_xyxy = [x, y, x + w, y + h]
-            
+
             logger.debug(f"REAL RTMPose inference on bbox: {bbox_xyxy}")
-            
+
             # Step 2: Try direct model inference approach to avoid pipeline issues
             try:
                 # Method 1: Try inference_topdown (standard approach)
                 results = self.inference_topdown(self.model, frame, [bbox_xyxy])
-                
+
             except Exception as pipeline_error:
                 logger.warning(f"inference_topdown failed: {pipeline_error}")
                 logger.info("Trying direct model inference approach...")
-                
+
                 # Method 2: Direct model inference - bypass problematic pipeline
                 results = self._direct_model_inference(frame, bbox_xyxy)
-            
+
             if not results or len(results) == 0:
                 logger.warning("No RTMPose results returned")
                 return None, (time.time() - start_time) * 1000
-            
+
             # Step 3: Extract REAL keypoints from results - exactly like working code
             result = results[0]
-            
+
             if hasattr(result, 'pred_instances'):
                 pred_instances = result.pred_instances
-                
+
                 if hasattr(pred_instances, 'keypoints') and hasattr(pred_instances, 'keypoint_scores'):
                     # Real RTMPose returns shape (1, 17, 2) and (1, 17) - exactly like working code
                     keypoints = pred_instances.keypoints[0]  # First (and only) instance
                     scores = pred_instances.keypoint_scores[0]
-                    
-                    logger.info(f"🎉 REAL RTMPose inference successful!")
-                    logger.info(f"   Keypoints shape: {keypoints.shape}")
-                    logger.info(f"   Scores shape: {scores.shape}")
-                    logger.info(f"   Average confidence: {scores.mean():.3f}")
-                    
+
+                    # Reduced logging for performance
+
                     # Convert to numpy if needed
                     if hasattr(keypoints, 'cpu'):
                         keypoints = keypoints.cpu().numpy()
                     if hasattr(scores, 'cpu'):
                         scores = scores.cpu().numpy()
-                    
+
                     # Step 4: Convert to our format with REAL data
                     pose_keypoints = []
                     for i, (kx, ky) in enumerate(keypoints):
@@ -470,18 +467,18 @@ test_cfg = model_cfg
                             "confidence": float(scores[i])
                         }
                         pose_keypoints.append(keypoint)
-                    
+
                     # Create pose data structure with REAL data
                     pose_data = {
                         "keypoints": pose_keypoints,
                         "pose_confidence": float(scores.mean()),
                         "model_used": "rtmpose_ap10k_REAL_mmpose"  # REAL MMPose!
                     }
-                    
+
                     processing_time = (time.time() - start_time) * 1000
                     self._update_performance_metrics(processing_time)
-                    
-                    logger.info(f"REAL RTMPose AP10K inference completed: {processing_time:.1f}ms, avg_conf: {scores.mean():.3f}")
+
+                    # Reduced logging for performance (only log summary in batch mode)
                     return pose_data, processing_time
                 else:
                     logger.warning("Could not extract keypoints from RTMPose result")
@@ -489,11 +486,98 @@ test_cfg = model_cfg
             else:
                 logger.warning("No pred_instances in RTMPose result")
                 return None, (time.time() - start_time) * 1000
-                
+
         except Exception as error:
             processing_time = (time.time() - start_time) * 1000
             logger.error(f"REAL RTMPose inference failed after {processing_time:.1f}ms: {error}")
             return None, processing_time
+
+    def estimate_pose_batch(self, frame: np.ndarray, horse_bboxes: List[Dict[str, float]]) -> List[Tuple[Optional[Dict[str, Any]], float]]:
+        """
+        Estimate poses for multiple horses in batch - MAJOR PERFORMANCE OPTIMIZATION.
+
+        Args:
+            frame: Input video frame
+            horse_bboxes: List of horse bounding boxes
+
+        Returns:
+            List of (pose_data, processing_time_ms) tuples
+        """
+        start_time = time.time()
+
+        if not self.model or not self.use_real_mmpose:
+            return [(None, 0.0) for _ in horse_bboxes]
+
+        if not horse_bboxes:
+            return []
+
+        try:
+            # Convert all bboxes to xyxy format
+            bbox_list = []
+            for bbox in horse_bboxes:
+                x, y, w, h = bbox["x"], bbox["y"], bbox["width"], bbox["height"]
+                bbox_list.append([x, y, x + w, y + h])
+
+            logger.debug(f"Batch RTMPose inference for {len(bbox_list)} horses")
+
+            # Run batch inference
+            try:
+                results = self.inference_topdown(self.model, frame, bbox_list)
+            except Exception as pipeline_error:
+                logger.warning(f"Batch inference_topdown failed: {pipeline_error}")
+                # Fallback to sequential processing
+                return [self.estimate_pose(frame, bbox) for bbox in horse_bboxes]
+
+            total_time = (time.time() - start_time) * 1000
+            per_horse_time = total_time / len(horse_bboxes) if horse_bboxes else 0
+
+            # Process results
+            pose_results = []
+            for i, result in enumerate(results):
+                if hasattr(result, 'pred_instances'):
+                    pred_instances = result.pred_instances
+
+                    if hasattr(pred_instances, 'keypoints') and hasattr(pred_instances, 'keypoint_scores'):
+                        keypoints = pred_instances.keypoints[0]
+                        scores = pred_instances.keypoint_scores[0]
+
+                        if hasattr(keypoints, 'cpu'):
+                            keypoints = keypoints.cpu().numpy()
+                        if hasattr(scores, 'cpu'):
+                            scores = scores.cpu().numpy()
+
+                        pose_keypoints = []
+                        for j, (kx, ky) in enumerate(keypoints):
+                            keypoint = {
+                                "name": self.KEYPOINT_NAMES[j] if j < len(self.KEYPOINT_NAMES) else f"keypoint_{j}",
+                                "x": float(kx),
+                                "y": float(ky),
+                                "confidence": float(scores[j])
+                            }
+                            pose_keypoints.append(keypoint)
+
+                        pose_data = {
+                            "keypoints": pose_keypoints,
+                            "pose_confidence": float(scores.mean()),
+                            "model_used": "rtmpose_ap10k_REAL_mmpose_BATCH"
+                        }
+
+                        pose_results.append((pose_data, per_horse_time))
+                    else:
+                        pose_results.append((None, per_horse_time))
+                else:
+                    pose_results.append((None, per_horse_time))
+
+            logger.info(f"✅ Batch RTMPose: {len(horse_bboxes)} horses in {total_time:.1f}ms ({per_horse_time:.1f}ms/horse)")
+            self._update_performance_metrics(total_time)
+
+            return pose_results
+
+        except Exception as error:
+            total_time = (time.time() - start_time) * 1000
+            logger.error(f"Batch RTMPose failed: {error}")
+            # Fallback to sequential
+            return [self.estimate_pose(frame, bbox) for bbox in horse_bboxes]
             
     def _direct_model_inference(self, frame: np.ndarray, bbox_xyxy: List[float]):
         """Simplified direct model inference - just get raw predictions."""

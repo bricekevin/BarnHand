@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 
-//import { createClient } from 'redis';
+import { createClient } from 'redis';
 import { v4 as uuidv4 } from 'uuid';
 
 import { logger } from '../config/logger';
@@ -46,7 +46,7 @@ export class VideoChunkService {
   private activeRecordings: Map<string, ActiveRecording> = new Map();
   private ffmpegPath: string;
   private ffprobePath: string;
-  private redisClient: any | null = null; // TODO: Re-enable when redis package installs properly
+  private redisClient: ReturnType<typeof createClient> | null = null;
 
   constructor() {
     // Configure storage path - will be mounted volume in Docker
@@ -68,11 +68,20 @@ export class VideoChunkService {
   }
 
   private async initRedis() {
-    // TODO: Fix Docker redis npm package installation issue
-    // Progress tracking temporarily disabled - ML service still writes to Redis
-    // Frontend ready to display progress when re-enabled
-    this.redisClient = null;
-    logger.info('Redis progress tracking disabled - awaiting Docker fix');
+    try {
+      const redisUrl = process.env.REDIS_URL || 'redis://redis:6379';
+      this.redisClient = createClient({ url: redisUrl });
+
+      this.redisClient.on('error', err => {
+        logger.error('Redis client error:', err);
+      });
+
+      await this.redisClient.connect();
+      logger.info('Redis client connected for progress tracking', { redisUrl });
+    } catch (error) {
+      logger.error('Failed to initialize Redis client:', error);
+      this.redisClient = null;
+    }
   }
 
   private detectFFmpegPath(): string {
@@ -173,7 +182,8 @@ export class VideoChunkService {
     const internalSourceUrl = this.convertToInternalUrl(sourceUrl);
     const chunkId = uuidv4();
     const timestamp = new Date();
-    const filename = `chunk_${streamId}_${Date.now()}.mp4`;
+    // Use chunkId in filename so we can recover it later
+    const filename = `chunk_${streamId}_${chunkId}.mp4`;
     const filePath = path.join(
       this.chunkStoragePath,
       farmId,
@@ -450,17 +460,21 @@ export class VideoChunkService {
           try {
             const stats = await fs.stat(filePath);
 
-            // Extract timestamp from filename (chunk_streamId_timestamp.mp4)
-            const timestampMatch = filename.match(/chunk_.*_(\d+)\.mp4$/);
-            const timestamp = timestampMatch
-              ? parseInt(timestampMatch[1])
-              : Date.now();
+            // Extract chunk_id from filename (chunk_streamId_uuid.mp4)
+            // Stream ID may contain underscores (e.g., stream_001), so match after the LAST underscore
+            const chunkIdMatch = filename.match(/chunk_.*_([^_]+)\.mp4$/);
+            const chunkId = chunkIdMatch
+              ? chunkIdMatch[1]
+              : `chunk-${Date.now()}`;
+
+            // Use file creation time as timestamp
+            const timestamp = stats.birthtimeMs;
 
             // Extract video duration using ffprobe
             const videoDuration = await this.getVideoDuration(filePath);
 
             const chunk: VideoChunk = {
-              id: `chunk-${timestamp}`,
+              id: chunkId,
               stream_id: streamId,
               farm_id: farmId,
               user_id: 'user-1', // TODO: Get from auth context
@@ -754,7 +768,8 @@ export class VideoChunkService {
     let frames_processed: number | undefined;
     let total_frames: number | undefined;
 
-    if (this.redisClient && processing_status === 'processing') {
+    // Check Redis for progress regardless of status (processing may have started but no files yet)
+    if (this.redisClient && processing_status !== 'complete') {
       try {
         const progressKey = `chunk:${chunkId}:progress`;
         const progressValue = await this.redisClient.get(progressKey);
@@ -765,6 +780,10 @@ export class VideoChunkService {
           if (!isNaN(processed) && !isNaN(total)) {
             frames_processed = processed;
             total_frames = total;
+            // If we have progress in Redis, update status to processing
+            if (processing_status === 'pending') {
+              processing_status = 'processing';
+            }
           }
         }
       } catch (error) {
@@ -900,6 +919,8 @@ export class VideoChunkService {
         outputJsonPath,
         mlServiceUrl: processEndpoint,
       });
+
+      logger.info('📤 Sending chunk_id to ML service', { chunk_id: chunkId });
 
       // TODO: Update database to mark chunk as queued for ML processing
       // await query(

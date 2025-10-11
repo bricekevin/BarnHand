@@ -85,9 +85,10 @@ class ChunkProcessor:
             Processing results with detections, overlays, and behavioral states
         """
         start_time = time.time()
-        chunk_id = str(uuid.uuid4())
-        
-        logger.info(f"Processing chunk with behavioral analysis: {chunk_path}", 
+        # Use chunk_id from metadata if provided, otherwise generate new one
+        chunk_id = chunk_metadata.get("chunk_id", str(uuid.uuid4()))
+
+        logger.info(f"Processing chunk with behavioral analysis: {chunk_path}",
                    chunk_id=chunk_id,
                    stream_id=chunk_metadata.get("stream_id"),
                    start_time=chunk_metadata.get("start_time"))
@@ -261,6 +262,7 @@ class ChunkProcessor:
 
         logger.info(f"Processing chunk with video output: {chunk_path}",
                    chunk_id=chunk_id,
+                   chunk_id_from_metadata=chunk_metadata.get("chunk_id"),
                    output_video=output_video_path,
                    output_json=output_json_path)
 
@@ -297,11 +299,13 @@ class ChunkProcessor:
             # Initialize progress tracking in Redis
             if self.horse_db.redis_client:
                 try:
+                    progress_key = f"chunk:{chunk_id}:progress"
                     self.horse_db.redis_client.setex(
-                        f"chunk:{chunk_id}:progress",
+                        progress_key,
                         3600,  # 1 hour TTL
                         f"0/{total_frames}"
                     )
+                    logger.info(f"✅ Initialized Redis progress: {progress_key} = 0/{total_frames}")
                 except Exception as redis_error:
                     logger.warning(f"Failed to initialize progress in Redis: {redis_error}")
 
@@ -320,10 +324,13 @@ class ChunkProcessor:
                 tracked_horses = self.horse_tracker.update_tracks(detections, frame, frame_timestamp)
                 total_tracks = len(tracked_horses)
 
-                # Step 3: Process poses and states
+                # Step 3: Process poses in BATCH (MAJOR OPTIMIZATION)
                 frame_poses = []
                 frame_behavioral_states = []
 
+                # Collect all valid bboxes for batch processing
+                valid_tracks = []
+                valid_bboxes = []
                 for track_info in tracked_horses:
                     horse_id = str(track_info.get("tracking_id", "unknown"))
                     bbox = track_info.get("bbox", {})
@@ -331,28 +338,61 @@ class ChunkProcessor:
                     # Initialize state detectors for new horses
                     self._ensure_horse_analyzers(horse_id)
 
-                    # Estimate pose
-                    pose_result = None
                     if bbox and bbox.get("width", 0) > 0 and bbox.get("height", 0) > 0:
-                        try:
-                            pose_result, pose_confidence = self.pose_model.estimate_pose(frame, bbox)
+                        valid_tracks.append(track_info)
+                        valid_bboxes.append(bbox)
+
+                # Batch pose estimation for all horses at once
+                if valid_bboxes:
+                    try:
+                        batch_pose_results = self.pose_model.estimate_pose_batch(frame, valid_bboxes)
+
+                        # Process batch results
+                        for track_info, (pose_result, pose_time) in zip(valid_tracks, batch_pose_results):
+                            horse_id = str(track_info.get("tracking_id", "unknown"))
+                            bbox = track_info.get("bbox", {})
+
                             if pose_result:
                                 frame_poses.append({
                                     "horse_id": horse_id,
                                     "pose": pose_result,
-                                    "confidence": pose_confidence,
+                                    "confidence": pose_result.get("pose_confidence", 0.0),
                                     "bbox": bbox
                                 })
-                        except Exception as pose_error:
-                            logger.debug(f"Pose estimation failed for horse {horse_id}: {pose_error}")
 
-                    # Process behavioral state
-                    behavioral_state = self._process_behavioral_state(
-                        horse_id, pose_result, track_info, frame_timestamp
-                    )
+                            # Process behavioral state
+                            behavioral_state = self._process_behavioral_state(
+                                horse_id, pose_result, track_info, frame_timestamp
+                            )
 
-                    if behavioral_state:
-                        frame_behavioral_states.append(behavioral_state)
+                            if behavioral_state:
+                                frame_behavioral_states.append(behavioral_state)
+
+                    except Exception as batch_error:
+                        logger.warning(f"Batch pose processing failed, falling back to sequential: {batch_error}")
+                        # Fallback to sequential processing
+                        for track_info in valid_tracks:
+                            horse_id = str(track_info.get("tracking_id", "unknown"))
+                            bbox = track_info.get("bbox", {})
+
+                            try:
+                                pose_result, pose_confidence = self.pose_model.estimate_pose(frame, bbox)
+                                if pose_result:
+                                    frame_poses.append({
+                                        "horse_id": horse_id,
+                                        "pose": pose_result,
+                                        "confidence": pose_confidence,
+                                        "bbox": bbox
+                                    })
+                            except Exception as pose_error:
+                                logger.debug(f"Pose estimation failed for horse {horse_id}: {pose_error}")
+
+                            behavioral_state = self._process_behavioral_state(
+                                horse_id, pose_result if 'pose_result' in locals() else None,
+                                track_info, frame_timestamp
+                            )
+                            if behavioral_state:
+                                frame_behavioral_states.append(behavioral_state)
 
                 # Draw overlays on frame
                 processed_frame = self._draw_overlays(
@@ -382,11 +422,15 @@ class ChunkProcessor:
                 if frame_idx % 10 == 0 or frame_idx == total_frames - 1:
                     if self.horse_db.redis_client:
                         try:
+                            progress_key = f"chunk:{chunk_id}:progress"
+                            progress_value = f"{frame_idx + 1}/{total_frames}"
                             self.horse_db.redis_client.setex(
-                                f"chunk:{chunk_id}:progress",
+                                progress_key,
                                 3600,  # 1 hour TTL
-                                f"{frame_idx + 1}/{total_frames}"
+                                progress_value
                             )
+                            if frame_idx % 30 == 0:  # Log every 30 frames to reduce noise
+                                logger.info(f"📊 Redis progress update: {progress_key} = {progress_value}")
                         except Exception as redis_error:
                             logger.debug(f"Failed to update progress in Redis: {redis_error}")
 
@@ -493,6 +537,17 @@ class ChunkProcessor:
                 "processed_at": time.time()
             }
 
+    # AP10K skeleton connections for horse pose visualization
+    POSE_SKELETON = [
+        (0, 1), (0, 2), (1, 2),  # Eyes and nose
+        (2, 3), (3, 5), (3, 8),  # Nose to neck to shoulders
+        (5, 6), (6, 7),  # Left front leg
+        (8, 9), (9, 10),  # Right front leg
+        (3, 4), (4, 11), (4, 14),  # Neck to tail to hips
+        (11, 12), (12, 13),  # Left back leg
+        (14, 15), (15, 16)  # Right back leg
+    ]
+
     def _draw_overlays(
         self,
         frame: np.ndarray,
@@ -512,8 +567,13 @@ class ChunkProcessor:
             bbox = track.get("bbox", {})
             color = track.get("color", [255, 255, 255])
 
-            # Convert BGR color if needed
-            if isinstance(color, list) and len(color) == 3:
+            # Convert hex color to BGR tuple if needed
+            if isinstance(color, str) and color.startswith("#"):
+                # Convert hex to BGR (OpenCV uses BGR, not RGB)
+                hex_color = color.lstrip("#")
+                r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+                color = (b, g, r)  # BGR order for OpenCV
+            elif isinstance(color, list) and len(color) == 3:
                 color = tuple(color)
             else:
                 color = (255, 255, 255)
@@ -543,34 +603,39 @@ class ChunkProcessor:
                     cv2.putText(frame, state_text, (x, y + h + 25),
                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-            # Draw pose keypoints if available
+            # Draw pose skeleton and keypoints if available
             if horse_id in pose_map:
                 pose = pose_map[horse_id]
                 keypoints = pose["pose"].get("keypoints", [])
 
                 if keypoints and len(keypoints) > 0:
+                    # First, draw skeleton connections
+                    for (start_idx, end_idx) in self.POSE_SKELETON:
+                        if start_idx < len(keypoints) and end_idx < len(keypoints):
+                            start_kp = keypoints[start_idx]
+                            end_kp = keypoints[end_idx]
+
+                            if (isinstance(start_kp, dict) and 'x' in start_kp and 'y' in start_kp and
+                                isinstance(end_kp, dict) and 'x' in end_kp and 'y' in end_kp):
+
+                                start_x, start_y = int(start_kp['x']), int(start_kp['y'])
+                                end_x, end_y = int(end_kp['x']), int(end_kp['y'])
+
+                                # Only draw if both keypoints are valid
+                                if (start_x > 0 and start_y > 0 and end_x > 0 and end_y > 0 and
+                                    start_kp.get('confidence', 0) > 0.3 and end_kp.get('confidence', 0) > 0.3):
+                                    # Draw line in horse's color
+                                    cv2.line(frame, (start_x, start_y), (end_x, end_y), color, 2)
+
+                    # Then, draw keypoints on top
                     for i, kp in enumerate(keypoints):
                         # Keypoints are dicts with 'x', 'y', 'confidence' keys
                         if isinstance(kp, dict) and 'x' in kp and 'y' in kp:
                             x, y = int(kp['x']), int(kp['y'])
-                            if x > 0 and y > 0:  # Valid keypoint
-                                # Color code by body part
-                                if i < 5:  # Head/neck
-                                    kp_color = (0, 255, 255)  # Yellow
-                                elif i < 11:  # Front legs
-                                    kp_color = (255, 0, 0)  # Blue
-                                else:  # Back legs/body
-                                    kp_color = (0, 255, 0)  # Green
-
-                                cv2.circle(frame, (x, y), 4, kp_color, -1)
+                            if x > 0 and y > 0 and kp.get('confidence', 0) > 0.3:  # Valid keypoint
+                                # Use horse's color for keypoints
+                                cv2.circle(frame, (x, y), 4, color, -1)
                                 cv2.circle(frame, (x, y), 4, (255, 255, 255), 1)
-
-        # Draw header info
-        cv2.rectangle(frame, (0, 0), (frame.shape[1], 60), (0, 0, 0), -1)
-        cv2.putText(frame, f"BarnHand ML Processing - Horses: {len(tracked_horses)}",
-                   (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-        cv2.putText(frame, f"Detections: {len(tracked_horses)} | Poses: {len(frame_poses)}",
-                   (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 2)
 
         return frame
 

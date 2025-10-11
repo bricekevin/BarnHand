@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 import { DetectionDataPanel } from './DetectionDataPanel';
 import { OverlayCanvas } from './OverlayCanvas';
@@ -54,7 +54,10 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
   const [showChunkNotification, setShowChunkNotification] = useState(false);
   const [showRawVideo, setShowRawVideo] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string | null>(null);
-  const [processingProgress, setProcessingProgress] = useState<{ frames_processed: number; total_frames: number } | null>(null);
+  const [processingProgress, setProcessingProgress] = useState<{
+    frames_processed: number;
+    total_frames: number;
+  } | null>(null);
   const [detectionDataKey, setDetectionDataKey] = useState(0);
 
   // Load video chunks for this stream
@@ -69,9 +72,15 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
     }
   }, [showRawVideo]);
 
+  // Track previous status using ref so it persists across renders
+  const prevStatusRef = useRef<string | null>(null);
+
   // Poll chunk processing status when a chunk is selected
   useEffect(() => {
     if (!selectedChunk) return;
+
+    // Reset previous status when chunk changes
+    prevStatusRef.current = null;
 
     const pollStatus = async () => {
       try {
@@ -90,37 +99,82 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
 
         if (response.ok) {
           const data = await response.json();
-          const prevStatus = processingStatus;
-          setProcessingStatus(data.processing_status || 'pending');
+          const currentStatus = data.processing_status || 'pending';
+
+          console.log('📊 Chunk status poll:', {
+            chunk_id: selectedChunk.id,
+            status: currentStatus,
+            frames_processed: data.frames_processed,
+            total_frames: data.total_frames,
+            has_processed_video: data.has_processed_video,
+            has_detections: data.has_detections,
+            raw_response: data,
+          });
+
+          setProcessingStatus(currentStatus);
 
           // Update progress if available
-          if (data.frames_processed !== undefined && data.total_frames !== undefined) {
+          if (
+            data.frames_processed !== undefined &&
+            data.total_frames !== undefined
+          ) {
+            console.log('✅ Setting progress:', {
+              frames_processed: data.frames_processed,
+              total_frames: data.total_frames,
+            });
             setProcessingProgress({
               frames_processed: data.frames_processed,
-              total_frames: data.total_frames
+              total_frames: data.total_frames,
             });
           } else {
+            console.log('⚠️ No progress data available');
             setProcessingProgress(null);
           }
 
           // If processing just completed, auto-switch to processed video and refresh data
-          if (prevStatus === 'processing' && data.processing_status === 'complete') {
-            console.log('✅ ML processing completed! Auto-switching to processed video...');
+          console.log('🔍 Status transition check:', {
+            prevStatus: prevStatusRef.current,
+            currentStatus: currentStatus,
+            willAutoSwitch:
+              prevStatusRef.current === 'processing' &&
+              currentStatus === 'complete',
+          });
 
-            // Switch to processed video if currently showing raw
-            if (showRawVideo) {
-              setShowRawVideo(false);
-            } else {
-              // If already showing processed, reload to get the new processed video
-              await handleChunkSelect(selectedChunk);
-            }
+          if (
+            prevStatusRef.current === 'processing' &&
+            currentStatus === 'complete'
+          ) {
+            console.log(
+              '✅ ML processing completed! Auto-switching to processed video...'
+            );
+            console.log('🔄 Current state:', {
+              showRawVideo,
+              selectedChunk: selectedChunk?.id,
+              detectionDataKey,
+            });
+
+            // Force switch to processed video (will trigger useEffect to reload)
+            setShowRawVideo(false);
 
             // Trigger detection data refresh
             setDetectionDataKey(prev => prev + 1);
 
             // Clear progress
             setProcessingProgress(null);
+
+            // Force reload the chunk to get the processed version
+            if (selectedChunk) {
+              console.log('🔄 Reloading chunk to get processed video...');
+              setTimeout(() => {
+                handleChunkSelect(selectedChunk);
+              }, 500);
+            }
+
+            console.log('✅ Auto-switch triggered!');
           }
+
+          // Update ref for next comparison
+          prevStatusRef.current = currentStatus;
         }
       } catch (error) {
         console.error('Error polling processing status:', error);
@@ -137,7 +191,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
     return () => {
       clearInterval(intervalId);
     };
-  }, [selectedChunk, processingStatus, stream.id]);
+  }, [selectedChunk, stream.id, showRawVideo]);
 
   const getAuthToken = async () => {
     let token = localStorage.getItem('authToken');
@@ -468,6 +522,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
         (viewMode === 'playback' && currentVideoUrl) ? (
           <>
             <VideoPlayer
+              key={`${selectedChunk?.id || 'live'}-${showRawVideo ? 'raw' : 'processed'}`}
               src={currentVideoUrl}
               streamId={stream.id}
               className="w-full h-full object-cover"

@@ -90,46 +90,51 @@ class HorseTracker:
     def update_tracks(self, detections: List[Dict[str, Any]], frame: np.ndarray, timestamp: float) -> List[Dict[str, Any]]:
         """
         Update tracks with new detections using DeepSort algorithm.
-        
+
         Args:
             detections: List of horse detections from current frame
             frame: Current video frame for feature extraction
             timestamp: Frame timestamp
-            
+
         Returns:
             List of updated track information
         """
         try:
-            # Extract features for all detections
-            detection_features = self._extract_detection_features(detections, frame)
-            
+            # OPTIMIZATION: Only extract features when needed (not for all detections every frame)
+            # Extract features lazily during association
+
             # Predict track positions (Kalman filter would go here)
             self._predict_track_positions(timestamp)
-            
-            # Associate detections with existing tracks
-            matched_pairs, unmatched_detections, unmatched_tracks = self._associate_detections(
-                detections, detection_features
+
+            # Associate detections with existing tracks using IoU (no ReID needed for close matches)
+            matched_pairs, unmatched_detections, unmatched_tracks = self._associate_detections_optimized(
+                detections, timestamp
             )
-            
+
             # Update matched tracks
             updated_tracks = []
             for det_idx, track_id in matched_pairs:
+                # Only extract features for matched tracks occasionally (every 10 frames)
+                features = None
+                if self.tracks[track_id].total_detections % 10 == 0:
+                    features = self._extract_single_detection_features(detections[det_idx], frame)
+
                 track = self._update_track(
-                    self.tracks[track_id], 
-                    detections[det_idx], 
-                    detection_features[det_idx], 
+                    self.tracks[track_id],
+                    detections[det_idx],
+                    features,  # None for most frames
                     timestamp
                 )
                 updated_tracks.append(self._track_to_output(track))
-                
-            # Handle unmatched detections (create new tracks or reidentify)
+
+            # Handle unmatched detections - NOW extract features for ReID
             for det_idx in unmatched_detections:
                 detection = detections[det_idx]
-                features = detection_features[det_idx]
-                
+                features = self._extract_single_detection_features(detection, frame)
+
                 # Try to reidentify from lost tracks
                 reidentified_track = self._try_reidentification(features, detection, timestamp)
-                
+
                 if reidentified_track:
                     # Reactivate lost track
                     track = self._reactivate_track(reidentified_track, detection, features, timestamp)
@@ -139,20 +144,114 @@ class HorseTracker:
                     # Create new track
                     new_track = self._create_new_track(detection, features, timestamp)
                     updated_tracks.append(self._track_to_output(new_track))
-                    
+
             # Handle unmatched tracks (mark as lost)
             for track_id in unmatched_tracks:
                 self._mark_track_lost(track_id, timestamp)
-                
+
             # Clean up old tracks
             self._cleanup_old_tracks(timestamp)
-            
+
             logger.debug(f"Track update: {len(updated_tracks)} active, {len(self.lost_tracks)} lost")
             return updated_tracks
-            
+
         except Exception as error:
             logger.error(f"Track update failed: {error}")
             return []
+
+    def _associate_detections_optimized(self, detections: List[Dict[str, Any]], timestamp: float) -> Tuple[List[Tuple[int, str]], List[int], List[str]]:
+        """
+        Associate detections with tracks using IoU first (fast), then ReID if needed.
+        OPTIMIZATION: Avoid expensive ReID feature extraction for obvious matches.
+        """
+        if not detections or not self.tracks:
+            # No associations possible
+            unmatched_dets = list(range(len(detections)))
+            unmatched_tracks = list(self.tracks.keys())
+            return [], unmatched_dets, unmatched_tracks
+
+        # Build IoU cost matrix (fast)
+        n_detections = len(detections)
+        n_tracks = len(self.tracks)
+        iou_matrix = np.zeros((n_detections, n_tracks))
+
+        track_ids = list(self.tracks.keys())
+        for i, detection in enumerate(detections):
+            det_bbox = detection["bbox"]
+            for j, track_id in enumerate(track_ids):
+                track = self.tracks[track_id]
+                iou = self._calculate_iou(det_bbox, track.last_bbox)
+                iou_matrix[i, j] = iou
+
+        # Use Hungarian algorithm with IoU (inverted for cost)
+        cost_matrix = 1.0 - iou_matrix  # Convert IoU to cost
+        row_indices, col_indices = linear_sum_assignment(cost_matrix)
+
+        # Filter matches by IoU threshold
+        iou_threshold = 0.3  # Accept matches with >30% IoU
+        matched_pairs = []
+        unmatched_detections = set(range(n_detections))
+        unmatched_tracks = set(track_ids)
+
+        for row_idx, col_idx in zip(row_indices, col_indices):
+            if iou_matrix[row_idx, col_idx] > iou_threshold:
+                track_id = track_ids[col_idx]
+                matched_pairs.append((row_idx, track_id))
+                unmatched_detections.discard(row_idx)
+                unmatched_tracks.discard(track_id)
+
+        return matched_pairs, list(unmatched_detections), list(unmatched_tracks)
+
+    def _calculate_iou(self, bbox1: Dict[str, float], bbox2: Dict[str, float]) -> float:
+        """Calculate Intersection over Union between two bounding boxes."""
+        x1_min = bbox1["x"]
+        y1_min = bbox1["y"]
+        x1_max = x1_min + bbox1["width"]
+        y1_max = y1_min + bbox1["height"]
+
+        x2_min = bbox2["x"]
+        y2_min = bbox2["y"]
+        x2_max = x2_min + bbox2["width"]
+        y2_max = y2_min + bbox2["height"]
+
+        # Calculate intersection
+        x_inter_min = max(x1_min, x2_min)
+        y_inter_min = max(y1_min, y2_min)
+        x_inter_max = min(x1_max, x2_max)
+        y_inter_max = min(y1_max, y2_max)
+
+        if x_inter_max < x_inter_min or y_inter_max < y_inter_min:
+            return 0.0
+
+        intersection = (x_inter_max - x_inter_min) * (y_inter_max - y_inter_min)
+
+        # Calculate union
+        area1 = bbox1["width"] * bbox1["height"]
+        area2 = bbox2["width"] * bbox2["height"]
+        union = area1 + area2 - intersection
+
+        return intersection / union if union > 0 else 0.0
+
+    def _extract_single_detection_features(self, detection: Dict[str, Any], frame: np.ndarray) -> np.ndarray:
+        """Extract ReID features for a single detection."""
+        try:
+            bbox = detection["bbox"]
+            x1, y1 = int(bbox["x"]), int(bbox["y"])
+            x2, y2 = x1 + int(bbox["width"]), y1 + int(bbox["height"])
+
+            # Extract horse crop
+            horse_crop = frame[y1:y2, x1:x2]
+
+            if horse_crop.size > 0:
+                # Extract features using ReID model
+                return self.reid_model.extract_features(horse_crop)
+            else:
+                # Fallback to random features
+                return np.random.randn(512).astype(np.float32)
+
+        except Exception as error:
+            logger.warning(f"Feature extraction failed: {error}")
+            return np.random.randn(512).astype(np.float32)
             
     def _extract_detection_features(self, detections: List[Dict[str, Any]], frame: np.ndarray) -> List[np.ndarray]:
         """Extract ReID features for all detections."""
