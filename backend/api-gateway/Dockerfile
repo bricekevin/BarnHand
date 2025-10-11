@@ -8,9 +8,8 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json ./
-# Note: Skip package-lock.json since it's for the monorepo workspace
-# Install dependencies fresh
-RUN npm install && npm install redis
+# Install dependencies fresh (redis included in package.json)
+RUN npm install
 
 # Development image
 FROM base as development
