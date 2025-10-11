@@ -385,29 +385,33 @@ class HorseTracker:
             
         return dot_product / (norm1 * norm2)
         
-    def _update_track(self, track: HorseTrack, detection: Dict[str, Any], features: np.ndarray, timestamp: float) -> HorseTrack:
+    def _update_track(self, track: HorseTrack, detection: Dict[str, Any], features: Optional[np.ndarray], timestamp: float) -> HorseTrack:
         """Update existing track with new detection."""
         # Update position and timing
         track.last_bbox = detection["bbox"]
         track.last_seen = timestamp
         track.frames_since_seen = 0
         track.total_detections += 1
-        
+
         # Update confidence with detection confidence
         detection_conf = detection.get("confidence", 0.5)
         track.confidence = 0.8 * track.confidence + 0.2 * detection_conf
-        
-        # Update feature vector with exponential moving average
-        alpha = 0.8  # 80% old features, 20% new
-        track.feature_vector = alpha * track.feature_vector + (1 - alpha) * features
-        track.feature_vector = track.feature_vector / (np.linalg.norm(track.feature_vector) + 1e-8)
-        track.feature_update_count += 1
-        
+
+        # Update feature vector with exponential moving average (only if features provided)
+        if features is not None:
+            alpha = 0.8  # 80% old features, 20% new
+            track.feature_vector = alpha * track.feature_vector + (1 - alpha) * features
+            track.feature_vector = track.feature_vector / (np.linalg.norm(track.feature_vector) + 1e-8)
+            track.feature_update_count += 1
+
+            # Update ReID model index
+            self.reid_model.add_horse_to_index(track.id, track.feature_vector)
+
         # Update appearance history
         track.appearance_history.append({
             "timestamp": timestamp,
             "bbox": detection["bbox"].copy(),
-            "features": features.copy(),
+            "features": features.copy() if features is not None else track.feature_vector.copy(),
             "confidence": detection_conf
         })
         
@@ -424,10 +428,7 @@ class HorseTracker:
                 
         # Update track confidence score
         track.track_confidence = self._calculate_track_confidence(track)
-        
-        # Update ReID model index
-        self.reid_model.add_horse_to_index(track.id, track.feature_vector)
-        
+
         return track
         
     def _try_reidentification(self, features: np.ndarray, detection: Dict[str, Any], timestamp: float) -> Optional[HorseTrack]:
