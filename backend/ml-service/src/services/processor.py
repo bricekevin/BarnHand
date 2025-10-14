@@ -27,7 +27,8 @@ class ChunkProcessor:
     def __init__(self) -> None:
         self.detection_model = HorseDetectionModel()
         self.pose_model = HorsePoseModel()
-        self.horse_tracker = HorseTracker()
+        # Note: horse_tracker will be initialized per-chunk with stream_id
+        self.horse_tracker: Optional[HorseTracker] = None
         self.horse_db = HorseDatabaseService()
 
         # Pose analysis components
@@ -54,14 +55,13 @@ class ChunkProcessor:
             # Load pose model
             self.pose_model.load_model()
 
-            # Initialize horse tracker
-            await self.horse_tracker.initialize()
+            # Note: horse_tracker will be initialized per-chunk with stream-specific data
 
             # Initialize database service
             await self.horse_db.initialize()
 
             logger.info("ML models initialized successfully")
-            
+
         except Exception as error:
             logger.error(f"Failed to initialize enhanced ML models: {error}")
             raise
@@ -242,6 +242,21 @@ class ChunkProcessor:
                    frame_interval=frame_interval)
 
         try:
+            # PHASE 3 INTEGRATION: Load known horses from previous chunks
+            stream_id = chunk_metadata.get("stream_id", "default")
+            logger.info(f"Loading known horses for stream {stream_id}")
+            known_horses = await self.horse_db.load_stream_horse_registry(stream_id)
+            logger.info(f"Loaded {len(known_horses)} known horses from registry")
+
+            # Initialize tracker with stream_id and known horses
+            self.horse_tracker = HorseTracker(
+                similarity_threshold=0.7,
+                max_lost_frames=30,
+                stream_id=stream_id,
+                known_horses=known_horses
+            )
+            await self.horse_tracker.initialize()
+
             # Load video chunk
             cap = cv2.VideoCapture(chunk_path)
             if not cap.isOpened():
@@ -439,6 +454,12 @@ class ChunkProcessor:
             # Cleanup temporary frames
             logger.info(f"Cleaning up temporary frames directory: {temp_frames_dir}")
             shutil.rmtree(temp_frames_dir, ignore_errors=True)
+
+            # PHASE 3 INTEGRATION: Save all horses to registry after chunk complete
+            logger.info(f"Saving horses to registry for stream {stream_id}")
+            all_horse_states = self.horse_tracker.get_all_horse_states()
+            await self.horse_db.save_stream_horse_registry(stream_id, all_horse_states)
+            logger.info(f"Saved {len(all_horse_states)} horses to registry")
 
             # Generate processing result
             processing_time = (time.time() - start_time) * 1000
