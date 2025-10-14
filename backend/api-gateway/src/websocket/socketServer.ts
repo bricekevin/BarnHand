@@ -3,7 +3,14 @@ import { Server as HTTPServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { Server, Socket } from 'socket.io';
 
-import { DetectionData, ChunkData, MetricsData, HorseData } from './events';
+import {
+  DetectionData,
+  ChunkData,
+  MetricsData,
+  HorseData,
+  HorsesDetectedEvent,
+  HorseUpdatedEvent,
+} from './events';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
 import { UserPayload, JwtPayload } from '../types/auth';
@@ -296,6 +303,43 @@ export class WebSocketServer {
     this.io.to(roomName).emit(event, {
       data,
       timestamp: new Date().toISOString(),
+    });
+  }
+
+  public emitHorsesDetected(
+    streamId: string,
+    horses: HorsesDetectedEvent['horses']
+  ) {
+    const roomName = `stream:${streamId}`;
+    this.io.to(roomName).emit('horses:detected', {
+      streamId,
+      horses,
+      timestamp: new Date().toISOString(),
+    });
+
+    logger.debug('Horses detected event emitted', {
+      streamId,
+      horseCount: horses.length,
+      roomSize: this.streamRooms.get(roomName)?.size || 0,
+    });
+  }
+
+  public emitHorseUpdatedEvent(
+    streamId: string,
+    horse: HorseUpdatedEvent['horse']
+  ) {
+    const roomName = `stream:${streamId}`;
+    this.io.to(roomName).emit('horses:updated', {
+      streamId,
+      horse,
+      timestamp: new Date().toISOString(),
+    });
+
+    logger.info('Horse updated event emitted', {
+      streamId,
+      horseId: horse.id,
+      horseName: horse.name,
+      roomSize: this.streamRooms.get(roomName)?.size || 0,
     });
   }
 
