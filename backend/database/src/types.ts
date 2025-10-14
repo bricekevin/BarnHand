@@ -38,6 +38,7 @@ export interface StreamConfig {
 export interface Horse {
   id: string;
   farm_id: string;
+  stream_id?: string;
   name?: string;
   breed?: string;
   age?: number;
@@ -48,6 +49,7 @@ export interface Horse {
   ui_color?: string;
   feature_vector?: number[];
   thumbnail_url?: string;
+  avatar_thumbnail?: string; // base64 encoded JPEG
   first_detected?: Date;
   last_seen?: Date;
   total_detections: number;

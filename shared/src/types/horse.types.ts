@@ -26,6 +26,7 @@ export const HorseStatusSchema = z.enum([
 export const HorseSchema = z.object({
   id: z.string().uuid(),
   farm_id: z.string().uuid().optional(),
+  stream_id: z.string().uuid().optional(),
   name: z.string().min(1).max(255).optional(),
   breed: z.string().max(100).optional(),
   age: z.number().int().min(0).max(50).optional(),
@@ -39,6 +40,7 @@ export const HorseSchema = z.object({
   last_seen: z.string().datetime(),
   total_detections: z.number().int().min(0).default(0),
   thumbnail_url: z.string().url().optional(),
+  avatar_thumbnail: z.string().optional(), // base64 encoded JPEG
   feature_vector: z.array(z.number()).length(512).optional(),
   metadata: z.record(z.unknown()).optional(),
   created_at: z.string().datetime(),
