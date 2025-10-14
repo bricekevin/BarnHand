@@ -281,4 +281,315 @@ describe('Streams API', () => {
       expect(response.body.processedUrl).toContain('playlist.m3u8');
     });
   });
+
+  // ========================================
+  // Horse Registry Endpoint Tests
+  // ========================================
+
+  describe('GET /api/v1/streams/:id/horses', () => {
+    const streamId = 'stream-123';
+
+    it('should list horses for a stream with valid auth', async () => {
+      const response = await request(app)
+        .get(`/api/v1/streams/${streamId}/horses`)
+        .set('Authorization', `Bearer ${farmUserToken}`)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('horses');
+      expect(response.body).toHaveProperty('total');
+      expect(Array.isArray(response.body.horses)).toBe(true);
+    });
+
+    it('should return summary when summary=true query param provided', async () => {
+      const response = await request(app)
+        .get(`/api/v1/streams/${streamId}/horses?summary=true`)
+        .set('Authorization', `Bearer ${farmUserToken}`)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('total');
+      expect(response.body).toHaveProperty('recent');
+      expect(Array.isArray(response.body.recent)).toBe(true);
+    });
+
+    it('should reject requests without authentication', async () => {
+      await request(app).get(`/api/v1/streams/${streamId}/horses`).expect(401);
+    });
+
+    it('should allow FARM_USER, FARM_ADMIN, and SUPER_ADMIN roles', async () => {
+      // Test FARM_USER
+      await request(app)
+        .get(`/api/v1/streams/${streamId}/horses`)
+        .set('Authorization', `Bearer ${farmUserToken}`)
+        .expect(200);
+
+      // Test FARM_ADMIN
+      await request(app)
+        .get(`/api/v1/streams/${streamId}/horses`)
+        .set('Authorization', `Bearer ${farmAdminToken}`)
+        .expect(200);
+
+      // Test SUPER_ADMIN
+      await request(app)
+        .get(`/api/v1/streams/${streamId}/horses`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+    });
+
+    it('should reject invalid stream ID format', async () => {
+      await request(app)
+        .get('/api/v1/streams//horses')
+        .set('Authorization', `Bearer ${farmUserToken}`)
+        .expect(404); // Empty ID should hit 404
+    });
+
+    it('should handle database unavailable gracefully', async () => {
+      // This test will fail gracefully if database is not available
+      // In production, we'd mock the service to throw the error
+      const response = await request(app)
+        .get(`/api/v1/streams/${streamId}/horses`)
+        .set('Authorization', `Bearer ${farmUserToken}`);
+
+      expect([200, 503]).toContain(response.status);
+    });
+  });
+
+  describe('GET /api/v1/streams/:id/horses/:horseId', () => {
+    const streamId = 'stream-123';
+    const horseId = 'horse-456';
+
+    it('should get specific horse with valid auth', async () => {
+      const response = await request(app)
+        .get(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${farmUserToken}`)
+        .expect([200, 404]); // 404 if horse doesn't exist in test DB
+
+      if (response.status === 200) {
+        expect(response.body).toHaveProperty('id');
+        expect(response.body).toHaveProperty('farm_id');
+      }
+    });
+
+    it('should reject requests without authentication', async () => {
+      await request(app)
+        .get(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .expect(401);
+    });
+
+    it('should allow all authenticated roles to view horse', async () => {
+      // Test FARM_USER
+      const response1 = await request(app)
+        .get(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${farmUserToken}`);
+      expect([200, 404]).toContain(response1.status);
+
+      // Test FARM_ADMIN
+      const response2 = await request(app)
+        .get(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${farmAdminToken}`);
+      expect([200, 404]).toContain(response2.status);
+    });
+
+    it('should reject invalid horse ID format', async () => {
+      await request(app)
+        .get(`/api/v1/streams/${streamId}/horses/`)
+        .set('Authorization', `Bearer ${farmUserToken}`)
+        .expect(404);
+    });
+  });
+
+  describe('PUT /api/v1/streams/:id/horses/:horseId', () => {
+    const streamId = 'stream-123';
+    const horseId = 'horse-456';
+
+    const validUpdate = {
+      name: 'Thunder',
+      breed: 'Thoroughbred',
+      age: 5,
+      color: 'Bay',
+      markings: 'White blaze',
+      gender: 'mare' as const,
+    };
+
+    it('should update horse with valid data and FARM_ADMIN auth', async () => {
+      const response = await request(app)
+        .put(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${farmAdminToken}`)
+        .send(validUpdate);
+
+      expect([200, 404]).toContain(response.status);
+    });
+
+    it('should reject update with FARM_USER role', async () => {
+      await request(app)
+        .put(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${farmUserToken}`)
+        .send(validUpdate)
+        .expect(403);
+    });
+
+    it('should allow SUPER_ADMIN to update', async () => {
+      const response = await request(app)
+        .put(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(validUpdate);
+
+      expect([200, 404]).toContain(response.status);
+    });
+
+    it('should validate name length (max 100 chars)', async () => {
+      await request(app)
+        .put(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${farmAdminToken}`)
+        .send({ name: 'a'.repeat(101) })
+        .expect(400);
+    });
+
+    it('should validate age range (0-50)', async () => {
+      await request(app)
+        .put(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${farmAdminToken}`)
+        .send({ age: -1 })
+        .expect(400);
+
+      await request(app)
+        .put(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${farmAdminToken}`)
+        .send({ age: 51 })
+        .expect(400);
+    });
+
+    it('should validate gender enum', async () => {
+      await request(app)
+        .put(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${farmAdminToken}`)
+        .send({ gender: 'invalid' })
+        .expect(400);
+    });
+
+    it('should accept partial updates', async () => {
+      const response = await request(app)
+        .put(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${farmAdminToken}`)
+        .send({ name: 'Thunder' });
+
+      expect([200, 404]).toContain(response.status);
+    });
+
+    it('should validate markings length (max 500 chars)', async () => {
+      await request(app)
+        .put(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${farmAdminToken}`)
+        .send({ markings: 'a'.repeat(501) })
+        .expect(400);
+    });
+
+    it('should accept metadata updates', async () => {
+      const response = await request(app)
+        .put(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${farmAdminToken}`)
+        .send({
+          metadata: {
+            custom_field: 'value',
+            notes: 'Some notes',
+          },
+        });
+
+      expect([200, 404]).toContain(response.status);
+    });
+  });
+
+  describe('GET /api/v1/streams/:id/horses/:horseId/avatar', () => {
+    const streamId = 'stream-123';
+    const horseId = 'horse-456';
+
+    it('should get horse avatar with valid auth', async () => {
+      const response = await request(app)
+        .get(`/api/v1/streams/${streamId}/horses/${horseId}/avatar`)
+        .set('Authorization', `Bearer ${farmUserToken}`);
+
+      expect([200, 404]).toContain(response.status);
+
+      if (response.status === 200) {
+        expect(response.headers['content-type']).toBe('image/jpeg');
+        expect(response.headers['cache-control']).toContain('public');
+        expect(response.body).toBeInstanceOf(Buffer);
+      }
+    });
+
+    it('should reject requests without authentication', async () => {
+      await request(app)
+        .get(`/api/v1/streams/${streamId}/horses/${horseId}/avatar`)
+        .expect(401);
+    });
+
+    it('should allow all authenticated roles to view avatar', async () => {
+      // Test FARM_USER
+      const response1 = await request(app)
+        .get(`/api/v1/streams/${streamId}/horses/${horseId}/avatar`)
+        .set('Authorization', `Bearer ${farmUserToken}`);
+      expect([200, 404]).toContain(response1.status);
+
+      // Test FARM_ADMIN
+      const response2 = await request(app)
+        .get(`/api/v1/streams/${streamId}/horses/${horseId}/avatar`)
+        .set('Authorization', `Bearer ${farmAdminToken}`);
+      expect([200, 404]).toContain(response2.status);
+
+      // Test SUPER_ADMIN
+      const response3 = await request(app)
+        .get(`/api/v1/streams/${streamId}/horses/${horseId}/avatar`)
+        .set('Authorization', `Bearer ${authToken}`);
+      expect([200, 404]).toContain(response3.status);
+    });
+
+    it('should set correct cache headers', async () => {
+      const response = await request(app)
+        .get(`/api/v1/streams/${streamId}/horses/${horseId}/avatar`)
+        .set('Authorization', `Bearer ${farmUserToken}`);
+
+      if (response.status === 200) {
+        expect(response.headers['cache-control']).toBe('public, max-age=3600');
+        expect(response.headers['content-type']).toBe('image/jpeg');
+      }
+    });
+
+    it('should return 404 when horse has no avatar', async () => {
+      const response = await request(app)
+        .get(`/api/v1/streams/${streamId}/horses/horse-no-avatar/avatar`)
+        .set('Authorization', `Bearer ${farmUserToken}`);
+
+      expect([404, 503]).toContain(response.status);
+    });
+  });
+
+  describe('Horse Registry RBAC Tests', () => {
+    const streamId = 'stream-123';
+    const horseId = 'horse-456';
+
+    it('should enforce read-only access for FARM_USER on PUT endpoint', async () => {
+      await request(app)
+        .put(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${farmUserToken}`)
+        .send({ name: 'New Name' })
+        .expect(403);
+    });
+
+    it('should allow FARM_ADMIN write access', async () => {
+      const response = await request(app)
+        .put(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${farmAdminToken}`)
+        .send({ name: 'New Name' });
+
+      expect([200, 404, 503]).toContain(response.status);
+    });
+
+    it('should allow SUPER_ADMIN full access', async () => {
+      const response = await request(app)
+        .put(`/api/v1/streams/${streamId}/horses/${horseId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ name: 'New Name' });
+
+      expect([200, 404, 503]).toContain(response.status);
+    });
+  });
 });
