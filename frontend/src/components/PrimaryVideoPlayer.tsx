@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
+import { DetectedHorsesTab } from './DetectedHorsesTab';
 import { DetectionDataPanel } from './DetectionDataPanel';
 import { OverlayCanvas } from './OverlayCanvas';
 import { VideoPlayer } from './VideoPlayer';
@@ -44,7 +45,9 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
   stream,
   onClose,
 }) => {
-  const [viewMode, setViewMode] = useState<'live' | 'playback'>('live');
+  const [viewMode, setViewMode] = useState<'live' | 'playback' | 'horses'>(
+    'live'
+  );
   const [selectedChunk, setSelectedChunk] = useState<VideoChunk | null>(null);
   const [videoChunks, setVideoChunks] = useState<VideoChunk[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -518,6 +521,25 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
         >
           ▶ Recorded Chunks ({videoChunks.length})
         </button>
+        <button
+          onClick={() => setViewMode('horses')}
+          className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            viewMode === 'horses'
+              ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+              : 'text-slate-400 hover:text-slate-300 hover:bg-slate-700/50'
+          }`}
+        >
+          <span className="flex items-center justify-center gap-2">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Detected Horses
+          </span>
+        </button>
       </div>
 
       {/* Main Video Display */}
@@ -827,6 +849,13 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
               chunkId={selectedChunk?.id || null}
             />
           </div>
+        </div>
+      )}
+
+      {/* Detected Horses Tab */}
+      {viewMode === 'horses' && (
+        <div className="detected-horses-container">
+          <DetectedHorsesTab streamId={stream.id} />
         </div>
       )}
     </div>
