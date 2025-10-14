@@ -12,6 +12,7 @@ import { validateSchema } from '../middleware/validation';
 import { streamHorseService } from '../services/streamHorseService';
 import { videoChunkService } from '../services/videoChunkService';
 import { UserRole } from '../types/auth';
+import { emitHorseUpdatedEvent } from '../websocket/events';
 // AuthenticatedRequest is now handled by createAuthenticatedRoute wrapper
 
 // Validation schemas
@@ -781,8 +782,22 @@ router.put(
         updates: Object.keys(updates),
       });
 
-      // TODO: Emit WebSocket event 'horses:updated' in Task 1.5
-      // socketService.emit('horses:updated', { streamId, horse: updatedHorse });
+      // Emit WebSocket event for real-time UI updates
+      if (updatedHorse.stream_id) {
+        emitHorseUpdatedEvent(updatedHorse.stream_id, {
+          id: updatedHorse.id,
+          tracking_id: updatedHorse.tracking_id || '',
+          name: updatedHorse.name,
+          breed: updatedHorse.breed,
+          age: updatedHorse.age,
+          color: updatedHorse.color,
+          markings: updatedHorse.markings,
+          assigned_color: updatedHorse.ui_color || '#06B6D4',
+          last_seen: updatedHorse.last_seen?.toISOString() || new Date().toISOString(),
+          total_detections: updatedHorse.total_detections,
+          thumbnail_url: updatedHorse.thumbnail_url,
+        });
+      }
 
       return res.json(updatedHorse);
     } catch (error: any) {

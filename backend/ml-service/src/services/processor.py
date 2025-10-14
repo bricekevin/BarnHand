@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 import cv2
 import numpy as np
+import httpx
 from loguru import logger
 
 from ..config.settings import settings
@@ -469,6 +470,9 @@ class ChunkProcessor:
             await self.horse_db.save_stream_horse_registry(stream_id, all_horse_states)
             logger.info(f"Saved {len(all_horse_states)} horses to registry")
 
+            # Notify API Gateway about detected horses for WebSocket emission
+            await self._notify_horses_detected(stream_id, all_horse_states)
+
             # Generate processing result
             processing_time = (time.time() - start_time) * 1000
 
@@ -884,7 +888,46 @@ class ChunkProcessor:
             logger.info(f"Updated similarity threshold to {new_threshold}")
         except Exception as error:
             logger.error(f"Failed to update similarity threshold: {error}")
-    
+
+    async def _notify_horses_detected(self, stream_id: str, horse_states: Dict[str, Any]) -> None:
+        """Notify API Gateway about detected horses for WebSocket emission.
+
+        Args:
+            stream_id: Stream ID
+            horse_states: Dictionary of horse states from tracker
+        """
+        try:
+            # Prepare horse data for WebSocket event
+            horses_data = []
+            for horse_id, state in horse_states.items():
+                horses_data.append({
+                    "id": state.get("id", horse_id),
+                    "tracking_id": state.get("tracking_id", horse_id),
+                    "assigned_color": state.get("color", "#06B6D4"),
+                    "confidence_score": state.get("confidence", 0.0),
+                    "first_detected": state.get("first_seen"),
+                    "last_seen": state.get("last_seen"),
+                    "total_detections": state.get("detection_count", 0),
+                })
+
+            # Send HTTP POST to API Gateway webhook endpoint
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                webhook_url = f"{settings.api_gateway_url}/api/internal/webhooks/horses-detected"
+                response = await client.post(
+                    webhook_url,
+                    json={"streamId": stream_id, "horses": horses_data}
+                )
+
+                if response.status_code == 200:
+                    logger.debug(f"Notified API Gateway about {len(horses_data)} horses for stream {stream_id}")
+                else:
+                    logger.warning(f"API Gateway webhook returned status {response.status_code}")
+
+        except httpx.TimeoutException:
+            logger.warning(f"Timeout notifying API Gateway about horses for stream {stream_id}")
+        except Exception as error:
+            logger.error(f"Failed to notify API Gateway about horses: {error}")
+
     async def batch_process_chunks(self, chunk_paths: List[str], chunk_metadata_list: List[Dict]) -> List[Dict]:
         """Process multiple chunks in batch."""
         results = []

@@ -102,6 +102,11 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
         default="INFO", description="Logging level"
     )
+
+    # API Gateway Configuration
+    api_gateway_url: str = Field(
+        default="http://api-gateway:8000", description="API Gateway base URL"
+    )
     
     class Config:
         env_file = ".env"

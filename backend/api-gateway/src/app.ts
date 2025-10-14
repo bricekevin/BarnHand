@@ -12,6 +12,7 @@ import authRoutes from './routes/auth';
 import detectionRoutes from './routes/detections';
 import healthRoutes from './routes/health';
 import horseRoutes from './routes/horses';
+import internalRoutes from './routes/internal';
 import streamRoutes from './routes/streams';
 
 const app = express();
@@ -67,6 +68,7 @@ app.use('/api/v1/streams', streamRoutes);
 app.use('/api/v1/horses', horseRoutes);
 app.use('/api/v1/detections', detectionRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/internal', internalRoutes);
 
 // Root health check (for Docker health checks)
 app.get('/health', (_req, res) => {
