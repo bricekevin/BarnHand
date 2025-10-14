@@ -148,18 +148,18 @@
 7. Integrate with StreamHorseService from Task 1.2
 
 **Testing**:
-- [ ] Unit: Test route handlers with mocked service
-- [ ] Integration: Test endpoints with Supertest
-- [ ] Integration: Test authentication rejects unauthenticated requests
-- [ ] Integration: Test RBAC allows FARM_USER read, FARM_ADMIN write
-- [ ] Manual: Use curl/Postman to test endpoints
+- [x] Unit: Test route handlers with mocked service
+- [x] Integration: Test endpoints with Supertest
+- [x] Integration: Test authentication rejects unauthenticated requests
+- [x] Integration: Test RBAC allows FARM_USER read, FARM_ADMIN write
+- [x] Manual: Use curl/Postman to test endpoints
 
 **Acceptance**:
-- [ ] All endpoints return correct status codes
-- [ ] Validation rejects invalid inputs (400 errors)
-- [ ] Avatar endpoint returns image/jpeg content-type
-- [ ] Endpoints respect farm-level authorization
-- [ ] Tests pass in Docker
+- [x] All endpoints return correct status codes
+- [x] Validation rejects invalid inputs (400 errors)
+- [x] Avatar endpoint returns image/jpeg content-type
+- [x] Endpoints respect farm-level authorization
+- [x] Tests pass in Docker
 
 **Reference**: Existing endpoint pattern in `streams.ts:406-457` for chunks endpoint
 

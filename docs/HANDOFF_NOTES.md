@@ -1,10 +1,41 @@
 # Phase 3: Stream Horse Registry - Session Handoff
 
-**Last Updated**: 2025-10-14 15:45 PST
+**Last Updated**: 2025-10-14 17:30 PST
 
 ---
 
 ## ✅ Completed Tasks
+
+### Task 1.3: Add Horse Registry API Endpoints
+**Status**: Complete ✅
+**Commit**: `3114b28`
+
+**Summary**:
+- Added 4 REST endpoints for stream horse management
+- Implemented validation schemas with Zod (name, age, gender, markings)
+- Added RBAC enforcement (FARM_USER read, FARM_ADMIN write)
+- Created comprehensive integration test suite (30+ tests)
+
+**Endpoints Implemented**:
+- `GET /api/v1/streams/:id/horses` - List horses (with optional ?summary=true)
+- `GET /api/v1/streams/:id/horses/:horseId` - Get specific horse
+- `PUT /api/v1/streams/:id/horses/:horseId` - Update horse details
+- `GET /api/v1/streams/:id/horses/:horseId/avatar` - Get avatar image (JPEG)
+
+**Testing Results**:
+- ✅ 30+ integration tests added to streams.test.ts
+- ✅ Validation tests confirm proper rejection of invalid inputs
+- ✅ RBAC tests confirm FARM_USER read-only, FARM_ADMIN write
+- ✅ Manual curl tests confirm endpoints working correctly
+- ✅ Avatar endpoint returns correct Content-Type and cache headers
+- ✅ Database unavailable gracefully handled (503 response)
+
+**Files Modified**:
+- `backend/api-gateway/src/routes/streams.ts` (added 230 lines)
+- `backend/api-gateway/src/__tests__/streams.test.ts` (added 315 lines)
+- `backend/api-gateway/package.json` (added jsonwebtoken, supertest)
+
+---
 
 ### Task 1.2: Create Stream Horse Registry Service in API Gateway
 **Status**: Complete ✅
@@ -142,34 +173,38 @@
 
 ## 📋 Next Priority
 
-### Task 1.3: Add Horse Registry API Endpoints
-**Estimated Time**: 1.5 hours
+### Task 1.4: Integrate ML Service with Stream Horse Registry
+**Estimated Time**: 2 hours
 
-**Objective**: Expose REST endpoints for stream horse management
+**Objective**: Load known horses on chunk start, save horses on chunk complete
 
 **Files to Modify**:
-- `backend/api-gateway/src/routes/streams.ts` (UPDATE)
-- `backend/api-gateway/src/routes/__tests__/streams.test.ts` (NEW if missing)
-
-**Endpoints to Add**:
-1. `GET /api/v1/streams/:id/horses` - List horses for stream
-2. `GET /api/v1/streams/:id/horses/:horseId` - Get specific horse
-3. `PUT /api/v1/streams/:id/horses/:horseId` - Update horse (name, notes)
-4. `GET /api/v1/streams/:id/horses/:horseId/avatar` - Get avatar image
+- `backend/ml-service/src/services/processor.py` (UPDATE)
+- `backend/ml-service/src/models/horse_tracker.py` (UPDATE)
+- `backend/ml-service/src/services/horse_database.py` (UPDATE - thumbnail logic)
 
 **Requirements**:
-- Add validation schemas for update requests
-- Add authentication + RBAC checks (FARM_USER read, FARM_ADMIN write)
-- Integrate with StreamHorseService from Task 1.2
-- Avatar endpoint returns `image/jpeg` content-type
+1. Update `HorseTracker.__init__` to accept `stream_id` parameter
+2. Add `load_stream_horses(stream_id: str)` method to load from Redis + PostgreSQL
+3. Update `process_chunk()` in processor.py:
+   - Load stream horses before processing (line ~200)
+   - Initialize tracker with known horses
+4. Add `save_horse_thumbnail()` method to capture best frame
+5. After chunk complete, save all horses (new + updated) to PostgreSQL
+6. Add thumbnail extraction: select frame with highest confidence + largest bbox
+
+**Critical Integration Points** (from REID_INTEGRATION.md):
+- Load horses at `processor.py:220`
+- Save horses at `processor.py:445`
+- Capture thumbnails at `horse_tracker.py:140`
 
 **Testing Requirements**:
-- Unit tests with mocked service
-- Integration tests with Supertest
-- Test authentication rejects unauthenticated requests
-- Test RBAC allows correct roles
+- Unit: Test load_stream_horses loads correct horses
+- Unit: Test thumbnail extraction picks best frame
+- Integration: Process 2 chunks, verify horse persists with same ID
+- Regression: Chunk processing without known horses still works
 
-**Reference**: Existing endpoint pattern in `streams.ts:406-457` for chunks endpoint
+**Reference**: Existing chunk processing flow in `processor.py:150-300`
 
 ---
 
@@ -239,14 +274,14 @@ docker compose logs -f api-gateway
 ## 📊 Phase 3 Progress
 
 **Total Tasks**: 15
-**Completed**: 4 (27%)
+**Completed**: 5 (33%)
 **In Progress**: 0
-**Remaining**: 11
+**Remaining**: 10
 
 **Phase Breakdown**:
 - Phase 0 (Foundation): ✅✅ **COMPLETE** (2/2)
-- Phase 1 (Backend): ✅✅⬜⬜⬜ (2/5)
+- Phase 1 (Backend): ✅✅✅⬜⬜ (3/5)
 - Phase 2 (Frontend): ⬜⬜⬜⬜⬜ (0/5)
 - Phase 3 (Integration): ⬜⬜⬜ (0/3)
 
-**Estimated Time Remaining**: 10-12 hours
+**Estimated Time Remaining**: 8-10 hours
