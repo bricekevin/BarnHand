@@ -9,6 +9,7 @@ import {
   createAuthenticatedRoute,
 } from '../middleware/auth';
 import { validateSchema } from '../middleware/validation';
+import { streamHorseService } from '../services/streamHorseService';
 import { videoChunkService } from '../services/videoChunkService';
 import { UserRole } from '../types/auth';
 // AuthenticatedRequest is now handled by createAuthenticatedRoute wrapper
@@ -47,6 +48,21 @@ const recordChunkSchema = z.object({
 const chunkParamsSchema = z.object({
   id: z.string().min(1, 'Stream ID required'),
   chunkId: z.string().min(1, 'Chunk ID required'),
+});
+
+const horseParamsSchema = z.object({
+  id: z.string().min(1, 'Stream ID required'),
+  horseId: z.string().min(1, 'Horse ID required'),
+});
+
+const updateHorseSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  breed: z.string().min(1).max(100).optional(),
+  age: z.number().min(0).max(50).optional(),
+  color: z.string().min(1).max(50).optional(),
+  markings: z.string().max(500).optional(),
+  gender: z.enum(['mare', 'stallion', 'gelding', 'unknown']).optional(),
+  metadata: z.record(z.any()).optional(),
 });
 
 const router = Router();
@@ -608,6 +624,244 @@ router.delete(
       return res.json({ message: 'Chunk deleted successfully' });
     } catch (error) {
       logger.error('Delete chunk error', { error });
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+);
+
+// ========================================
+// Horse Registry Endpoints
+// ========================================
+
+// GET /api/v1/streams/:id/horses - List all horses detected on stream
+router.get(
+  '/:id/horses',
+  validateSchema(streamParamsSchema, 'params'),
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      if (!req.user.farmId) {
+        return res.status(403).json({ error: 'Farm ID required' });
+      }
+
+      const { id: streamId } = req.params;
+      const summary = req.query.summary === 'true';
+
+      // Handle summary request (for stream cards)
+      if (summary) {
+        const summaryData = await streamHorseService.getStreamHorseSummary(
+          streamId,
+          req.user.farmId
+        );
+
+        logger.info('Stream horse summary retrieved', {
+          userId: req.user.userId,
+          streamId,
+          total: summaryData.total,
+        });
+
+        return res.json(summaryData);
+      }
+
+      // Handle full list request
+      const horses = await streamHorseService.getStreamHorses(
+        streamId,
+        req.user.farmId
+      );
+
+      logger.info('Stream horses listed', {
+        userId: req.user.userId,
+        streamId,
+        count: horses.length,
+      });
+
+      return res.json({
+        horses,
+        total: horses.length,
+      });
+    } catch (error: any) {
+      logger.error('Get stream horses error', { error: error.message });
+
+      // Handle specific error cases
+      if (error.message.includes('not found')) {
+        return res.status(404).json({ error: error.message });
+      }
+      if (error.message.includes('does not belong')) {
+        return res.status(403).json({ error: 'Access denied to this stream' });
+      }
+      if (error.message.includes('Database not available')) {
+        return res
+          .status(503)
+          .json({ error: 'Service temporarily unavailable' });
+      }
+
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+);
+
+// GET /api/v1/streams/:id/horses/:horseId - Get specific horse details
+router.get(
+  '/:id/horses/:horseId',
+  validateSchema(horseParamsSchema, 'params'),
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      if (!req.user.farmId) {
+        return res.status(403).json({ error: 'Farm ID required' });
+      }
+
+      const { horseId } = req.params;
+
+      const horse = await streamHorseService.getHorse(horseId, req.user.farmId);
+
+      if (!horse) {
+        return res.status(404).json({ error: 'Horse not found' });
+      }
+
+      logger.debug('Horse details retrieved', {
+        userId: req.user.userId,
+        horseId,
+      });
+
+      return res.json(horse);
+    } catch (error: any) {
+      logger.error('Get horse error', { error: error.message });
+
+      if (error.message.includes('does not belong')) {
+        return res.status(403).json({ error: 'Access denied to this horse' });
+      }
+      if (error.message.includes('Database not available')) {
+        return res
+          .status(503)
+          .json({ error: 'Service temporarily unavailable' });
+      }
+
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+);
+
+// PUT /api/v1/streams/:id/horses/:horseId - Update horse details
+router.put(
+  '/:id/horses/:horseId',
+  validateSchema(horseParamsSchema, 'params'),
+  validateSchema(updateHorseSchema),
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN]),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      if (!req.user.farmId) {
+        return res.status(403).json({ error: 'Farm ID required' });
+      }
+
+      const { horseId } = req.params;
+      const updates = req.body;
+
+      const updatedHorse = await streamHorseService.updateHorse(
+        horseId,
+        req.user.farmId,
+        updates
+      );
+
+      logger.info('Horse updated', {
+        userId: req.user.userId,
+        horseId,
+        updates: Object.keys(updates),
+      });
+
+      // TODO: Emit WebSocket event 'horses:updated' in Task 1.5
+      // socketService.emit('horses:updated', { streamId, horse: updatedHorse });
+
+      return res.json(updatedHorse);
+    } catch (error: any) {
+      logger.error('Update horse error', { error: error.message });
+
+      if (error.message.includes('not found')) {
+        return res.status(404).json({ error: error.message });
+      }
+      if (error.message.includes('does not belong')) {
+        return res.status(403).json({ error: 'Access denied to this horse' });
+      }
+      if (error.message.includes('Database not available')) {
+        return res
+          .status(503)
+          .json({ error: 'Service temporarily unavailable' });
+      }
+
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+);
+
+// GET /api/v1/streams/:id/horses/:horseId/avatar - Get horse avatar image
+router.get(
+  '/:id/horses/:horseId/avatar',
+  validateSchema(horseParamsSchema, 'params'),
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      if (!req.user.farmId) {
+        return res.status(403).json({ error: 'Farm ID required' });
+      }
+
+      const { horseId } = req.params;
+
+      const avatarBuffer = await streamHorseService.getHorseAvatar(
+        horseId,
+        req.user.farmId
+      );
+
+      if (!avatarBuffer) {
+        return res
+          .status(404)
+          .json({ error: 'Avatar not found for this horse' });
+      }
+
+      // Set appropriate headers for JPEG image
+      res.set({
+        'Content-Type': 'image/jpeg',
+        'Content-Length': avatarBuffer.length.toString(),
+        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+      });
+
+      logger.debug('Horse avatar retrieved', {
+        userId: req.user.userId,
+        horseId,
+        size: avatarBuffer.length,
+      });
+
+      return res.send(avatarBuffer);
+    } catch (error: any) {
+      logger.error('Get horse avatar error', { error: error.message });
+
+      if (error.message.includes('not found')) {
+        return res.status(404).json({ error: error.message });
+      }
+      if (error.message.includes('does not belong')) {
+        return res.status(403).json({ error: 'Access denied to this horse' });
+      }
+      if (error.message.includes('Database not available')) {
+        return res
+          .status(503)
+          .json({ error: 'Service temporarily unavailable' });
+      }
+
       return res.status(500).json({ error: 'Internal server error' });
     }
   })
