@@ -1,4 +1,4 @@
-"""Enhanced ML processing service with integrated state detection."""
+"""ML processing service for horse detection, pose analysis, and tracking."""
 import asyncio
 import time
 import uuid
@@ -18,34 +18,27 @@ from ..models.horse_tracker import HorseTracker
 from ..models.pose_analysis import PoseAnalyzer, PoseMetrics
 from ..models.gait_classifier import GaitClassifier, GaitMetrics
 from ..models.pose_validator import PoseValidator
-from ..models.hierarchical_state_detection import HierarchicalStateDetector
-from ..models.advanced_state_detection import AdvancedStateDetector
 from .horse_database import HorseDatabaseService
 
 
 class ChunkProcessor:
-    """Enhanced processor for analyzing video chunks with integrated behavioral state detection."""
-    
+    """Processor for analyzing video chunks with horse detection, pose estimation, and tracking."""
+
     def __init__(self) -> None:
         self.detection_model = HorseDetectionModel()
         self.pose_model = HorsePoseModel()
         self.horse_tracker = HorseTracker()
         self.horse_db = HorseDatabaseService()
-        
+
         # Pose analysis components
         self.pose_analyzers = {}  # Per-horse analyzers
         self.gait_classifiers = {}  # Per-horse gait classifiers
         self.pose_validator = PoseValidator()
-        
-        # *** NEW: Behavioral state detection components ***
-        self.hierarchical_state_detectors = {}  # Per-horse hierarchical state detectors
-        self.advanced_state_detectors = {}      # Per-horse advanced state detectors
-        
+
         self.processing_stats = {
             "chunks_processed": 0,
             "total_detections": 0,
             "total_tracks": 0,
-            "total_behavioral_states": 0,  # NEW: Track behavioral analysis
             "avg_processing_time": 0.0,
             "avg_fps": 0.0
         }
@@ -53,21 +46,21 @@ class ChunkProcessor:
     async def initialize(self) -> None:
         """Initialize ML models and tracking system."""
         try:
-            logger.info("Initializing enhanced ML models with behavioral state detection...")
-            
+            logger.info("Initializing ML models...")
+
             # Load detection models
             self.detection_model.load_models()
-            
+
             # Load pose model
             self.pose_model.load_model()
-            
+
             # Initialize horse tracker
             await self.horse_tracker.initialize()
-            
+
             # Initialize database service
             await self.horse_db.initialize()
-            
-            logger.info("Enhanced ML models and behavioral state detection initialized successfully")
+
+            logger.info("ML models initialized successfully")
             
         except Exception as error:
             logger.error(f"Failed to initialize enhanced ML models: {error}")
@@ -75,20 +68,20 @@ class ChunkProcessor:
             
     async def process_chunk(self, chunk_path: str, chunk_metadata: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Process a video chunk for horse detection, tracking, and behavioral state analysis.
-        
+        Process a video chunk for horse detection, tracking, and pose analysis.
+
         Args:
             chunk_path: Path to video chunk file
             chunk_metadata: Metadata about the chunk (stream_id, start_time, etc.)
-            
+
         Returns:
-            Processing results with detections, overlays, and behavioral states
+            Processing results with detections, poses, and overlays
         """
         start_time = time.time()
         # Use chunk_id from metadata if provided, otherwise generate new one
         chunk_id = chunk_metadata.get("chunk_id", str(uuid.uuid4()))
 
-        logger.info(f"Processing chunk with behavioral analysis: {chunk_path}",
+        logger.info(f"Processing chunk: {chunk_path}",
                    chunk_id=chunk_id,
                    stream_id=chunk_metadata.get("stream_id"),
                    start_time=chunk_metadata.get("start_time"))
@@ -99,13 +92,12 @@ class ChunkProcessor:
             if not frames:
                 raise ValueError("No frames extracted from video chunk")
                 
-            # Process each frame for detections, tracking, poses, and behavioral states
+            # Process each frame for detections, tracking, and poses
             frame_results = []
             total_detections = 0
             total_tracks = 0
-            total_behavioral_states = 0
-            
-            logger.debug(f"Starting enhanced frame processing for {len(frames)} frames")
+
+            logger.debug(f"Starting frame processing for {len(frames)} frames")
             
             for frame_idx, frame in enumerate(frames):
                 frame_start = time.time()
@@ -118,18 +110,14 @@ class ChunkProcessor:
                 # Step 2: Update horse tracking with detections
                 tracked_horses = self.horse_tracker.update_tracks(detections, frame, frame_timestamp)
                 total_tracks = len(tracked_horses)
-                
-                # Step 3: Process poses and behavioral states for each horse
+
+                # Step 3: Process poses for each horse
                 frame_poses = []
-                frame_behavioral_states = []
-                
+
                 for track_info in tracked_horses:
                     horse_id = str(track_info.get("tracking_id", "unknown"))
                     bbox = track_info.get("bbox", {})
-                    
-                    # Initialize state detectors for new horses
-                    self._ensure_horse_analyzers(horse_id)
-                    
+
                     # Estimate pose for this horse
                     pose_result = None
                     if bbox and bbox.get("width", 0) > 0 and bbox.get("height", 0) > 0:
@@ -144,21 +132,10 @@ class ChunkProcessor:
                                 })
                         except Exception as pose_error:
                             logger.debug(f"Pose estimation failed for horse {horse_id}: {pose_error}")
-                    
-                    # *** NEW: Behavioral state detection ***
-                    behavioral_state = self._process_behavioral_state(
-                        horse_id, pose_result, track_info, frame_timestamp
-                    )
-                    
-                    if behavioral_state:
-                        frame_behavioral_states.append(behavioral_state)
-                        total_behavioral_states += 1
-                    
+
                     # Save horse to database if new or updated
                     if track_info["is_new"] or track_info["total_detections"] % 10 == 0:
-                        await self._save_horse_to_database_enhanced(
-                            track_info, frame_timestamp, behavioral_state
-                        )
+                        await self._save_horse_to_database(track_info, frame_timestamp)
                         
                 frame_time = (time.time() - frame_start) * 1000
                 
@@ -168,7 +145,6 @@ class ChunkProcessor:
                     "detections": detections,
                     "tracked_horses": tracked_horses,
                     "poses": frame_poses,
-                    "behavioral_states": frame_behavioral_states,  # NEW: Behavioral state data
                     "processing_time_ms": frame_time
                 }
                 frame_results.append(frame_result)
@@ -176,14 +152,14 @@ class ChunkProcessor:
             # Generate chunk summary
             processing_time = (time.time() - start_time) * 1000
             chunk_fps = len(frames) / (processing_time / 1000) if processing_time > 0 else 0
-            
+
             # Update performance metrics
-            self._update_enhanced_stats(processing_time, chunk_fps, total_detections, total_tracks, total_behavioral_states)
+            self._update_stats(processing_time, chunk_fps, total_detections, total_tracks)
+
+            # Generate overlay data
+            overlay_data = self._generate_overlay_data(frame_results, chunk_metadata)
             
-            # Generate enhanced overlay data with behavioral states
-            overlay_data = self._generate_enhanced_overlay_data(frame_results, chunk_metadata)
-            
-            # Create processed chunk metadata with behavioral analysis
+            # Create processed chunk metadata
             result = {
                 "chunk_id": chunk_id,
                 "stream_id": chunk_metadata.get("stream_id"),
@@ -195,28 +171,24 @@ class ChunkProcessor:
                 "processing_fps": chunk_fps,
                 "total_detections": total_detections,
                 "total_tracks": total_tracks,
-                "total_behavioral_states": total_behavioral_states,  # NEW: Behavioral state count
                 "unique_horses": self._count_unique_horses(frame_results),
-                "behavioral_summary": self._generate_behavioral_summary(frame_results),  # NEW: Behavioral summary
                 "tracking_stats": self.horse_tracker.get_tracking_stats(),
                 "frame_results": frame_results,
                 "overlay_data": overlay_data,
                 "model_info": {
                     "detection_model": self.detection_model.get_model_info(),
                     "pose_model": self.pose_model.get_performance_info(),
-                    "tracking_model": self.horse_tracker.reid_model.get_model_info(),
-                    "behavioral_models": self._get_behavioral_model_info()  # NEW: Behavioral model info
+                    "tracking_model": self.horse_tracker.reid_model.get_model_info()
                 },
                 "status": "completed",
                 "processed_at": time.time()
             }
-            
-            logger.info(f"Enhanced chunk processing completed", 
+
+            logger.info(f"Chunk processing completed",
                        chunk_id=chunk_id,
                        processing_time_ms=round(processing_time, 1),
                        fps=round(chunk_fps, 1),
                        detections=total_detections,
-                       behavioral_states=total_behavioral_states,
                        frames=len(frames))
             
             return result
@@ -224,7 +196,7 @@ class ChunkProcessor:
         except Exception as error:
             processing_time = (time.time() - start_time) * 1000
             import traceback
-            logger.error(f"Enhanced chunk processing failed after {processing_time:.1f}ms: {error}",
+            logger.error(f"Chunk processing failed after {processing_time:.1f}ms: {error}",
                         chunk_id=chunk_id,
                         chunk_path=chunk_path,
                         extra={"traceback": traceback.format_exc()})
@@ -243,7 +215,8 @@ class ChunkProcessor:
         chunk_path: str,
         chunk_metadata: Dict[str, Any],
         output_video_path: str,
-        output_json_path: str
+        output_json_path: str,
+        frame_interval: int = 1
     ) -> Dict[str, Any]:
         """
         Process chunk and output both processed video and detections JSON.
@@ -253,6 +226,7 @@ class ChunkProcessor:
             chunk_metadata: Metadata about the chunk (stream_id, chunk_id, etc.)
             output_video_path: Path where processed video should be saved
             output_json_path: Path where detections JSON should be saved
+            frame_interval: Process every Nth frame (1 = all frames, 2 = every other frame, etc.)
 
         Returns:
             Processing results including paths to outputs
@@ -264,7 +238,8 @@ class ChunkProcessor:
                    chunk_id=chunk_id,
                    chunk_id_from_metadata=chunk_metadata.get("chunk_id"),
                    output_video=output_video_path,
-                   output_json=output_json_path)
+                   output_json=output_json_path,
+                   frame_interval=frame_interval)
 
         try:
             # Load video chunk
@@ -295,6 +270,9 @@ class ChunkProcessor:
             total_detections = 0
             total_tracks = 0
             processed_frames = []  # Store frames for FFmpeg writing
+            # Store last tracking/pose data to reuse overlays on skipped frames
+            last_tracked_horses = []
+            last_frame_poses = []
 
             # Initialize progress tracking in Redis
             if self.horse_db.redis_client:
@@ -309,120 +287,130 @@ class ChunkProcessor:
                 except Exception as redis_error:
                     logger.warning(f"Failed to initialize progress in Redis: {redis_error}")
 
+            frames_to_process = [i for i in range(total_frames) if i % frame_interval == 0]
+            logger.info(f"Frame interval: {frame_interval}, will process {len(frames_to_process)} out of {total_frames} frames")
+
             while cap.isOpened() and frame_idx < total_frames:
                 ret, frame = cap.read()
                 if not ret:
                     break
 
+                # Check if this frame should be processed based on interval
+                should_process = (frame_idx % frame_interval == 0)
+
                 frame_timestamp = chunk_metadata.get("start_time", 0) + (frame_idx / fps)
 
-                # Step 1: Detect horses
-                detections, _ = self.detection_model.detect_horses(frame)
-                total_detections += len(detections)
+                if should_process:
+                    # Step 1: Detect horses
+                    detections, _ = self.detection_model.detect_horses(frame)
+                    total_detections += len(detections)
 
-                # Step 2: Update tracking
-                tracked_horses = self.horse_tracker.update_tracks(detections, frame, frame_timestamp)
-                total_tracks = len(tracked_horses)
+                    # Step 2: Update tracking
+                    tracked_horses = self.horse_tracker.update_tracks(detections, frame, frame_timestamp)
+                    total_tracks = len(tracked_horses)
+                else:
+                    # Skip processing but keep empty placeholders
+                    detections = []
+                    tracked_horses = []
 
-                # Step 3: Process poses in BATCH (MAJOR OPTIMIZATION)
+                # Step 3: Process poses in BATCH (MAJOR OPTIMIZATION) - only for processed frames
                 frame_poses = []
-                frame_behavioral_states = []
 
-                # Collect all valid bboxes for batch processing
-                valid_tracks = []
-                valid_bboxes = []
-                for track_info in tracked_horses:
-                    horse_id = str(track_info.get("tracking_id", "unknown"))
-                    bbox = track_info.get("bbox", {})
+                if should_process:
+                    # Collect all valid bboxes for batch processing
+                    valid_tracks = []
+                    valid_bboxes = []
+                    for track_info in tracked_horses:
+                        horse_id = str(track_info.get("tracking_id", "unknown"))
+                        bbox = track_info.get("bbox", {})
 
-                    # Initialize state detectors for new horses
-                    self._ensure_horse_analyzers(horse_id)
+                        if bbox and bbox.get("width", 0) > 0 and bbox.get("height", 0) > 0:
+                            valid_tracks.append(track_info)
+                            valid_bboxes.append(bbox)
 
-                    if bbox and bbox.get("width", 0) > 0 and bbox.get("height", 0) > 0:
-                        valid_tracks.append(track_info)
-                        valid_bboxes.append(bbox)
+                    # Batch pose estimation for all horses at once
+                    if valid_bboxes:
+                        try:
+                            batch_pose_results = self.pose_model.estimate_pose_batch(frame, valid_bboxes)
 
-                # Batch pose estimation for all horses at once
-                if valid_bboxes:
-                    try:
-                        batch_pose_results = self.pose_model.estimate_pose_batch(frame, valid_bboxes)
+                            # Process batch results
+                            for track_info, (pose_result, pose_time) in zip(valid_tracks, batch_pose_results):
+                                horse_id = str(track_info.get("tracking_id", "unknown"))
+                                bbox = track_info.get("bbox", {})
 
-                        # Process batch results
-                        for track_info, (pose_result, pose_time) in zip(valid_tracks, batch_pose_results):
-                            horse_id = str(track_info.get("tracking_id", "unknown"))
-                            bbox = track_info.get("bbox", {})
-
-                            if pose_result:
-                                frame_poses.append({
-                                    "horse_id": horse_id,
-                                    "pose": pose_result,
-                                    "confidence": pose_result.get("pose_confidence", 0.0),
-                                    "bbox": bbox
-                                })
-
-                            # Process behavioral state
-                            behavioral_state = self._process_behavioral_state(
-                                horse_id, pose_result, track_info, frame_timestamp
-                            )
-
-                            if behavioral_state:
-                                frame_behavioral_states.append(behavioral_state)
-
-                    except Exception as batch_error:
-                        logger.warning(f"Batch pose processing failed, falling back to sequential: {batch_error}")
-                        # Fallback to sequential processing
-                        for track_info in valid_tracks:
-                            horse_id = str(track_info.get("tracking_id", "unknown"))
-                            bbox = track_info.get("bbox", {})
-
-                            try:
-                                pose_result, pose_confidence = self.pose_model.estimate_pose(frame, bbox)
                                 if pose_result:
                                     frame_poses.append({
                                         "horse_id": horse_id,
                                         "pose": pose_result,
-                                        "confidence": pose_confidence,
+                                        "confidence": pose_result.get("pose_confidence", 0.0),
                                         "bbox": bbox
                                     })
-                            except Exception as pose_error:
-                                logger.debug(f"Pose estimation failed for horse {horse_id}: {pose_error}")
 
-                            behavioral_state = self._process_behavioral_state(
-                                horse_id, pose_result if 'pose_result' in locals() else None,
-                                track_info, frame_timestamp
-                            )
-                            if behavioral_state:
-                                frame_behavioral_states.append(behavioral_state)
+                        except Exception as batch_error:
+                            logger.warning(f"Batch pose processing failed, falling back to sequential: {batch_error}")
+                            # Fallback to sequential processing
+                            for track_info in valid_tracks:
+                                horse_id = str(track_info.get("tracking_id", "unknown"))
+                                bbox = track_info.get("bbox", {})
 
-                # Draw overlays on frame
-                processed_frame = self._draw_overlays(
-                    frame.copy(),
-                    tracked_horses,
-                    frame_poses,
-                    frame_behavioral_states
-                )
+                                try:
+                                    pose_result, pose_confidence = self.pose_model.estimate_pose(frame, bbox)
+                                    if pose_result:
+                                        frame_poses.append({
+                                            "horse_id": horse_id,
+                                            "pose": pose_result,
+                                            "confidence": pose_confidence,
+                                            "bbox": bbox
+                                        })
+                                except Exception as pose_error:
+                                    logger.debug(f"Pose estimation failed for horse {horse_id}: {pose_error}")
 
-                # Save frame as PNG for FFmpeg
+                    # Draw overlays on processed frames
+                    processed_frame = self._draw_overlays(
+                        frame.copy(),
+                        tracked_horses,
+                        frame_poses
+                    )
+                    # Store tracking/pose data to reuse overlays on skipped frames
+                    last_tracked_horses = tracked_horses
+                    last_frame_poses = frame_poses
+                else:
+                    # For skipped frames: use current raw frame but draw last overlays
+                    # This shows fresh video content with consistent overlays until next processed frame
+                    if last_tracked_horses or last_frame_poses:
+                        processed_frame = self._draw_overlays(
+                            frame.copy(),
+                            last_tracked_horses,
+                            last_frame_poses
+                        )
+                    else:
+                        # If no processed frame yet, use raw frame
+                        processed_frame = frame.copy()
+
+                # Save frame as PNG for FFmpeg (all frames for continuous video)
                 frame_path = temp_frames_dir / f"frame_{frame_idx:04d}.png"
                 cv2.imwrite(str(frame_path), processed_frame)
                 processed_frames.append(frame_path)
 
-                # Save frame results
-                frame_result = {
-                    "frame_index": frame_idx,
-                    "timestamp": frame_timestamp,
-                    "detections": detections,
-                    "tracked_horses": tracked_horses,
-                    "poses": frame_poses,
-                    "behavioral_states": frame_behavioral_states
-                }
-                frame_results.append(frame_result)
+                # Save frame results ONLY for processed frames (to reduce data size)
+                if should_process:
+                    frame_result = {
+                        "frame_index": frame_idx,
+                        "timestamp": frame_timestamp,
+                        "detections": detections,
+                        "tracked_horses": tracked_horses,
+                        "poses": frame_poses,
+                        "processed": True
+                    }
+                    frame_results.append(frame_result)
 
-                # Update progress in Redis every 10 frames
-                if frame_idx % 10 == 0 or frame_idx == total_frames - 1:
+                # Update progress in Redis on EVERY frame for smoothest progress bar
+                # Redis writes are extremely fast (<1ms) so this has no performance impact
+                if True:  # Update every single frame
                     if self.horse_db.redis_client:
                         try:
                             progress_key = f"chunk:{chunk_id}:progress"
+                            # Progress based on total frames read, not just processed
                             progress_value = f"{frame_idx + 1}/{total_frames}"
                             self.horse_db.redis_client.setex(
                                 progress_key,
@@ -430,7 +418,7 @@ class ChunkProcessor:
                                 progress_value
                             )
                             if frame_idx % 30 == 0:  # Log every 30 frames to reduce noise
-                                logger.info(f"📊 Redis progress update: {progress_key} = {progress_value}")
+                                logger.info(f"📊 Redis progress update: {progress_key} = {progress_value} (interval={frame_interval})")
                         except Exception as redis_error:
                             logger.debug(f"Failed to update progress in Redis: {redis_error}")
 
@@ -461,12 +449,15 @@ class ChunkProcessor:
                     "fps": fps,
                     "duration": total_frames / fps if fps > 0 else 0,
                     "resolution": f"{width}x{height}",
-                    "total_frames": total_frames
+                    "total_frames": total_frames,
+                    "frame_interval": frame_interval
                 },
                 "summary": {
                     "total_horses": self._count_unique_horses(frame_results),
                     "total_detections": total_detections,
-                    "total_frames": len(frame_results),
+                    "frames_analyzed": len(frame_results),
+                    "total_frames": total_frames,
+                    "frame_interval": frame_interval,
                     "processing_time_ms": processing_time,
                     "processing_fps": len(frame_results) / (processing_time / 1000) if processing_time > 0 else 0
                 },
@@ -552,13 +543,11 @@ class ChunkProcessor:
         self,
         frame: np.ndarray,
         tracked_horses: List[Dict],
-        frame_poses: List[Dict],
-        frame_behavioral_states: List[Dict]
+        frame_poses: List[Dict]
     ) -> np.ndarray:
         """Draw detection, tracking, and pose overlays on frame."""
 
-        # Create overlay map for behavioral states
-        state_map = {state["horse_id"]: state for state in frame_behavioral_states}
+        # Create overlay map for poses
         pose_map = {pose["horse_id"]: pose for pose in frame_poses}
 
         # Draw each tracked horse
@@ -591,17 +580,6 @@ class ChunkProcessor:
                 # Draw horse ID
                 cv2.putText(frame, f"#{horse_id}", (x, y - 10),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-
-                # Draw behavioral state if available
-                if horse_id in state_map:
-                    state = state_map[horse_id]
-                    hierarchical = state.get("hierarchical_analysis", {})
-                    primary_state = hierarchical.get("primary_state", "unknown")
-
-                    # Draw state label
-                    state_text = primary_state.upper() if primary_state else "UNKNOWN"
-                    cv2.putText(frame, state_text, (x, y + h + 25),
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
             # Draw pose skeleton and keypoints if available
             if horse_id in pose_map:
@@ -653,7 +631,6 @@ class ChunkProcessor:
                         "color": track.get("color", [255, 255, 255]),
                         "total_detections": 0,
                         "confidences": [],
-                        "states": [],
                         "first_frame": frame_idx,
                         "last_frame": frame_idx
                     }
@@ -664,24 +641,10 @@ class ChunkProcessor:
                 horse_data[horse_id]["total_detections"] += 1
                 horse_data[horse_id]["confidences"].append(track.get("confidence", 0.0))
 
-            # Add behavioral states
-            for state in frame_result.get("behavioral_states", []):
-                horse_id = state.get("horse_id")
-                if horse_id in horse_data:
-                    hierarchical = state.get("hierarchical_analysis", {})
-                    primary_state = hierarchical.get("primary_state")
-                    if primary_state:
-                        horse_data[horse_id]["states"].append(primary_state)
-
         # Calculate averages and format output
         horse_summaries = []
         for horse_id, data in horse_data.items():
             avg_confidence = sum(data["confidences"]) / len(data["confidences"]) if data["confidences"] else 0.0
-
-            # Count state distribution
-            state_counts = {}
-            for state in data["states"]:
-                state_counts[state] = state_counts.get(state, 0) + 1
 
             horse_summaries.append({
                 "id": horse_id,
@@ -689,8 +652,7 @@ class ChunkProcessor:
                 "first_detected_frame": data["first_frame"],
                 "last_detected_frame": data["last_frame"],
                 "total_detections": data["total_detections"],
-                "avg_confidence": round(avg_confidence, 3),
-                "state_distribution": state_counts
+                "avg_confidence": round(avg_confidence, 3)
             })
 
         return horse_summaries
@@ -738,108 +700,9 @@ class ChunkProcessor:
             logger.error(f"FFmpeg video creation error: {error}")
             raise
 
-    def _ensure_horse_analyzers(self, horse_id: str) -> None:
-        """Ensure behavioral state analyzers exist for a horse."""
-        if horse_id not in self.hierarchical_state_detectors:
-            self.hierarchical_state_detectors[horse_id] = HierarchicalStateDetector()
-            logger.debug(f"Created hierarchical state detector for horse {horse_id}")
-            
-        if horse_id not in self.advanced_state_detectors:
-            self.advanced_state_detectors[horse_id] = AdvancedStateDetector()
-            logger.debug(f"Created advanced state detector for horse {horse_id}")
-    
-    def _process_behavioral_state(self, horse_id: str, pose_result: Optional[Dict], 
-                                 track_info: Dict, timestamp: float) -> Optional[Dict]:
-        """Process behavioral state for a single horse."""
+    async def _save_horse_to_database(self, track_info: Dict, timestamp: float) -> None:
+        """Save horse data to database."""
         try:
-            if not pose_result or not pose_result.get("keypoints"):
-                return None
-                
-            # Get state detectors for this horse
-            hierarchical_detector = self.hierarchical_state_detectors.get(horse_id)
-            advanced_detector = self.advanced_state_detectors.get(horse_id)
-            
-            if not hierarchical_detector or not advanced_detector:
-                return None
-            
-            # Process pose data through hierarchical detector
-            hierarchical_detector.process_pose_data(pose_result, timestamp)
-            
-            # Get hierarchical state analysis
-            primary_state = hierarchical_detector.detect_primary_body_state()
-            head_position = hierarchical_detector.detect_head_position()
-            leg_activity = hierarchical_detector.detect_leg_activity()
-            behavioral_events = hierarchical_detector.detect_behavioral_events()
-            
-            # Process through advanced detector
-            advanced_state = advanced_detector.detect_state(pose_result, timestamp)
-            
-            # Combine results
-            behavioral_state = {
-                "horse_id": horse_id,
-                "timestamp": timestamp,
-                "hierarchical_analysis": {
-                    "primary_state": primary_state,
-                    "head_position": head_position,
-                    "leg_activity": leg_activity,
-                    "behavioral_events": behavioral_events
-                },
-                "advanced_analysis": advanced_state,
-                "confidence": pose_result.get("confidence", 0.0),
-                "bbox": track_info.get("bbox", {})
-            }
-            
-            return behavioral_state
-            
-        except Exception as e:
-            logger.debug(f"Behavioral state processing failed for horse {horse_id}: {e}")
-            return None
-    
-    def _generate_behavioral_summary(self, frame_results: List[Dict]) -> Dict[str, Any]:
-        """Generate summary of behavioral states across all frames."""
-        state_counts = {}
-        horse_states = {}
-        
-        for frame_result in frame_results:
-            for behavioral_state in frame_result.get("behavioral_states", []):
-                horse_id = behavioral_state["horse_id"]
-                
-                # Count primary states
-                hierarchical = behavioral_state.get("hierarchical_analysis", {})
-                primary_state = hierarchical.get("primary_state", "unknown")
-                
-                if primary_state not in state_counts:
-                    state_counts[primary_state] = 0
-                state_counts[primary_state] += 1
-                
-                # Track per-horse state
-                if horse_id not in horse_states:
-                    horse_states[horse_id] = []
-                horse_states[horse_id].append(primary_state)
-        
-        return {
-            "total_behavioral_frames": sum(state_counts.values()),
-            "state_distribution": state_counts,
-            "horses_analyzed": len(horse_states),
-            "dominant_states": sorted(state_counts.items(), key=lambda x: x[1], reverse=True)[:3]
-        }
-    
-    def _get_behavioral_model_info(self) -> Dict[str, Any]:
-        """Get information about behavioral analysis models."""
-        return {
-            "hierarchical_detectors": len(self.hierarchical_state_detectors),
-            "advanced_detectors": len(self.advanced_state_detectors),
-            "state_types": [
-                "standing", "lying", "grazing", "walking", "trotting", 
-                "cantering", "galloping", "head_up", "head_down", "alert"
-            ]
-        }
-    
-    async def _save_horse_to_database_enhanced(self, track_info: Dict, timestamp: float, 
-                                              behavioral_state: Optional[Dict]) -> None:
-        """Save horse data with behavioral state information to database."""
-        try:
-            # Original horse data
             horse_data = {
                 "stream_id": "default",  # TODO: Get from chunk metadata
                 "horse_id": str(track_info.get("tracking_id", "unknown")),
@@ -849,52 +712,17 @@ class ChunkProcessor:
                 "features": track_info.get("features", []).tolist() if hasattr(track_info.get("features", []), "tolist") else [],
                 "total_detections": track_info.get("total_detections", 0)
             }
-            
-            # Add behavioral state data if available
-            if behavioral_state:
-                horse_data["behavioral_state"] = behavioral_state
-            
+
             await self.horse_db.save_horse(horse_data)
-            
+
         except Exception as e:
-            logger.debug(f"Failed to save enhanced horse data: {e}")
-    
-    def _generate_enhanced_overlay_data(self, frame_results: List[Dict], chunk_metadata: Dict) -> Dict[str, Any]:
-        """Generate overlay data including behavioral state visualizations."""
-        overlay_data = self._generate_overlay_data(frame_results, chunk_metadata)
-        
-        # Add behavioral state overlays
-        behavioral_overlays = []
-        
-        for frame_result in frame_results:
-            frame_overlays = []
-            
-            for behavioral_state in frame_result.get("behavioral_states", []):
-                hierarchical = behavioral_state.get("hierarchical_analysis", {})
-                primary_state = hierarchical.get("primary_state", "unknown")
-                head_position = hierarchical.get("head_position", "unknown")
-                
-                bbox = behavioral_state.get("bbox", {})
-                if bbox and bbox.get("width", 0) > 0:
-                    frame_overlays.append({
-                        "type": "behavioral_state",
-                        "horse_id": behavioral_state["horse_id"],
-                        "bbox": bbox,
-                        "state": primary_state,
-                        "head_position": head_position,
-                        "confidence": behavioral_state.get("confidence", 0.0)
-                    })
-            
-            behavioral_overlays.append(frame_overlays)
-        
-        overlay_data["behavioral_overlays"] = behavioral_overlays
-        return overlay_data
-    
-    def _update_enhanced_stats(self, processing_time: float, fps: float, 
-                              detections: int, tracks: int, behavioral_states: int) -> None:
-        """Update processing statistics including behavioral analysis."""
+            logger.debug(f"Failed to save horse data: {e}")
+
+    def _update_stats(self, processing_time: float, fps: float,
+                      detections: int, tracks: int) -> None:
+        """Update processing statistics."""
         self.processing_stats["chunks_processed"] += 1
-        
+
         # Update averages with exponential moving average
         alpha = 0.1
         if self.processing_stats["avg_processing_time"] == 0:
@@ -907,11 +735,10 @@ class ChunkProcessor:
             self.processing_stats["avg_fps"] = (
                 (1 - alpha) * self.processing_stats["avg_fps"] + alpha * fps
             )
-        
+
         # Update totals
         self.processing_stats["total_detections"] += detections
         self.processing_stats["total_tracks"] += tracks
-        self.processing_stats["total_behavioral_states"] += behavioral_states
 
     # Keep all the existing methods from the original processor
     async def _load_video_chunk(self, chunk_path: str) -> Tuple[List[np.ndarray], float]:

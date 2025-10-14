@@ -77,6 +77,7 @@ src/
 ### 2.2 Backend Microservices
 
 #### Stream Ingestion Service
+
 ```javascript
 // Node.js + Express Service Structure
 class StreamIngestionService {
@@ -86,14 +87,14 @@ class StreamIngestionService {
     // Stream quality negotiation
     // Buffering and forwarding
   }
-  
-  // Camera Integration  
+
+  // Camera Integration
   async connectIPCamera(rtspUrl) {
     // RTSP/RTMP connection
     // Stream transcoding
     // WebRTC negotiation
   }
-  
+
   // Stream Management
   async manageStreamLifecycle() {
     // Connection monitoring
@@ -104,6 +105,7 @@ class StreamIngestionService {
 ```
 
 #### ML Processing Pipeline
+
 ```python
 # Python FastAPI Service Structure
 class MLProcessingPipeline:
@@ -111,31 +113,31 @@ class MLProcessingPipeline:
         self.yolo_model = self.load_yolo_model()
         self.pose_model = self.load_rtmpose_model()
         self.frame_buffer = FrameBuffer(max_delay=30)
-    
+
     async def process_frame(self, frame):
         # Frame preprocessing
         preprocessed = self.preprocess_frame(frame)
-        
+
         # Horse detection
         detections = await self.detect_horses(preprocessed)
-        
+
         # Pose estimation for each horse
         poses = await self.estimate_poses(detections)
-        
+
         # Calculate metrics
         metrics = self.calculate_metrics(poses)
-        
+
         return {
             'detections': detections,
             'poses': poses,
             'metrics': metrics,
             'timestamp': time.time()
         }
-    
+
     def detect_horses(self, frame):
         # YOLOv5 inference
         return self.yolo_model(frame)
-    
+
     def estimate_poses(self, detections):
         # RTMPose inference
         poses = []
@@ -181,6 +183,7 @@ class MLProcessingPipeline:
 ```
 
 #### WebSocket Server Implementation
+
 ```typescript
 class WebSocketServer {
   private io: Server;
@@ -216,10 +219,15 @@ class WebSocketServer {
 ```
 
 #### Frontend WebSocket Integration
+
 ```typescript
 class WebSocketService {
   private socket: Socket | null = null;
-  private connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error';
+  private connectionStatus:
+    | 'connecting'
+    | 'connected'
+    | 'disconnected'
+    | 'error';
   private reconnectTimer?: NodeJS.Timeout;
   private subscribedStreams: Set<string> = new Set();
 
@@ -243,7 +251,7 @@ class WebSocketService {
 
   // Event handling
   private setupEventHandlers() {
-    this.socket?.on('detection:update', (data) => {
+    this.socket?.on('detection:update', data => {
       const store = useAppStore.getState();
       store.addDetections([data.detection]);
     });
@@ -259,9 +267,9 @@ pipeline:
   ingestion:
     - source: video_stream
     - protocol: WebRTC/HLS
-    - chunk_size: 10_seconds  # Process in chunks
+    - chunk_size: 10_seconds # Process in chunks
     - buffer_size: 30_seconds
-    
+
   youtube_mitigation:
     - strategy_1:
         name: proxy_rotation
@@ -275,23 +283,23 @@ pipeline:
         name: cookie_auth
         tool: yt-dlp
         cookies_file: /config/youtube_cookies.txt
-    
+
   processing:
     - stage_1:
         name: chunk_extraction
         chunk_duration: 10_seconds
-        overlap: 1_second  # For smooth transitions
+        overlap: 1_second # For smooth transitions
         fps: 10
         format: RGB
-    
+
     - stage_2:
         name: ml_inference
         models:
           - yolov5
           - rtmpose
-          - deepsort_tracking  # For horse re-identification
+          - deepsort_tracking # For horse re-identification
         batch_size: 8
-        
+
     - stage_3:
         name: horse_tracking
         operations:
@@ -299,7 +307,7 @@ pipeline:
           - identity_matching
           - track_interpolation
           - occlusion_handling
-        
+
     - stage_4:
         name: post_processing
         operations:
@@ -307,14 +315,14 @@ pipeline:
           - pose_smoothing
           - metric_calculation
           - overlay_generation
-          
+
   playback:
     - processed_stream:
         delay: 10-30_seconds
         format: HLS
         segment_duration: 2_seconds
         overlay_data: synchronized_json
-        
+
   storage:
     - real_time:
         store: Redis
@@ -323,12 +331,12 @@ pipeline:
           - current_tracks
           - horse_features
           - processing_queue
-        
+
     - historical:
         store: TimescaleDB
         compression: enabled
         retention: 90_days
-        
+
   distribution:
     - websocket:
         protocol: Socket.io
@@ -439,28 +447,28 @@ CREATE INDEX idx_alerts_unacknowledged ON alerts(acknowledged, created_at DESC);
 api:
   version: v1
   base_url: https://api.horsestream.com/v1
-  
+
   endpoints:
     # Stream Management
     - path: /streams
       methods:
         GET: List all streams
         POST: Create new stream
-    
+
     - path: /streams/{id}
       methods:
         GET: Get stream details
         PUT: Update stream config
         DELETE: Remove stream
-    
+
     - path: /streams/{id}/start
       methods:
         POST: Start stream processing
-    
+
     - path: /streams/{id}/stop
       methods:
         POST: Stop stream processing
-    
+
     # Detection Data
     - path: /detections
       methods:
@@ -470,13 +478,13 @@ api:
             - start_time: ISO8601
             - end_time: ISO8601
             - limit: integer
-    
+
     # ML Models
     - path: /models
       methods:
         GET: List available models
         POST: Upload custom model
-    
+
     - path: /models/{id}/activate
       methods:
         POST: Activate model for stream
@@ -495,7 +503,7 @@ const wsEvents = {
       channels: ['detections', 'poses', 'metrics']
     }
   },
-  
+
   // Server -> Client
   detectionUpdate: {
     event: 'detection:update',
@@ -509,7 +517,7 @@ const wsEvents = {
       }]
     }
   },
-  
+
   metricsUpdate: {
     event: 'metrics:update',
     data: {
@@ -538,34 +546,34 @@ services:
   webapp:
     build: ./frontend
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       - REACT_APP_API_URL=http://api:8000
       - REACT_APP_WS_URL=ws://api:8000/ws
-  
+
   # API Gateway
   api_gateway:
     image: kong:latest
     ports:
-      - "8000:8000"
+      - '8000:8000'
     environment:
       - KONG_DATABASE=postgres
       - KONG_PG_HOST=db
-  
+
   # Stream Service
   stream_service:
     build: ./services/stream
     ports:
-      - "8001:8001"
+      - '8001:8001'
     depends_on:
       - redis
       - db
-  
+
   # ML Service
   ml_service:
     build: ./services/ml
     ports:
-      - "8002:8002"
+      - '8002:8002'
     volumes:
       - ./models:/app/models
     deploy:
@@ -575,15 +583,15 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-  
+
   # Media Server
   media_server:
     build: ./services/media
     ports:
-      - "8003:8003"
-      - "1935:1935" # RTMP
-      - "5000-5100:5000-5100/udp" # WebRTC
-  
+      - '8003:8003'
+      - '1935:1935' # RTMP
+      - '5000-5100:5000-5100/udp' # WebRTC
+
   # Databases
   db:
     image: timescale/timescaledb:latest-pg14
@@ -593,7 +601,7 @@ services:
       - POSTGRES_PASSWORD=secret
     volumes:
       - postgres_data:/var/lib/postgresql/data
-  
+
   redis:
     image: redis:alpine
     command: redis-server --appendonly yes
@@ -624,17 +632,17 @@ spec:
         app: ml-processing
     spec:
       containers:
-      - name: ml-service
-        image: horsestream/ml-service:latest
-        resources:
-          requests:
-            memory: "4Gi"
-            cpu: "2"
-            nvidia.com/gpu: 1
-          limits:
-            memory: "8Gi"
-            cpu: "4"
-            nvidia.com/gpu: 1
+        - name: ml-service
+          image: horsestream/ml-service:latest
+          resources:
+            requests:
+              memory: '4Gi'
+              cpu: '2'
+              nvidia.com/gpu: 1
+            limits:
+              memory: '8Gi'
+              cpu: '4'
+              nvidia.com/gpu: 1
 ---
 apiVersion: v1
 kind: Service
@@ -660,12 +668,12 @@ spec:
   minReplicas: 2
   maxReplicas: 10
   metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
 ```
 
 ## 6. Security Architecture
@@ -676,33 +684,34 @@ spec:
 // JWT-based Auth Flow
 const authFlow = {
   // User Authentication
-  login: async (credentials) => {
+  login: async credentials => {
     // Validate with Auth0/Cognito
     const token = await authProvider.authenticate(credentials);
     return {
       accessToken: token.access,
       refreshToken: token.refresh,
-      expiresIn: 3600
+      expiresIn: 3600,
     };
   },
-  
+
   // Role-Based Access Control
   rbac: {
     roles: {
       admin: ['*'],
       manager: ['streams:*', 'horses:*', 'analytics:read'],
-      viewer: ['streams:read', 'horses:read']
+      viewer: ['streams:read', 'horses:read'],
     },
-    
+
     checkPermission: (user, resource, action) => {
       const permission = `${resource}:${action}`;
-      return user.roles.some(role => 
-        rbac.roles[role].includes(permission) ||
-        rbac.roles[role].includes(`${resource}:*`) ||
-        rbac.roles[role].includes('*')
+      return user.roles.some(
+        role =>
+          rbac.roles[role].includes(permission) ||
+          rbac.roles[role].includes(`${resource}:*`) ||
+          rbac.roles[role].includes('*')
       );
-    }
-  }
+    },
+  },
 };
 ```
 
@@ -713,12 +722,12 @@ encryption:
   at_rest:
     database: AES-256
     file_storage: AES-256
-    
+
   in_transit:
     api: HTTPS/TLS 1.3
     websocket: WSS
     video_stream: SRTP (WebRTC)
-    
+
   key_management:
     provider: AWS KMS / HashiCorp Vault
     rotation: 90_days
@@ -734,31 +743,31 @@ monitoring:
     collector: Prometheus
     storage: VictoriaMetrics
     visualization: Grafana
-    
+
   key_metrics:
     - stream_health:
         - fps
         - bitrate
         - packet_loss
         - latency
-    
+
     - ml_performance:
         - inference_time
         - detection_accuracy
         - gpu_utilization
         - queue_depth
-    
+
     - system:
         - cpu_usage
         - memory_usage
         - disk_io
         - network_throughput
-    
+
   logging:
     aggregator: Fluentd
     storage: Elasticsearch
     viewer: Kibana
-    
+
   tracing:
     collector: Jaeger
     sampling_rate: 0.1
@@ -782,17 +791,17 @@ class OptimizedProcessor:
         self.frame_buffer = collections.deque(maxlen=300)  # 30s at 10fps
         self.model_cache = {}
         self.thread_pool = ThreadPoolExecutor(max_workers=4)
-        
+
     async def batch_process(self, frames):
         # Batch frames for GPU efficiency
         batch_size = 8
-        batches = [frames[i:i+batch_size] 
+        batches = [frames[i:i+batch_size]
                   for i in range(0, len(frames), batch_size)]
-        
+
         results = await asyncio.gather(*[
             self.process_batch(batch) for batch in batches
         ])
-        
+
         return list(itertools.chain(*results))
 ```
 

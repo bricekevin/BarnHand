@@ -29,6 +29,7 @@ class ChunkWithVideoProcessRequest(BaseModel):
     output_video_path: str
     output_json_path: str
     start_time: float = 0.0
+    frame_interval: int = 1
     metadata: Dict[str, Any] = {}
 
 
@@ -104,7 +105,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="BarnHand ML Service",
-    description="Horse detection, pose analysis, and re-identification using YOLO11/YOLOv5 + RTMPose + DeepSort",
+    description="Horse detection, pose analysis, and re-identification using YOLOv5 + RTMPose + DeepSort",
     version="0.4.0",
     lifespan=lifespan
 )
@@ -124,11 +125,11 @@ async def root():
     """Service information endpoint."""
     return {
         "name": "BarnHand ML Service",
-        "version": "0.3.0", 
-        "description": "Horse detection and pose analysis using YOLO11/YOLOv5 + RTMPose",
+        "version": "0.4.0",
+        "description": "Horse detection and pose analysis using YOLOv5 + RTMPose",
         "endpoints": {
             "process": "/api/process",
-            "batch": "/api/batch", 
+            "batch": "/api/batch",
             "health": "/health",
             "models": "/api/models",
             "tracking": "/api/tracking"
@@ -199,6 +200,7 @@ async def process_chunk_with_video(request: ChunkWithVideoProcessRequest):
             "farm_id": request.farm_id,
             "chunk_id": request.chunk_id,
             "start_time": request.start_time,
+            "frame_interval": request.frame_interval,
             **request.metadata
         }
 
@@ -206,7 +208,8 @@ async def process_chunk_with_video(request: ChunkWithVideoProcessRequest):
             chunk_path=request.chunk_path,
             chunk_metadata=chunk_metadata,
             output_video_path=request.output_video_path,
-            output_json_path=request.output_json_path
+            output_json_path=request.output_json_path,
+            frame_interval=request.frame_interval
         )
 
         if result["status"] == "failed":
@@ -297,26 +300,6 @@ async def get_model_info():
         }
     except Exception as error:
         logger.error(f"Get model info error: {error}")
-        raise HTTPException(status_code=500, detail=str(error))
-
-
-@app.post("/api/models/switch")
-async def switch_detection_model(model_type: str):
-    """Switch between primary and fallback detection models."""
-    if not processor:
-        raise HTTPException(status_code=503, detail="ML service not initialized")
-        
-    if model_type not in ["primary", "fallback"]:
-        raise HTTPException(status_code=400, detail="model_type must be 'primary' or 'fallback'")
-        
-    try:
-        success = processor.detection_model.switch_model(model_type)
-        if success:
-            return {"message": f"Switched to {model_type} model successfully"}
-        else:
-            raise HTTPException(status_code=400, detail=f"{model_type} model not available")
-    except Exception as error:
-        logger.error(f"Model switch error: {error}")
         raise HTTPException(status_code=500, detail=str(error))
 
 
