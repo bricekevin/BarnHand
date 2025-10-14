@@ -166,19 +166,23 @@ class HorseDatabaseService:
     
     async def save_stream_horse_registry(self, stream_id: str, horses: Dict[str, Dict[str, Any]]) -> bool:
         """
-        Save entire horse registry for a stream to Redis.
+        Save entire horse registry for a stream to Redis + PostgreSQL.
         Used for batch updates and cross-chunk handoff.
         """
         try:
             success_count = 0
-            
+
             for horse_id, horse_state in horses.items():
+                # Save to Redis for cross-chunk continuity
                 if await self.save_horse_state_to_redis(stream_id, horse_id, horse_state):
                     success_count += 1
-            
-            logger.info(f"Saved {success_count}/{len(horses)} horses to Redis for stream {stream_id}")
+
+                # PHASE 3: Also save to PostgreSQL for permanent storage
+                await self._save_horse_to_postgres_with_thumbnail(horse_state)
+
+            logger.info(f"Saved {success_count}/{len(horses)} horses to Redis+PostgreSQL for stream {stream_id}")
             return success_count == len(horses)
-            
+
         except Exception as error:
             logger.error(f"Failed to save stream horse registry: {error}")
             return False
@@ -348,11 +352,11 @@ class HorseDatabaseService:
         if not self.pool:
             logger.error("Database pool not initialized")
             return False
-            
+
         conn = self.pool.getconn()
         try:
             cursor = conn.cursor()
-            
+
             # Extract data
             horse_id = horse_data.get("horse_id", str(uuid.uuid4()))
             stream_id = horse_data.get("stream_id", "default")
@@ -361,7 +365,7 @@ class HorseDatabaseService:
             confidence = horse_data.get("confidence", 0.0)
             features = horse_data.get("features", [])
             total_detections = horse_data.get("total_detections", 1)
-            
+
             # Convert features to proper format
             if features and len(features) > 0:
                 if isinstance(features, np.ndarray):
@@ -372,11 +376,11 @@ class HorseDatabaseService:
                     feature_vector = []
             else:
                 feature_vector = []
-            
+
             # Upsert horse record
             cursor.execute("""
                 INSERT INTO horses (
-                    tracking_id, stream_id, last_seen, total_detections, 
+                    tracking_id, stream_id, last_seen, total_detections,
                     feature_vector, metadata, track_confidence, status
                 ) VALUES (%s, %s, to_timestamp(%s), %s, %s, %s, %s, %s)
                 ON CONFLICT (tracking_id) DO UPDATE SET
@@ -390,14 +394,111 @@ class HorseDatabaseService:
                 json.dumps(feature_vector), json.dumps(bbox), confidence, 'active',
                 timestamp, json.dumps(feature_vector), json.dumps(bbox), confidence
             ))
-            
+
             conn.commit()
             logger.debug(f"Saved horse {horse_id} to PostgreSQL")
             return True
-            
+
         except Exception as error:
             conn.rollback()
             logger.error(f"Failed to save horse to PostgreSQL: {error}")
+            return False
+        finally:
+            self.pool.putconn(conn)
+
+    async def _save_horse_to_postgres_with_thumbnail(self, horse_state: Dict[str, Any]) -> bool:
+        """
+        Save horse data to PostgreSQL with optional thumbnail.
+        PHASE 3: Enhanced version that saves avatar thumbnails.
+        """
+        if not self.pool:
+            logger.error("Database pool not initialized")
+            return False
+
+        conn = self.pool.getconn()
+        try:
+            cursor = conn.cursor()
+
+            # Extract data
+            horse_id = horse_state.get("horse_id", str(uuid.uuid4()))
+            stream_id = horse_state.get("stream_id", "default")
+            tracking_id = horse_state.get("tracking_id", 0)
+            color = horse_state.get("color", "#ff6b6b")
+            last_updated = horse_state.get("last_updated", time.time())
+            bbox = horse_state.get("bbox", {})
+            confidence = horse_state.get("confidence", 0.0)
+            features = horse_state.get("features", [])
+            total_detections = horse_state.get("total_detections", 1)
+            track_confidence = horse_state.get("tracking_confidence", 1.0)
+            thumbnail_bytes = horse_state.get("thumbnail_bytes", None)
+
+            # Convert features to proper format
+            if features and len(features) > 0:
+                if isinstance(features, np.ndarray):
+                    feature_vector = features.tolist()
+                elif isinstance(features, list):
+                    feature_vector = features
+                else:
+                    feature_vector = []
+            else:
+                feature_vector = []
+
+            # Prepare metadata
+            metadata = {
+                "bbox": bbox,
+                "color": color,
+                "tracking_id_int": tracking_id
+            }
+
+            # Upsert horse record with thumbnail
+            if thumbnail_bytes:
+                # Update with thumbnail
+                cursor.execute("""
+                    INSERT INTO horses (
+                        tracking_id, stream_id, color_hex, last_seen, total_detections,
+                        feature_vector, metadata, track_confidence, status, avatar_thumbnail
+                    ) VALUES (%s, %s, %s, to_timestamp(%s), %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (tracking_id) DO UPDATE SET
+                        last_seen = to_timestamp(%s),
+                        total_detections = GREATEST(horses.total_detections, EXCLUDED.total_detections),
+                        feature_vector = EXCLUDED.feature_vector,
+                        metadata = EXCLUDED.metadata,
+                        track_confidence = EXCLUDED.track_confidence,
+                        avatar_thumbnail = EXCLUDED.avatar_thumbnail
+                """, (
+                    horse_id, stream_id, color, last_updated, total_detections,
+                    json.dumps(feature_vector), json.dumps(metadata), track_confidence, 'active',
+                    psycopg2.Binary(thumbnail_bytes),
+                    last_updated
+                ))
+            else:
+                # Update without thumbnail (don't overwrite existing thumbnail)
+                cursor.execute("""
+                    INSERT INTO horses (
+                        tracking_id, stream_id, color_hex, last_seen, total_detections,
+                        feature_vector, metadata, track_confidence, status
+                    ) VALUES (%s, %s, %s, to_timestamp(%s), %s, %s, %s, %s, %s)
+                    ON CONFLICT (tracking_id) DO UPDATE SET
+                        last_seen = to_timestamp(%s),
+                        total_detections = GREATEST(horses.total_detections, EXCLUDED.total_detections),
+                        feature_vector = EXCLUDED.feature_vector,
+                        metadata = EXCLUDED.metadata,
+                        track_confidence = EXCLUDED.track_confidence
+                """, (
+                    horse_id, stream_id, color, last_updated, total_detections,
+                    json.dumps(feature_vector), json.dumps(metadata), track_confidence, 'active',
+                    last_updated
+                ))
+
+            conn.commit()
+            logger.debug(f"Saved horse {horse_id} to PostgreSQL (thumbnail: {len(thumbnail_bytes) if thumbnail_bytes else 0} bytes)")
+            return True
+
+        except Exception as error:
+            conn.rollback()
+            logger.error(f"Failed to save horse with thumbnail to PostgreSQL: {error}")
+            import traceback
+            traceback.print_exc()
             return False
         finally:
             self.pool.putconn(conn)

@@ -25,16 +25,21 @@ class HorseTrack:
     appearance_history: deque = field(default_factory=lambda: deque(maxlen=100))
     pose_history: deque = field(default_factory=lambda: deque(maxlen=50))
     velocity_history: deque = field(default_factory=lambda: deque(maxlen=10))
-    
+
     # Track state
     state: str = "active"  # active, lost, merged, split
     frames_since_seen: int = 0
     total_detections: int = 0
     track_confidence: float = 1.0
-    
+
     # Appearance features
     feature_update_count: int = 0
     first_appearance_features: Optional[np.ndarray] = None
+
+    # Thumbnail tracking (for Phase 3)
+    best_thumbnail_score: float = 0.0  # confidence * bbox_area
+    best_thumbnail_frame: Optional[np.ndarray] = None
+    best_thumbnail_bbox: Optional[Dict[str, float]] = None
     
 
 class HorseTracker:
@@ -129,7 +134,8 @@ class HorseTracker:
                     self.tracks[track_id],
                     detections[det_idx],
                     features,  # None for most frames
-                    timestamp
+                    timestamp,
+                    frame  # Pass frame for thumbnail extraction
                 )
                 updated_tracks.append(self._track_to_output(track))
 
@@ -143,12 +149,12 @@ class HorseTracker:
 
                 if reidentified_track:
                     # Reactivate lost track
-                    track = self._reactivate_track(reidentified_track, detection, features, timestamp)
+                    track = self._reactivate_track(reidentified_track, detection, features, timestamp, frame)
                     updated_tracks.append(self._track_to_output(track))
                     self.tracking_stats["successful_reidentifications"] += 1
                 else:
                     # Create new track
-                    new_track = self._create_new_track(detection, features, timestamp)
+                    new_track = self._create_new_track(detection, features, timestamp, frame)
                     updated_tracks.append(self._track_to_output(new_track))
 
             # Handle unmatched tracks (mark as lost)
@@ -391,7 +397,8 @@ class HorseTracker:
             
         return dot_product / (norm1 * norm2)
         
-    def _update_track(self, track: HorseTrack, detection: Dict[str, Any], features: Optional[np.ndarray], timestamp: float) -> HorseTrack:
+    def _update_track(self, track: HorseTrack, detection: Dict[str, Any], features: Optional[np.ndarray],
+                     timestamp: float, frame: Optional[np.ndarray] = None) -> HorseTrack:
         """Update existing track with new detection."""
         # Update position and timing
         track.last_bbox = detection["bbox"]
@@ -402,6 +409,10 @@ class HorseTracker:
         # Update confidence with detection confidence
         detection_conf = detection.get("confidence", 0.5)
         track.confidence = 0.8 * track.confidence + 0.2 * detection_conf
+
+        # PHASE 3: Update best thumbnail if this frame is better
+        if frame is not None:
+            self._update_best_thumbnail(track, detection, detection_conf, frame)
 
         # Update feature vector with exponential moving average (only if features provided)
         if features is not None:
@@ -420,18 +431,18 @@ class HorseTracker:
             "features": features.copy() if features is not None else track.feature_vector.copy(),
             "confidence": detection_conf
         })
-        
+
         # Calculate velocity
         if len(track.appearance_history) >= 2:
             prev_appearance = track.appearance_history[-2]
             dt = timestamp - prev_appearance["timestamp"]
-            
+
             if dt > 0:
                 dx = detection["bbox"]["x"] - prev_appearance["bbox"]["x"]
                 dy = detection["bbox"]["y"] - prev_appearance["bbox"]["y"]
                 velocity = math.sqrt(dx**2 + dy**2) / dt
                 track.velocity_history.append(velocity)
-                
+
         # Update track confidence score
         track.track_confidence = self._calculate_track_confidence(track)
 
@@ -469,11 +480,12 @@ class HorseTracker:
             
         return None
         
-    def _create_new_track(self, detection: Dict[str, Any], features: np.ndarray, timestamp: float) -> HorseTrack:
+    def _create_new_track(self, detection: Dict[str, Any], features: np.ndarray, timestamp: float,
+                          frame: Optional[np.ndarray] = None) -> HorseTrack:
         """Create a new horse track."""
         track_id = f"horse_{self.next_track_id:03d}"
         self.next_track_id += 1
-        
+
         track = HorseTrack(
             id=track_id,
             tracking_id=self.next_track_id - 1,
@@ -484,7 +496,7 @@ class HorseTracker:
             confidence=detection.get("confidence", 0.5),
             first_appearance_features=features.copy()
         )
-        
+
         # Initialize appearance history
         track.appearance_history.append({
             "timestamp": timestamp,
@@ -492,30 +504,36 @@ class HorseTracker:
             "features": features.copy(),
             "confidence": detection.get("confidence", 0.5)
         })
-        
+
+        # PHASE 3: Initialize best thumbnail for new track
+        if frame is not None:
+            detection_conf = detection.get("confidence", 0.5)
+            self._update_best_thumbnail(track, detection, detection_conf, frame)
+
         # Add to tracking system
         self.tracks[track_id] = track
         self.reid_model.add_horse_to_index(track_id, features)
-        
+
         # Update stats
         self.tracking_stats["total_tracks_created"] += 1
-        
+
         logger.info(f"Created new horse track: {track_id} (tracking_id: {track.tracking_id})")
         return track
         
-    def _reactivate_track(self, track: HorseTrack, detection: Dict[str, Any], features: np.ndarray, timestamp: float) -> HorseTrack:
+    def _reactivate_track(self, track: HorseTrack, detection: Dict[str, Any], features: np.ndarray,
+                          timestamp: float, frame: Optional[np.ndarray] = None) -> HorseTrack:
         """Reactivate a lost track with new detection."""
         # Move from lost to active
         if track.id in self.lost_tracks:
             del self.lost_tracks[track.id]
         self.tracks[track.id] = track
-        
+
         # Update track state
         track.state = "active"
         track.frames_since_seen = 0
-        
+
         # Update with new detection
-        return self._update_track(track, detection, features, timestamp)
+        return self._update_track(track, detection, features, timestamp, frame)
         
     def _mark_track_lost(self, track_id: str, timestamp: float) -> None:
         """Mark a track as lost."""
@@ -658,6 +676,73 @@ class HorseTracker:
             "max_lost_frames": self.max_lost_frames,
             "reid_model_info": self.reid_model.get_model_info()
         }
+
+    def _update_best_thumbnail(self, track: HorseTrack, detection: Dict[str, Any],
+                               confidence: float, frame: np.ndarray) -> None:
+        """
+        Update best thumbnail for horse if this frame is better.
+        Score = confidence * bbox_area (larger, more confident detections are better).
+        """
+        try:
+            bbox = detection["bbox"]
+            bbox_area = bbox.get("width", 0) * bbox.get("height", 0)
+            thumbnail_score = confidence * bbox_area
+
+            # Update if this is better than current best
+            if thumbnail_score > track.best_thumbnail_score:
+                # Extract horse crop from frame
+                x1, y1 = int(bbox["x"]), int(bbox["y"])
+                x2, y2 = x1 + int(bbox["width"]), y1 + int(bbox["height"])
+
+                # Ensure coordinates are within frame bounds
+                h, w = frame.shape[:2]
+                x1, y1 = max(0, x1), max(0, y1)
+                x2, y2 = min(w, x2), min(h, y2)
+
+                if x2 > x1 and y2 > y1:
+                    horse_crop = frame[y1:y2, x1:x2].copy()
+
+                    # Resize to 200x200 for consistent thumbnail size
+                    thumbnail = cv2.resize(horse_crop, (200, 200), interpolation=cv2.INTER_AREA)
+
+                    track.best_thumbnail_frame = thumbnail
+                    track.best_thumbnail_bbox = bbox.copy()
+                    track.best_thumbnail_score = thumbnail_score
+
+                    logger.debug(f"Updated thumbnail for {track.id} (score: {thumbnail_score:.1f})")
+
+        except Exception as error:
+            logger.debug(f"Failed to update thumbnail for {track.id}: {error}")
+
+    def get_best_thumbnail(self, horse_id: str, quality: int = 80) -> Optional[bytes]:
+        """
+        Get best thumbnail for a horse as JPEG bytes.
+
+        Args:
+            horse_id: Horse track ID
+            quality: JPEG quality (1-100, default 80)
+
+        Returns:
+            JPEG image bytes or None
+        """
+        track = self.tracks.get(horse_id) or self.lost_tracks.get(horse_id)
+        if not track or track.best_thumbnail_frame is None:
+            return None
+
+        try:
+            # Encode as JPEG
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), quality]
+            success, encoded_image = cv2.imencode('.jpg', track.best_thumbnail_frame, encode_param)
+
+            if success:
+                return encoded_image.tobytes()
+            else:
+                logger.warning(f"Failed to encode thumbnail for {horse_id}")
+                return None
+
+        except Exception as error:
+            logger.error(f"Failed to get thumbnail for {horse_id}: {error}")
+            return None
 
     def _load_known_horses(self, known_horses: Dict[str, Dict[str, Any]]) -> None:
         """
