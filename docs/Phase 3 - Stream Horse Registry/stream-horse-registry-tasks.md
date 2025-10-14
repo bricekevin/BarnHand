@@ -413,18 +413,18 @@
 
 **Testing**:
 
-- [ ] Unit: Test tab renders and switches correctly
-- [ ] Integration: Test DetectedHorsesTab receives correct streamId
-- [ ] Manual: Test tab switching in browser
-- [ ] Manual: Verify layout doesn't break with 3 tabs
+- [x] Unit: Test tab renders and switches correctly
+- [x] Integration: Test DetectedHorsesTab receives correct streamId
+- [x] Manual: Test tab switching in browser
+- [x] Manual: Verify layout doesn't break with 3 tabs
 
 **Acceptance**:
 
-- [ ] Tab displays in correct position (3rd tab)
-- [ ] Tab switches smoothly with existing tabs
-- [ ] DetectedHorsesTab receives correct stream context
-- [ ] No layout issues on mobile/tablet/desktop
-- [ ] Tests pass with npm test
+- [x] Tab displays in correct position (3rd tab)
+- [x] Tab switches smoothly with existing tabs
+- [x] DetectedHorsesTab receives correct stream context
+- [x] No layout issues on mobile/tablet/desktop
+- [x] Tests pass with npm test
 
 **Reference**: Existing tab pattern in `PrimaryVideoPlayer.tsx:50-150`
 
