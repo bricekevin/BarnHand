@@ -1,10 +1,70 @@
 # Phase 3: Stream Horse Registry - Session Handoff
 
-**Last Updated**: 2025-10-14 22:40 PST
+**Last Updated**: 2025-10-14 23:20 PST
 
 ---
 
 ## ✅ Completed Tasks
+
+### Task 2.3: Create Horse Edit Modal Component
+
+**Status**: Complete ✅
+**Commits**: `20c25f9`, `de8d13b`
+
+**Summary**:
+
+- Created HorseEditModal component for editing horse details
+- Integrated modal into DetectedHorsesTab for horse editing workflow
+- Implemented comprehensive testing for both component and integration
+
+**Changes Made**:
+
+**HorseEditModal Component** (`HorseEditModal.tsx`):
+
+- Full modal UI with glass morphism styling
+- Form fields: name (required, max 100 chars), notes (optional, max 500 chars)
+- Client-side validation with real-time error messages
+- Character counters for both fields
+- Loading state during save (spinner + disabled inputs)
+- Success/error toast notifications (auto-hide after 3s)
+- Auto-close modal 1 second after successful save
+- Keyboard support (Escape to close)
+- Backdrop click to close (disabled during submission)
+- Avatar display with fallback horse icon
+- Tracking ID badge with assigned color
+
+**DetectedHorsesTab Integration**:
+
+- Replaced inline horse cards with reusable HorseCard component
+- Added modal state management (`selectedHorse`)
+- Implemented `handleHorseClick` to open modal
+- Implemented `handleHorseSave` with PUT API call
+- Updates local state after successful save
+- Auto-updates selected horse in modal
+
+**Testing Results**:
+
+- ✅ 36 HorseEditModal tests pass (100%)
+  - Rendering tests (avatar, badges, form fields)
+  - Validation tests (empty name, max lengths)
+  - Form submission tests (API calls, state updates)
+  - Toast notification tests (success, error, auto-hide)
+  - Modal interaction tests (close, backdrop, keyboard)
+  - Accessibility tests (ARIA attributes, labels)
+  - Edge case tests (non-string metadata, long inputs)
+- ✅ 26 DetectedHorsesTab tests pass (100%)
+  - 21 updated tests for HorseCard integration
+  - 5 new tests for modal integration
+- ✅ No breaking changes to existing functionality
+
+**Files Modified**:
+
+- `frontend/src/components/HorseEditModal.tsx` (NEW, 403 lines)
+- `frontend/src/components/__tests__/HorseEditModal.test.tsx` (NEW, 729 lines)
+- `frontend/src/components/DetectedHorsesTab.tsx` (+48 lines, -95 lines)
+- `frontend/src/components/__tests__/DetectedHorsesTab.test.tsx` (+133 lines, -45 lines)
+
+---
 
 ### Task 1.4: Integrate ML Service with Stream Horse Registry
 
@@ -436,38 +496,34 @@
 
 ## 📋 Next Priority
 
-### Task 2.3: Create Horse Edit Modal Component (NEXT)
+### Task 2.4: Integrate Detected Horses Tab into PrimaryVideoPlayer (NEXT)
 
-**Estimated Time**: 2-3 hours
+**Estimated Time**: 1 hour
 
-**Objective**: Build modal for editing horse details (name, notes)
+**Objective**: Add 3rd tab to stream viewer for horse registry
 
-**Files to Create**:
+**Files to Modify**:
 
-- `frontend/src/components/HorseEditModal.tsx` (NEW)
-- `frontend/src/components/__tests__/HorseEditModal.test.tsx` (NEW)
+- `frontend/src/components/PrimaryVideoPlayer.tsx` (UPDATE)
+- `frontend/src/components/__tests__/PrimaryVideoPlayer.test.tsx` (UPDATE if exists)
 
 **Requirements**:
 
-1. Create modal component with props: `horse: Horse`, `onClose: () => void`, `onSave: (updates) => void`
-2. Display horse avatar (large, centered)
-3. Add form fields: name (text input), notes (textarea)
-4. Add "Save" and "Cancel" buttons
-5. Implement form validation (name max 100 chars, notes max 500 chars)
-6. Call `PUT /api/v1/streams/:streamId/horses/:horseId` on save
-7. Show loading spinner during save
-8. Show success/error toast after save
-9. Close modal on successful save
+1. Add "Detected Horses" tab to existing tab bar (after "Recorded Chunks")
+2. Import and render `DetectedHorsesTab` component when tab active
+3. Pass `streamId` prop to DetectedHorsesTab
+4. Update tab state management to include new tab
+5. Add tab icon (horse icon or user icon)
+6. Maintain existing tab switching behavior
 
 **Testing Requirements**:
 
-- Unit: Test modal renders horse data
-- Unit: Test form validation rejects invalid inputs
-- Unit: Test save calls API with correct payload
-- Integration: Test API call with MSW mock
-- Manual: Test modal UX in browser
+- Unit: Test tab renders and switches correctly
+- Integration: Test DetectedHorsesTab receives correct streamId
+- Manual: Test tab switching in browser
+- Manual: Verify layout doesn't break with 3 tabs
 
-**Reference**: Modal pattern reference in any existing modal component
+**Reference**: Existing tab pattern in `PrimaryVideoPlayer.tsx:50-150`
 
 ---
 
@@ -543,15 +599,15 @@ docker compose logs -f api-gateway
 ## 📊 Phase 3 Progress
 
 **Total Tasks**: 15
-**Completed**: 9 (60%)
+**Completed**: 10 (67%)
 **In Progress**: 0
-**Remaining**: 6
+**Remaining**: 5
 
 **Phase Breakdown**:
 
 - Phase 0 (Foundation): ✅✅ **COMPLETE** (2/2)
 - Phase 1 (Backend): ✅✅✅✅✅ **COMPLETE** (5/5)
-- Phase 2 (Frontend): ✅✅⬜⬜⬜ (2/5)
+- Phase 2 (Frontend): ✅✅✅⬜⬜ (3/5)
 - Phase 3 (Integration): ⬜⬜⬜ (0/3)
 
-**Estimated Time Remaining**: 4-6 hours
+**Estimated Time Remaining**: 3-4 hours
