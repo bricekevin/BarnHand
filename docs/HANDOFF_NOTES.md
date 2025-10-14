@@ -1,6 +1,6 @@
 # Phase 3: Stream Horse Registry - Session Handoff
 
-**Last Updated**: 2025-10-14 22:15 PST
+**Last Updated**: 2025-10-14 22:40 PST
 
 ---
 
@@ -324,6 +324,55 @@
 
 ---
 
+### Task 2.1: Create Detected Horses Tab Component
+
+**Status**: Complete ✅
+**Commit**: `3cf3441`
+
+**Summary**:
+
+- Created DetectedHorsesTab component with responsive grid layout
+- Implemented API integration to fetch horses from backend
+- Added comprehensive state management (loading, error, empty states)
+- Built search and filter functionality (by name or ID, case-insensitive)
+- Implemented sort options (detection count or last seen time)
+- Created 21 unit tests (all passing)
+
+**Component Features**:
+
+- **Grid Layout**: 4 columns desktop, 3 tablet, 2 mobile (responsive)
+- **Horse Cards**: Avatar display with fallback icon, tracking ID badge, stats
+- **Search Bar**: Real-time filtering by name or tracking ID
+- **Sort Dropdown**: Sort by detection count or recently seen
+- **Refresh Button**: Manual reload of horse data
+- **State Management**: Loading skeleton, error retry, empty state messages
+
+**Testing Results**:
+
+- ✅ 21 unit tests pass (100% success rate)
+- ✅ Loading state renders skeleton cards
+- ✅ Error state shows retry button with working handler
+- ✅ Empty state displays helpful message
+- ✅ Search filters horses correctly (case-insensitive)
+- ✅ Sort functionality changes order correctly
+- ✅ Refresh button re-fetches data
+- ✅ Grid layout responsive classes present
+
+**Files Created**:
+
+- `frontend/src/components/DetectedHorsesTab.tsx` (370 lines)
+- `frontend/src/components/__tests__/DetectedHorsesTab.test.tsx` (395 lines)
+
+**Design Notes**:
+
+- Follows StreamManagement and StreamCard patterns
+- Uses glass morphism styling from design system
+- Color-coded tracking ID badges using assigned_color
+- Relative timestamps ("2 hours ago" format)
+- Avatar images from base64 JPEG thumbnails
+
+---
+
 ## 🔄 In Progress
 
 **None**
@@ -332,7 +381,7 @@
 
 ## 📋 Next Priority
 
-### Task 2.1: Create Detected Horses Tab Component (NEXT)
+### Task 2.2: Create Horse Card Component (NEXT)
 
 **Estimated Time**: 2-3 hours
 
@@ -437,15 +486,15 @@ docker compose logs -f api-gateway
 ## 📊 Phase 3 Progress
 
 **Total Tasks**: 15
-**Completed**: 7 (47%)
+**Completed**: 8 (53%)
 **In Progress**: 0
-**Remaining**: 8
+**Remaining**: 7
 
 **Phase Breakdown**:
 
 - Phase 0 (Foundation): ✅✅ **COMPLETE** (2/2)
 - Phase 1 (Backend): ✅✅✅✅✅ **COMPLETE** (5/5)
-- Phase 2 (Frontend): ⬜⬜⬜⬜⬜ (0/5)
+- Phase 2 (Frontend): ✅⬜⬜⬜⬜ (1/5)
 - Phase 3 (Integration): ⬜⬜⬜ (0/3)
 
-**Estimated Time Remaining**: 6-8 hours
+**Estimated Time Remaining**: 5-7 hours
