@@ -54,20 +54,26 @@ class HorseTracker:
         "#ff9f43"   # Orange
     ]
     
-    def __init__(self, similarity_threshold: float = 0.7, max_lost_frames: int = 30):
+    def __init__(self, similarity_threshold: float = 0.7, max_lost_frames: int = 30,
+                 stream_id: Optional[str] = None, known_horses: Optional[Dict[str, Dict[str, Any]]] = None):
         self.reid_model = HorseReIDModel()
         self.similarity_threshold = similarity_threshold
         self.max_lost_frames = max_lost_frames
-        
+        self.stream_id = stream_id or "default"
+
         # Active tracks
         self.tracks: Dict[str, HorseTrack] = {}
         self.next_track_id = 1
         self.color_index = 0
-        
+
         # Track management
         self.lost_tracks: Dict[str, HorseTrack] = {}
         self.track_history: List[HorseTrack] = []
-        
+
+        # Load known horses from previous chunks (cross-chunk continuity)
+        if known_horses:
+            self._load_known_horses(known_horses)
+
         # Performance metrics
         self.tracking_stats = {
             "total_tracks_created": 0,
@@ -652,3 +658,109 @@ class HorseTracker:
             "max_lost_frames": self.max_lost_frames,
             "reid_model_info": self.reid_model.get_model_info()
         }
+
+    def _load_known_horses(self, known_horses: Dict[str, Dict[str, Any]]) -> None:
+        """
+        Load known horses from previous chunks to maintain cross-chunk continuity.
+
+        Args:
+            known_horses: Dict of {horse_id: horse_state} from Redis/PostgreSQL
+        """
+        try:
+            logger.info(f"Loading {len(known_horses)} known horses for stream {self.stream_id}")
+
+            max_tracking_id = 0
+
+            for horse_id, horse_state in known_horses.items():
+                # Extract horse data from state
+                features = horse_state.get("features", [])
+                if isinstance(features, list) and len(features) > 0:
+                    feature_vector = np.array(features, dtype=np.float32)
+                else:
+                    # Skip horses without valid features
+                    logger.warning(f"Skipping horse {horse_id} - no valid features")
+                    continue
+
+                # Parse tracking ID from horse_id (format: horse_001)
+                try:
+                    tracking_id = int(horse_id.split('_')[1])
+                except (IndexError, ValueError):
+                    tracking_id = self.next_track_id
+                    self.next_track_id += 1
+
+                # Track max ID to set next_track_id correctly
+                max_tracking_id = max(max_tracking_id, tracking_id)
+
+                # Create HorseTrack from state
+                track = HorseTrack(
+                    id=horse_id,
+                    tracking_id=tracking_id,
+                    color=self.TRACKING_COLORS[(tracking_id - 1) % len(self.TRACKING_COLORS)],
+                    feature_vector=feature_vector,
+                    last_bbox=horse_state.get("bbox", {}),
+                    last_seen=horse_state.get("last_updated", time.time()),
+                    confidence=horse_state.get("confidence", 0.5),
+                    total_detections=horse_state.get("total_detections", 0),
+                    track_confidence=horse_state.get("tracking_confidence", 1.0),
+                    first_appearance_features=feature_vector.copy()
+                )
+
+                # Add to lost tracks initially (will be reactivated on detection)
+                self.lost_tracks[horse_id] = track
+
+                # Add to ReID model index for matching
+                self.reid_model.add_horse_to_index(horse_id, feature_vector)
+
+                logger.debug(f"Loaded known horse {horse_id} (tracking_id: {tracking_id})")
+
+            # Set next_track_id to avoid conflicts
+            self.next_track_id = max_tracking_id + 1
+            self.color_index = max_tracking_id % len(self.TRACKING_COLORS)
+
+            logger.info(f"Successfully loaded {len(self.lost_tracks)} known horses, next_track_id={self.next_track_id}")
+
+        except Exception as error:
+            logger.error(f"Failed to load known horses: {error}")
+
+    def get_all_horse_states(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Get current state of all horses for persistence (cross-chunk continuity).
+
+        Returns:
+            Dict of {horse_id: horse_state} suitable for saving to Redis/PostgreSQL
+        """
+        horse_states = {}
+
+        # Get all active tracks
+        for track_id, track in self.tracks.items():
+            horse_states[track_id] = {
+                "horse_id": track_id,
+                "stream_id": self.stream_id,
+                "tracking_id": track.tracking_id,
+                "color": track.color,
+                "last_updated": track.last_seen,
+                "bbox": track.last_bbox.copy(),
+                "confidence": track.confidence,
+                "total_detections": track.total_detections,
+                "features": track.feature_vector.tolist() if isinstance(track.feature_vector, np.ndarray) else [],
+                "tracking_confidence": track.track_confidence,
+                "state": track.state
+            }
+
+        # Include lost tracks (recently seen horses that might reappear)
+        for track_id, track in self.lost_tracks.items():
+            horse_states[track_id] = {
+                "horse_id": track_id,
+                "stream_id": self.stream_id,
+                "tracking_id": track.tracking_id,
+                "color": track.color,
+                "last_updated": track.last_seen,
+                "bbox": track.last_bbox.copy(),
+                "confidence": track.confidence,
+                "total_detections": track.total_detections,
+                "features": track.feature_vector.tolist() if isinstance(track.feature_vector, np.ndarray) else [],
+                "tracking_confidence": track.track_confidence,
+                "state": track.state
+            }
+
+        return horse_states
