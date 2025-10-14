@@ -1,0 +1,429 @@
+import React, { useState, useEffect } from 'react';
+
+import type { Horse } from '../../../shared/src/types/horse.types';
+
+interface DetectedHorsesTabProps {
+  streamId: string;
+}
+
+export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
+  streamId,
+}) => {
+  const [horses, setHorses] = useState<Horse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'detections' | 'recent'>('recent');
+
+  // Fetch horses on mount and when streamId changes
+  useEffect(() => {
+    const fetchHorses = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(
+          `http://localhost:8000/api/v1/streams/${streamId}/horses`,
+          {
+            credentials: 'include',
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch horses: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        setHorses(data.horses || []);
+      } catch (err) {
+        console.error('Error fetching horses:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (streamId) {
+      fetchHorses();
+    }
+  }, [streamId]);
+
+  // Refresh horses manually
+  const handleRefresh = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/v1/streams/${streamId}/horses`,
+        {
+          credentials: 'include',
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch horses: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setHorses(data.horses || []);
+    } catch (err) {
+      console.error('Error fetching horses:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter and sort horses
+  const filteredHorses = horses
+    .filter(horse => {
+      if (!searchTerm) return true;
+      const name = horse.name?.toLowerCase() || '';
+      const trackingId = horse.tracking_id.toLowerCase();
+      const search = searchTerm.toLowerCase();
+      return name.includes(search) || trackingId.includes(search);
+    })
+    .sort((a, b) => {
+      if (sortBy === 'detections') {
+        return (b.total_detections || 0) - (a.total_detections || 0);
+      } else {
+        // Sort by last_seen (most recent first)
+        return (
+          new Date(b.last_seen).getTime() - new Date(a.last_seen).getTime()
+        );
+      }
+    });
+
+  // Format relative time
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
+    if (diffHours < 24)
+      return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-display font-semibold text-slate-200">
+            Detected Horses
+          </h3>
+          <button
+            disabled
+            className="px-3 py-1.5 text-sm bg-slate-700/50 text-slate-400 rounded-lg cursor-not-allowed"
+          >
+            <svg
+              className="w-4 h-4 animate-spin"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+          </button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <div
+              key={i}
+              className="bg-slate-800/50 rounded-lg h-64 animate-pulse"
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-display font-semibold text-slate-200">
+            Detected Horses
+          </h3>
+          <button
+            onClick={handleRefresh}
+            className="px-3 py-1.5 text-sm bg-cyan-600/20 text-cyan-400 rounded-lg hover:bg-cyan-600/30 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+        <div className="bg-slate-800/30 rounded-lg p-8 text-center">
+          <div className="text-red-400 mb-4">
+            <svg
+              className="w-16 h-16 mx-auto mb-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-slate-300 mb-2">
+            Error Loading Horses
+          </h3>
+          <p className="text-slate-400 text-sm">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state
+  if (filteredHorses.length === 0 && !searchTerm) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-display font-semibold text-slate-200">
+            Detected Horses
+          </h3>
+          <button
+            onClick={handleRefresh}
+            className="px-3 py-1.5 text-sm bg-cyan-600/20 text-cyan-400 rounded-lg hover:bg-cyan-600/30 transition-colors flex items-center gap-2"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            Refresh
+          </button>
+        </div>
+        <div className="bg-slate-800/30 rounded-lg p-8 text-center">
+          <div className="text-slate-400 mb-4">
+            <svg
+              className="w-16 h-16 mx-auto mb-4 opacity-50"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-slate-300 mb-2">
+            No Horses Detected
+          </h3>
+          <p className="text-slate-400 text-sm">
+            Horses will appear here after they are detected in video chunks.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Main content with horses
+  return (
+    <div className="space-y-4">
+      {/* Header with refresh button */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-display font-semibold text-slate-200">
+          Detected Horses
+          <span className="ml-2 text-sm text-slate-400 font-normal">
+            ({filteredHorses.length}{' '}
+            {filteredHorses.length === 1 ? 'horse' : 'horses'})
+          </span>
+        </h3>
+        <button
+          onClick={handleRefresh}
+          className="px-3 py-1.5 text-sm bg-cyan-600/20 text-cyan-400 rounded-lg hover:bg-cyan-600/30 transition-colors flex items-center gap-2"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+          Refresh
+        </button>
+      </div>
+
+      {/* Search and filter bar */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        {/* Search input */}
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            placeholder="Search horses by name or ID..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-2 pl-10 bg-slate-800/50 border border-slate-700/50 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
+          />
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+        </div>
+
+        {/* Sort dropdown */}
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value as 'detections' | 'recent')}
+          className="px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all cursor-pointer"
+        >
+          <option value="recent">Recently Seen</option>
+          <option value="detections">Detection Count</option>
+        </select>
+      </div>
+
+      {/* No results from search */}
+      {filteredHorses.length === 0 && searchTerm && (
+        <div className="bg-slate-800/30 rounded-lg p-6 text-center">
+          <p className="text-slate-400">
+            No horses found matching "{searchTerm}"
+          </p>
+        </div>
+      )}
+
+      {/* Horse grid */}
+      {filteredHorses.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredHorses.map(horse => (
+            <div
+              key={horse.id}
+              className="bg-slate-800/50 border border-slate-700/50 rounded-lg overflow-hidden hover:border-slate-600/50 hover:transform hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group"
+            >
+              {/* Horse avatar */}
+              <div className="relative aspect-square bg-slate-900">
+                {horse.avatar_thumbnail ? (
+                  <img
+                    src={`data:image/jpeg;base64,${horse.avatar_thumbnail}`}
+                    alt={horse.name || horse.tracking_id}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <svg
+                      className="w-20 h-20 text-slate-700"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1}
+                        d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                )}
+
+                {/* Horse ID badge */}
+                <div
+                  className="absolute top-2 left-2 px-2 py-1 rounded-md text-xs font-mono font-semibold text-white shadow-lg"
+                  style={{ backgroundColor: horse.assigned_color }}
+                >
+                  {horse.tracking_id}
+                </div>
+              </div>
+
+              {/* Horse info */}
+              <div className="p-4 space-y-2">
+                {/* Name */}
+                <h4 className="text-sm font-semibold text-slate-200 truncate">
+                  {horse.name || `Unnamed Horse ${horse.tracking_id}`}
+                </h4>
+
+                {/* Stats */}
+                <div className="space-y-1 text-xs text-slate-400">
+                  <div className="flex items-center gap-2">
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span>{formatRelativeTime(horse.last_seen)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                      />
+                    </svg>
+                    <span>
+                      {horse.total_detections || 0} detection
+                      {horse.total_detections !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
