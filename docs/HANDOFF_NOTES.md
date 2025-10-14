@@ -1,10 +1,67 @@
 # Phase 3: Stream Horse Registry - Session Handoff
 
-**Last Updated**: 2025-10-14 13:30 PST
+**Last Updated**: 2025-10-14 15:45 PST
 
 ---
 
 ## ✅ Completed Tasks
+
+### Task 1.2: Create Stream Horse Registry Service in API Gateway
+**Status**: Complete ✅
+**Commit**: `ba15fd6`
+
+**Summary**:
+- Created `StreamHorseService` class with 5 public methods
+- Implemented farm-level authorization checks on all operations
+- Added graceful database unavailable fallback
+- Created comprehensive unit test suite (14 tests, all passing)
+
+**Methods Implemented**:
+- `getStreamHorses(streamId, farmId)` - List all horses for stream
+- `getHorse(horseId, farmId)` - Get specific horse by ID
+- `updateHorse(horseId, farmId, updates)` - Update horse details
+- `getHorseAvatar(horseId, farmId)` - Get avatar as Buffer
+- `getStreamHorseSummary(streamId, farmId)` - Get count + recent 3
+
+**Testing Results**:
+- ✅ All 14 unit tests pass
+- ✅ Authorization prevents cross-farm access
+- ✅ Null/missing entity handling correct
+- ✅ Avatar base64 to Buffer conversion working
+
+**Files Created**:
+- `backend/api-gateway/src/services/streamHorseService.ts` (NEW, 240 lines)
+- `backend/api-gateway/src/services/__tests__/streamHorseService.test.ts` (NEW, 260 lines)
+
+---
+
+### Task 1.1: Add Horse Registry Persistence Methods to HorseRepository
+**Status**: Complete ✅
+**Commit**: `1781be7`
+
+**Summary**:
+- Added 4 new methods to HorseRepository for stream-level horse management
+- Updated create method to accept stream_id and avatar_thumbnail
+- Added 10 comprehensive unit tests (all passing)
+
+**Methods Added**:
+- `findByStreamId(streamId)` - Query horses by stream
+- `updateAvatar(horseId, avatarData)` - Store avatar thumbnails
+- `updateHorseDetails(horseId, updates)` - Update name, breed, metadata
+- Updated `create()` to accept optional stream_id and avatar_thumbnail
+
+**Testing Results**:
+- ✅ 13 unit tests pass (10 new + 3 existing)
+- ✅ Query performance <100ms (using idx_horses_stream_last_seen)
+- ✅ Avatar compression target <50KB
+- ✅ Field allowlist validation working
+
+**Files Modified**:
+- `backend/database/src/repositories/HorseRepository.ts`
+- `backend/database/src/__tests__/repositories/HorseRepository.test.ts`
+- `backend/database/src/types.ts`
+
+---
 
 ### Task 0.1: Update Database Schema for Per-Stream Horses
 **Status**: Complete ✅
@@ -79,33 +136,40 @@
 
 ## 🔄 In Progress
 
-**None** - Phase 0 (Foundation) complete, ready for Phase 1
+**None**
 
 ---
 
 ## 📋 Next Priority
 
-### Task 1.1: Add Horse Registry Persistence Methods to HorseRepository
-**Estimated Time**: 1 hour
+### Task 1.3: Add Horse Registry API Endpoints
+**Estimated Time**: 1.5 hours
 
-**Objective**: Extend HorseRepository with stream-specific queries and avatar handling
+**Objective**: Expose REST endpoints for stream horse management
 
 **Files to Modify**:
-- `backend/database/src/repositories/HorseRepository.ts` (UPDATE)
-- `backend/database/src/__tests__/repositories/HorseRepository.test.ts` (UPDATE)
+- `backend/api-gateway/src/routes/streams.ts` (UPDATE)
+- `backend/api-gateway/src/routes/__tests__/streams.test.ts` (NEW if missing)
 
-**Methods to Add**:
-1. `findByStreamId(streamId: string): Promise<Horse[]>`
-2. `updateAvatar(horseId: string, avatarData: Buffer): Promise<void>`
-3. `updateHorseDetails(horseId: string, updates: Partial<Horse>): Promise<Horse>`
-4. Update `create()` to accept optional `avatar_thumbnail`
+**Endpoints to Add**:
+1. `GET /api/v1/streams/:id/horses` - List horses for stream
+2. `GET /api/v1/streams/:id/horses/:horseId` - Get specific horse
+3. `PUT /api/v1/streams/:id/horses/:horseId` - Update horse (name, notes)
+4. `GET /api/v1/streams/:id/horses/:horseId/avatar` - Get avatar image
+
+**Requirements**:
+- Add validation schemas for update requests
+- Add authentication + RBAC checks (FARM_USER read, FARM_ADMIN write)
+- Integrate with StreamHorseService from Task 1.2
+- Avatar endpoint returns `image/jpeg` content-type
 
 **Testing Requirements**:
-- Unit tests with mocked DB
-- Integration tests with real PostgreSQL
-- Query performance <100ms for 50 horses
+- Unit tests with mocked service
+- Integration tests with Supertest
+- Test authentication rejects unauthenticated requests
+- Test RBAC allows correct roles
 
-**Reference**: Existing pattern in `HorseRepository.ts:28-50`
+**Reference**: Existing endpoint pattern in `streams.ts:406-457` for chunks endpoint
 
 ---
 
@@ -175,14 +239,14 @@ docker compose logs -f api-gateway
 ## 📊 Phase 3 Progress
 
 **Total Tasks**: 15
-**Completed**: 2 (13%)
+**Completed**: 4 (27%)
 **In Progress**: 0
-**Remaining**: 13
+**Remaining**: 11
 
 **Phase Breakdown**:
 - Phase 0 (Foundation): ✅✅ **COMPLETE** (2/2)
-- Phase 1 (Backend): ⬜⬜⬜⬜⬜ (0/5)
+- Phase 1 (Backend): ✅✅⬜⬜⬜ (2/5)
 - Phase 2 (Frontend): ⬜⬜⬜⬜⬜ (0/5)
 - Phase 3 (Integration): ⬜⬜⬜ (0/3)
 
-**Estimated Time Remaining**: 12-14 hours
+**Estimated Time Remaining**: 10-12 hours
