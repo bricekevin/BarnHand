@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
 import type { Horse } from '../../../shared/src/types/horse.types';
+import { HorseCard } from './HorseCard';
+import { HorseEditModal } from './HorseEditModal';
 
 interface DetectedHorsesTabProps {
   streamId: string;
@@ -14,6 +16,7 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'detections' | 'recent'>('recent');
+  const [selectedHorse, setSelectedHorse] = useState<Horse | null>(null);
 
   // Fetch horses on mount and when streamId changes
   useEffect(() => {
@@ -47,6 +50,51 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
       fetchHorses();
     }
   }, [streamId]);
+
+  // Handle horse card click
+  const handleHorseClick = (horse: Horse) => {
+    setSelectedHorse(horse);
+  };
+
+  // Handle modal close
+  const handleModalClose = () => {
+    setSelectedHorse(null);
+  };
+
+  // Handle horse save
+  const handleHorseSave = async (updates: {
+    name?: string;
+    notes?: string;
+  }) => {
+    if (!selectedHorse) return;
+
+    // Call API to update horse
+    const response = await fetch(
+      `http://localhost:8000/api/v1/streams/${streamId}/horses/${selectedHorse.id}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(updates),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to update horse: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    // Update local state with updated horse
+    setHorses(prevHorses =>
+      prevHorses.map(h => (h.id === selectedHorse.id ? data.horse : h))
+    );
+
+    // Update selected horse
+    setSelectedHorse(data.horse);
+  };
 
   // Refresh horses manually
   const handleRefresh = async () => {
@@ -335,94 +383,22 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
       {filteredHorses.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredHorses.map(horse => (
-            <div
+            <HorseCard
               key={horse.id}
-              className="bg-slate-800/50 border border-slate-700/50 rounded-lg overflow-hidden hover:border-slate-600/50 hover:transform hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group"
-            >
-              {/* Horse avatar */}
-              <div className="relative aspect-square bg-slate-900">
-                {horse.avatar_thumbnail ? (
-                  <img
-                    src={`data:image/jpeg;base64,${horse.avatar_thumbnail}`}
-                    alt={horse.name || horse.tracking_id}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <svg
-                      className="w-20 h-20 text-slate-700"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1}
-                        d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </div>
-                )}
-
-                {/* Horse ID badge */}
-                <div
-                  className="absolute top-2 left-2 px-2 py-1 rounded-md text-xs font-mono font-semibold text-white shadow-lg"
-                  style={{ backgroundColor: horse.assigned_color }}
-                >
-                  {horse.tracking_id}
-                </div>
-              </div>
-
-              {/* Horse info */}
-              <div className="p-4 space-y-2">
-                {/* Name */}
-                <h4 className="text-sm font-semibold text-slate-200 truncate">
-                  {horse.name || `Unnamed Horse ${horse.tracking_id}`}
-                </h4>
-
-                {/* Stats */}
-                <div className="space-y-1 text-xs text-slate-400">
-                  <div className="flex items-center gap-2">
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span>{formatRelativeTime(horse.last_seen)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                      />
-                    </svg>
-                    <span>
-                      {horse.total_detections || 0} detection
-                      {horse.total_detections !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+              horse={horse}
+              onClick={() => handleHorseClick(horse)}
+            />
           ))}
         </div>
+      )}
+
+      {/* Horse Edit Modal */}
+      {selectedHorse && (
+        <HorseEditModal
+          horse={selectedHorse}
+          onClose={handleModalClose}
+          onSave={handleHorseSave}
+        />
       )}
     </div>
   );
