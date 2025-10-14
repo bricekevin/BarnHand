@@ -333,19 +333,19 @@
 
 **Testing**:
 
-- [ ] Unit: Test card renders all horse data
-- [ ] Unit: Test click handler fires
-- [ ] Unit: Test fallback image displays when no avatar
-- [ ] Visual: Test card styling matches design system
+- [x] Unit: Test card renders all horse data
+- [x] Unit: Test click handler fires
+- [x] Unit: Test fallback image displays when no avatar
+- [x] Visual: Test card styling matches design system
 - [ ] Manual: Test in Storybook (if available) or browser
 
 **Acceptance**:
 
-- [ ] Card displays all required information clearly
-- [ ] Avatar loads from API endpoint
-- [ ] Tracking color matches assigned color
-- [ ] Hover animation smooth (<200ms)
-- [ ] Tests pass with npm test
+- [x] Card displays all required information clearly
+- [x] Avatar loads from API endpoint
+- [x] Tracking color matches assigned color
+- [x] Hover animation smooth (<200ms)
+- [x] Tests pass with npm test
 
 **Reference**: Similar card pattern in `StreamCard.tsx:20-100`
 
