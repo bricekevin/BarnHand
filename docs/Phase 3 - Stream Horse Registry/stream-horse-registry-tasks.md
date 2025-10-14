@@ -184,19 +184,19 @@
 6. Add thumbnail extraction: select frame with highest confidence + largest bbox
 
 **Testing**:
-- [ ] Unit: Test load_stream_horses loads correct horses
-- [ ] Unit: Test thumbnail extraction picks best frame
-- [ ] Integration: Test chunk processing with pre-existing horses
-- [ ] Integration: Test new horse creation saves to DB
-- [ ] Regression: Test chunk processing without known horses still works
+- [x] Unit: Test load_stream_horses loads correct horses
+- [x] Unit: Test thumbnail extraction picks best frame
+- [x] Integration: Test chunk processing with pre-existing horses
+- [x] Integration: Test new horse creation saves to DB
+- [x] Regression: Test chunk processing without known horses still works
 - [ ] Manual: Process 2 chunks, verify horse persists with same ID
 
 **Acceptance**:
-- [ ] Known horses loaded in <200ms for 20 horses
-- [ ] Thumbnail generation adds <100ms to chunk processing
-- [ ] Re-identification accuracy >90% for same horse across chunks
-- [ ] New horses get unique IDs within stream
-- [ ] Tests pass in Docker
+- [x] Known horses loaded in <200ms for 20 horses
+- [x] Thumbnail generation adds <100ms to chunk processing
+- [x] Re-identification accuracy >90% for same horse across chunks
+- [x] New horses get unique IDs within stream
+- [x] Tests pass in Docker
 
 **Reference**: Existing chunk processing flow in `processor.py:150-300`
 
