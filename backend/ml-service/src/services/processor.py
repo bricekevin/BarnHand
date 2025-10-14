@@ -458,6 +458,14 @@ class ChunkProcessor:
             # PHASE 3 INTEGRATION: Save all horses to registry after chunk complete
             logger.info(f"Saving horses to registry for stream {stream_id}")
             all_horse_states = self.horse_tracker.get_all_horse_states()
+
+            # Extract thumbnails for each horse
+            for horse_id, horse_state in all_horse_states.items():
+                thumbnail_bytes = self.horse_tracker.get_best_thumbnail(horse_id, quality=80)
+                if thumbnail_bytes:
+                    horse_state["thumbnail_bytes"] = thumbnail_bytes
+                    logger.debug(f"Extracted thumbnail for {horse_id}: {len(thumbnail_bytes)} bytes")
+
             await self.horse_db.save_stream_horse_registry(stream_id, all_horse_states)
             logger.info(f"Saved {len(all_horse_states)} horses to registry")
 
