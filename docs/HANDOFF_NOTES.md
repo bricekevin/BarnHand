@@ -373,6 +373,61 @@
 
 ---
 
+### Task 2.2: Create Horse Card Component
+
+**Status**: Complete ✅
+**Commit**: `ded002f`
+
+**Summary**:
+
+- Created HorseCard component for displaying individual horses in registry grid
+- Implemented comprehensive time formatting (relative timestamps)
+- Added full keyboard accessibility and ARIA labels
+- Applied glass morphism styling from design system
+- Created 36 unit tests (all passing)
+
+**Component Features**:
+
+**Visual Elements**:
+- Avatar display with base64 JPEG or fallback horse silhouette icon
+- Tracking ID badge (e.g., "#3") with assigned color border/background
+- Horse name or "Unnamed Horse #X" fallback
+- Relative timestamp ("just now", "2 minutes ago", "3 hours ago", "5 days ago", or full date)
+- Detection count badge (e.g., "42 detections")
+- Status indicator dot with color glow effect
+- Optional breed/color metadata row
+
+**Interaction**:
+- Click handler for opening edit modal
+- Keyboard support (Enter/Space keys)
+- Hover transform (-translate-y-1) and shadow-glow effects
+- Proper aria-label for screen readers
+- tabIndex={0} for keyboard navigation
+
+**Styling**:
+- Glass morphism: `bg-slate-900/50 border border-slate-700/50`
+- Aspect-square layout for grid consistency
+- Responsive card design (works in 2/3/4 column grids)
+- Tracking color applied to badge and status dot
+- Smooth transitions (duration-300)
+
+**Testing Results**:
+
+- ✅ 36/36 unit tests pass (100% success rate)
+- ✅ Rendering tests: all elements display correctly
+- ✅ Time formatting tests: 7 scenarios (seconds, minutes, hours, days, dates)
+- ✅ Tracking number extraction: handles various ID formats
+- ✅ Interaction tests: click, Enter key, Space key, accessibility
+- ✅ Styling tests: glass morphism, hover effects, keyboard focus
+- ✅ Edge cases: missing fields, long names, large counts
+
+**Files Created**:
+
+- `frontend/src/components/HorseCard.tsx` (200 lines)
+- `frontend/src/components/__tests__/HorseCard.test.tsx` (400 lines)
+
+---
+
 ## 🔄 In Progress
 
 **None**
@@ -381,36 +436,38 @@
 
 ## 📋 Next Priority
 
-### Task 2.2: Create Horse Card Component (NEXT)
+### Task 2.3: Create Horse Edit Modal Component (NEXT)
 
 **Estimated Time**: 2-3 hours
 
-**Objective**: Build new tab UI to display stream horse registry
+**Objective**: Build modal for editing horse details (name, notes)
 
 **Files to Create**:
 
-- `frontend/src/components/DetectedHorsesTab.tsx` (NEW)
-- `frontend/src/components/__tests__/DetectedHorsesTab.test.tsx` (NEW)
+- `frontend/src/components/HorseEditModal.tsx` (NEW)
+- `frontend/src/components/__tests__/HorseEditModal.test.tsx` (NEW)
 
 **Requirements**:
 
-1. Create `DetectedHorsesTab` component with props: `streamId: string`
-2. Fetch horses on mount: `GET /api/v1/streams/:streamId/horses`
-3. Display loading state, empty state, and error state
-4. Render horse grid (4 columns on desktop, 2 on mobile)
-5. Show horse ID, name (or "Unnamed"), avatar, last seen, detection count
-6. Add search/filter bar (filter by name, sort by detection count)
-7. Add refresh button to manually reload horses
+1. Create modal component with props: `horse: Horse`, `onClose: () => void`, `onSave: (updates) => void`
+2. Display horse avatar (large, centered)
+3. Add form fields: name (text input), notes (textarea)
+4. Add "Save" and "Cancel" buttons
+5. Implement form validation (name max 100 chars, notes max 500 chars)
+6. Call `PUT /api/v1/streams/:streamId/horses/:horseId` on save
+7. Show loading spinner during save
+8. Show success/error toast after save
+9. Close modal on successful save
 
 **Testing Requirements**:
 
-- Unit: Test component renders with mock data
-- Unit: Test empty state displays correctly
-- Unit: Test search/filter functionality
-- Integration: Test API fetch with MSW mock
-- Manual: View in browser, test responsive layout
+- Unit: Test modal renders horse data
+- Unit: Test form validation rejects invalid inputs
+- Unit: Test save calls API with correct payload
+- Integration: Test API call with MSW mock
+- Manual: Test modal UX in browser
 
-**Reference**: Similar grid pattern in `StreamManagement.tsx:179-183`
+**Reference**: Modal pattern reference in any existing modal component
 
 ---
 
@@ -486,15 +543,15 @@ docker compose logs -f api-gateway
 ## 📊 Phase 3 Progress
 
 **Total Tasks**: 15
-**Completed**: 8 (53%)
+**Completed**: 9 (60%)
 **In Progress**: 0
-**Remaining**: 7
+**Remaining**: 6
 
 **Phase Breakdown**:
 
 - Phase 0 (Foundation): ✅✅ **COMPLETE** (2/2)
 - Phase 1 (Backend): ✅✅✅✅✅ **COMPLETE** (5/5)
-- Phase 2 (Frontend): ✅⬜⬜⬜⬜ (1/5)
+- Phase 2 (Frontend): ✅✅⬜⬜⬜ (2/5)
 - Phase 3 (Integration): ⬜⬜⬜ (0/3)
 
-**Estimated Time Remaining**: 5-7 hours
+**Estimated Time Remaining**: 4-6 hours
