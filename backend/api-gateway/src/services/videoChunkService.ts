@@ -176,7 +176,8 @@ export class VideoChunkService {
     farmId: string,
     userId: string,
     sourceUrl: string,
-    duration: number = 5
+    duration: number = 5,
+    frameInterval: number = 1
   ): Promise<VideoChunk> {
     // Convert external URLs to internal Docker URLs when running in container
     const internalSourceUrl = this.convertToInternalUrl(sourceUrl);
@@ -208,7 +209,9 @@ export class VideoChunkService {
       end_timestamp: new Date(timestamp.getTime() + duration * 1000),
       source_url: internalSourceUrl,
       status: 'recording',
-      metadata: {},
+      metadata: {
+        frame_interval: frameInterval,
+      },
       created_at: timestamp,
       updated_at: timestamp,
     };
@@ -377,7 +380,9 @@ export class VideoChunkService {
           (s: any) => s.codec_type === 'video'
         );
         if (videoStream) {
+          // Merge with existing metadata to preserve frame_interval and other fields
           chunk.metadata = {
+            ...chunk.metadata, // Preserve existing metadata (like frame_interval)
             codec: videoStream.codec_name,
             resolution: `${videoStream.width}x${videoStream.height}`,
             bitrate: parseInt(videoStream.bit_rate) || 0,
@@ -386,9 +391,10 @@ export class VideoChunkService {
         }
       }
 
-      logger.info('Metadata extracted for chunk', {
+      logger.info('Metadata extracted for chunk (merged with existing)', {
         chunkId: chunk.id,
         metadata: chunk.metadata,
+        frame_interval: chunk.metadata?.frame_interval,
       });
     } catch (error) {
       logger.warn('Failed to extract metadata for chunk', {
@@ -920,7 +926,11 @@ export class VideoChunkService {
         mlServiceUrl: processEndpoint,
       });
 
-      logger.info('📤 Sending chunk_id to ML service', { chunk_id: chunkId });
+      logger.info('📤 Sending chunk_id to ML service', {
+        chunk_id: chunkId,
+        frame_interval: chunk.metadata?.frame_interval || 1,
+        metadata: chunk.metadata,
+      });
 
       // TODO: Update database to mark chunk as queued for ML processing
       // await query(
@@ -945,6 +955,7 @@ export class VideoChunkService {
           stream_id: streamId,
           output_video_path: outputVideoPath,
           output_json_path: outputJsonPath,
+          frame_interval: chunk.metadata?.frame_interval || 1,
         }),
       })
         .then(response => {

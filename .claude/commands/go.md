@@ -1,4 +1,4 @@
-# BarnHand Development Session Command
+markdown# BarnHand Development Session Command
 
 You are working on BarnHand, an intelligent horse streaming platform with ML-powered video detection, tracking, and behavioral analysis. This is an actively evolving system where understanding the complete architecture is CRITICAL before making any changes.
 
@@ -19,7 +19,6 @@ You are working on BarnHand, an intelligent horse streaming platform with ML-pow
 - Database: PostgreSQL + TimescaleDB + pgvector
 - Cache/Queue: Redis
 - Infrastructure: Docker Compose (ALL development/testing in Docker)
-- Docs in docs folder
 
 **Project Structure:**
 BarnHand/
@@ -33,9 +32,12 @@ BarnHand/
 ├── models/ # ML model weights (138MB)
 ├── media/ # Test videos
 ├── docs/ # Phase folders + general docs
-│ ├── phase1/
-│ ├── phase2/
-│ └── [other docs] # Be sure to search here for docs by name
+│ ├── phase1/ # Phase 1 planning docs
+│ ├── phase2/ # Phase 2 planning docs
+│ ├── phase[N]/ # Future phase planning
+│ │ ├── [epic]-overview.md # PM-generated overview
+│ │ └── [epic]-tasks.md # PM-generated task checklist
+│ └── [general docs] # Architecture, styles, implementation guides
 ├── testing/ # Test suites
 └── scripts/ # Utility scripts
 
@@ -46,10 +48,16 @@ BarnHand/
 ```bash
 # Read these IN ORDER before any work:
 1. docs/HANDOFF_NOTES.md (or phase-specific handoff notes)
-2. git log --oneline -10
-3. git status
-4. docker compose ps
+2. docs/phase[N]/[epic-name]-tasks.md (if working from PM-generated plan)
+3. git log --oneline -10
+4. git status
+5. docker compose ps
 CRITICAL: The handoff notes contain context about what was done last session, current blockers, and next priorities. READ THEM FIRST.
+If working from a planned EPIC: Check docs/phase[N]/ for:
+
+[epic-name]-overview.md - Strategic context and architecture decisions
+[epic-name]-tasks.md - Task checklist with detailed implementation steps
+
 2. Review Relevant Documentation
 Based on task keywords, automatically reference:
 
@@ -59,6 +67,7 @@ chunk/processing → Phase 2 docs in docs/phase2/
 frontend/UI/component → docs/styles.md, frontend component structure
 database/schema → backend/database/src/migrations/sql/
 deployment/docker → docker-compose.yml, service Dockerfiles
+phase planning → docs/phase[N]/[epic-name]-overview.md and [epic-name]-tasks.md
 
 3. Understand Before Changing
 IMPORTANT: This is an integrated system. Before modifying any component:
@@ -72,7 +81,7 @@ TASK: {USER_SPECIFIED_TASK}
 EXECUTION APPROACH
 Phase 1: Planning & Assessment
 
-Break down task into logical, testable steps
+Break down task into logical, testable steps (or follow PM-generated task breakdown)
 Identify all affected components/services
 Check for existing implementations or patterns to follow
 Confirm approach before implementing
@@ -96,6 +105,7 @@ Phase 4: Documentation
 Update EXISTING docs (don't create new unless necessary)
 Add session notes to work log (see format below)
 Update handoff notes for next session
+Update task checklist (if working from PM plan): mark tasks [x] complete or [~] in progress
 
 DOCKER WORKFLOW
 Service Management:
@@ -116,134 +126,4 @@ docker compose down
 
 # Clean restart (if needed)
 docker compose down -v && docker compose up -d --build
-Service Ports:
-
-Frontend Dev: http://localhost:5174 (Vite HMR)
-Frontend Prod: http://localhost:3000
-API Gateway: http://localhost:8000
-Stream Service: http://localhost:8001
-ML Service: http://localhost:8002 (health: /health)
-Video Streamer: http://localhost:8003
-PostgreSQL: localhost:5432
-Redis: localhost:6379
-
-TESTING GUIDELINES
-Always test in Docker:
-
-❌ NO local npm run dev or python main.py
-✅ YES docker compose up -d --build [service]
-
-Testing Flow:
-
-Make code changes
-Rebuild affected service(s)
-Check logs for errors
-Provide Kevin with specific steps to verify in browser
-Use Playwright MCP for automated frontend checks if applicable
-
-Frontend Testing:
-
-Login: admin@barnhand.com / admin123
-Navigate to specific feature being tested
-Check browser console for errors
-Verify WebSocket connections (if applicable)
-
-ML Service Testing:
-bash# Health check
-curl http://localhost:8002/health
-
-# Process test chunk
-curl -X POST http://localhost:8002/api/process-chunk \
-  -H "Content-Type: application/json" \
-  -d '{"chunk_id":"test","chunk_path":"/path","farm_id":"farm1","stream_id":"stream1"}'
-SESSION LOGGING
-Work Session Log Entry
-After completing work, add entry to docs/WORK_LOG.md:
-markdown---
-## Session [N] - [Date] - [Brief Description]
-
-**Duration**: ~X hours
-
-**Completed**:
-- Task 1 description
-- Task 2 description
-
-**Files Changed**:
-- path/to/file.ts - what changed
-- path/to/file.py - what changed
-
-**Git Commits**:
-- abc1234 - commit message
-- def5678 - commit message
-
-**Testing Notes**:
-- What was tested
-- Any issues found
-- Performance observations
-
-**Decisions Made**:
-- Why approach X was chosen over Y
-- Any trade-offs considered
-
-**Next Session Should**:
-- Priority task 1
-- Priority task 2
-Handoff Notes Update
-Update docs/HANDOFF_NOTES.md (or phase-specific) with:
-markdown---
-## Last Work Session
-
-**Date**: [Current Date and Time]
-
-**Current Status**:
-[What's working now, what state the system is in]
-
-**Completed This Session**:
-- [x] Task description
-- [x] Task description
-
-**In Progress**:
-- [~] Partially complete task
-
-**Next Priority Tasks**:
-1. Task with reasoning why it's next
-2. Task with reasoning
-
-**Known Issues/Blockers**:
-- Issue description and potential solution
-- Blocker and what's needed to unblock
-
-**Testing Instructions**:
-[How to verify what was built, specific commands/steps]
-
-**Important Context**:
-[Critical info the next session needs to know]
-KEVIN'S WORK PREFERENCES
-
-✅ Concise and efficient: Skip preambles, get to the point
-✅ Parse typos: Understand intent from context
-✅ Challenge ideas: Suggest better approaches when warranted
-✅ Just the output: For code/text requests, provide directly without explanation (unless asked)
-✅ Complete solutions: Don't leave obvious next steps unfinished
-❌ No over-explanation: Don't repeat yourself or explain obvious things
-❌ No unnecessary follow-ups: Include everything needed in one response
-
-CRITICAL REMINDERS
-
-READ HANDOFF NOTES FIRST - Contains essential context from last session
-Docker-only testing - Never test locally, always in containers
-Understand before changing - This is an integrated system, changes ripple
-Update existing docs - Don't proliferate new markdown files
-Small commits - Easier to debug and rollback
-Collaborative testing - Give Kevin clear steps, use Playwright MCP
-Follow established patterns - Check existing code for similar features
-Log your work - Future sessions depend on good notes
-
-AVAILABLE TOOLS
-
-Playwright MCP: Automated frontend testing and screenshots
-Docker logs: Real-time service debugging
-Git history: Understanding past decisions
-Existing test suites: Unit, integration, E2E tests
-Health endpoints: Quick service status checks
 ```

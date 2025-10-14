@@ -61,6 +61,7 @@ export interface Horse {
 
 export interface CreateHorseRequest {
   farm_id: string;
+  stream_id?: string;
   name?: string;
   breed?: string;
   age?: number;
@@ -69,6 +70,7 @@ export interface CreateHorseRequest {
   gender?: 'mare' | 'stallion' | 'gelding' | 'unknown';
   tracking_id?: string;
   ui_color?: string;
+  avatar_thumbnail?: Buffer;
   metadata?: Record<string, any>;
 }
 

@@ -49,6 +49,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
   const [videoChunks, setVideoChunks] = useState<VideoChunk[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(5);
+  const [frameInterval, setFrameInterval] = useState(1);
   const [videoRef, setVideoRef] =
     useState<React.RefObject<HTMLVideoElement> | null>(null);
   const [showChunkNotification, setShowChunkNotification] = useState(false);
@@ -275,7 +276,10 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ duration: recordingDuration }),
+          body: JSON.stringify({
+            duration: recordingDuration,
+            frame_interval: frameInterval,
+          }),
         }
       );
 
@@ -543,8 +547,8 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
               <div
                 className={`px-3 py-1 rounded-full text-xs font-medium ${
                   viewMode === 'live'
-                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-blue-600 text-white'
                 }`}
               >
                 {viewMode === 'live' ? '● LIVE' : '▶ PLAYBACK'}
@@ -555,13 +559,13 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
                 <div
                   className={`px-3 py-1 rounded-full text-xs font-medium ${
                     processingStatus === 'complete'
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      ? 'bg-green-600 text-white'
                       : processingStatus === 'processing'
-                        ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                        ? 'bg-yellow-600 text-white'
                         : processingStatus === 'failed' ||
                             processingStatus === 'timeout'
-                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                          : 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                          ? 'bg-red-600 text-white'
+                          : 'bg-slate-600 text-white'
                   }`}
                 >
                   {processingStatus === 'complete'
@@ -581,8 +585,8 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
 
             {/* Recording Indicator */}
             {isRecording && (
-              <div className="absolute top-4 right-4 flex items-center space-x-2 px-3 py-1 bg-red-500/20 text-red-400 border border-red-500/30 rounded-full">
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+              <div className="absolute top-4 right-4 flex items-center space-x-2 px-3 py-1 bg-red-600 text-white rounded-full">
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
                 <span className="text-xs font-medium">
                   Recording {recordingDuration}s
                 </span>
@@ -596,8 +600,8 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
                   onClick={() => setShowRawVideo(!showRawVideo)}
                   className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                     showRawVideo
-                      ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                      : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/50'
+                      ? 'bg-orange-600 text-white'
+                      : 'bg-slate-700 text-white hover:bg-slate-600'
                   }`}
                 >
                   <svg
@@ -624,14 +628,14 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
 
             {/* New Chunk Notification */}
             {showChunkNotification && (
-              <div className="absolute bottom-4 left-4 flex items-center space-x-2 px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg animate-in slide-in-from-left-4 fade-in duration-300">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div className="absolute bottom-4 left-4 flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg animate-in slide-in-from-left-4 fade-in duration-300">
+                <div className="w-2 h-2 bg-white rounded-full"></div>
                 <span className="text-sm font-medium">
                   New chunk ready for playback!
                 </span>
                 <button
                   onClick={() => setShowChunkNotification(false)}
-                  className="ml-2 text-green-400/70 hover:text-green-400 transition-colors"
+                  className="ml-2 text-white/70 hover:text-white transition-colors"
                 >
                   ×
                 </button>
@@ -676,6 +680,29 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
                 <option value={15}>15 seconds</option>
                 <option value={30}>30 seconds</option>
               </select>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <label
+                className="text-sm text-slate-300"
+                title="Process every Nth frame (1 = all frames, 2 = every other frame, etc.)"
+              >
+                Frame Interval:
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="300"
+                value={frameInterval}
+                onChange={e =>
+                  setFrameInterval(
+                    Math.max(1, Math.min(300, Number(e.target.value)))
+                  )
+                }
+                className="w-16 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-white text-center"
+                disabled={isRecording}
+              />
+              <span className="text-xs text-slate-400">(1-300)</span>
             </div>
           </div>
 

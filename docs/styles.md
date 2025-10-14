@@ -3,6 +3,7 @@
 ## 1. Core Design Philosophy
 
 ### Design Principles
+
 - **Technical Precision**: Clean, data-driven interfaces with purposeful information hierarchy
 - **Natural Elegance**: Earthy tones balanced with high-tech accents
 - **Subtle Motion**: Micro-animations that enhance without distraction
@@ -12,92 +13,98 @@
 ## 2. Color System
 
 ### Primary Palette
+
 ```css
 :root {
   /* Core Brand Colors */
-  --forest-900: #0A1F0D;      /* Deep Forest - Primary Dark */
-  --forest-700: #1A3A1F;      /* Forest Green - Headers */
-  --forest-500: #2D5016;      /* Medium Forest - Primary Actions */
-  --forest-300: #4A7C2E;      /* Light Forest - Hover States */
-  
+  --forest-900: #0a1f0d; /* Deep Forest - Primary Dark */
+  --forest-700: #1a3a1f; /* Forest Green - Headers */
+  --forest-500: #2d5016; /* Medium Forest - Primary Actions */
+  --forest-300: #4a7c2e; /* Light Forest - Hover States */
+
   /* Technical Accent Colors */
-  --cyan-500: #06B6D4;        /* Bright Cyan - Data Points */
-  --cyan-400: #22D3EE;        /* Light Cyan - Active States */
-  --cyan-300: #67E8F9;        /* Pale Cyan - Highlights */
-  
+  --cyan-500: #06b6d4; /* Bright Cyan - Data Points */
+  --cyan-400: #22d3ee; /* Light Cyan - Active States */
+  --cyan-300: #67e8f9; /* Pale Cyan - Highlights */
+
   /* Earth Tones */
-  --amber-600: #D97706;       /* Warm Amber - Warnings */
-  --amber-500: #F59E0B;       /* Golden - Important Metrics */
-  --amber-400: #FBBF24;       /* Light Gold - Badges */
-  
+  --amber-600: #d97706; /* Warm Amber - Warnings */
+  --amber-500: #f59e0b; /* Golden - Important Metrics */
+  --amber-400: #fbbf24; /* Light Gold - Badges */
+
   /* Neutral Scale */
-  --slate-950: #020617;       /* Near Black - Text */
-  --slate-900: #0F172A;       /* Dark Slate - Backgrounds */
-  --slate-800: #1E293B;       /* Medium Slate - Cards */
-  --slate-700: #334155;       /* Light Slate - Borders */
-  --slate-600: #475569;       /* Lighter Slate - Muted Text */
-  --slate-400: #94A3B8;       /* Pale Slate - Disabled */
-  --slate-200: #E2E8F0;       /* Very Light - Highlights */
-  --slate-100: #F1F5F9;       /* Off White - Backgrounds */
-  
+  --slate-950: #020617; /* Near Black - Text */
+  --slate-900: #0f172a; /* Dark Slate - Backgrounds */
+  --slate-800: #1e293b; /* Medium Slate - Cards */
+  --slate-700: #334155; /* Light Slate - Borders */
+  --slate-600: #475569; /* Lighter Slate - Muted Text */
+  --slate-400: #94a3b8; /* Pale Slate - Disabled */
+  --slate-200: #e2e8f0; /* Very Light - Highlights */
+  --slate-100: #f1f5f9; /* Off White - Backgrounds */
+
   /* Semantic Colors */
-  --success: #10B981;         /* Emerald - Healthy Status */
-  --warning: #F59E0B;         /* Amber - Attention Needed */
-  --error: #EF4444;           /* Red - Critical Alerts */
-  --info: #06B6D4;            /* Cyan - Information */
+  --success: #10b981; /* Emerald - Healthy Status */
+  --warning: #f59e0b; /* Amber - Attention Needed */
+  --error: #ef4444; /* Red - Critical Alerts */
+  --info: #06b6d4; /* Cyan - Information */
 }
 ```
 
 ### Dark Mode Palette
+
 ```css
-:root[data-theme="dark"] {
+:root[data-theme='dark'] {
   /* Inverted Neutrals */
-  --bg-primary: #0A0F1B;      /* Deep Blue-Black */
-  --bg-secondary: #131A2A;    /* Raised Surface */
-  --bg-tertiary: #1C2537;     /* Card Background */
+  --bg-primary: #0a0f1b; /* Deep Blue-Black */
+  --bg-secondary: #131a2a; /* Raised Surface */
+  --bg-tertiary: #1c2537; /* Card Background */
   --bg-overlay: rgba(10, 15, 27, 0.85);
-  
+
   /* Adjusted Brand Colors */
-  --forest-primary: #3ECF8E;  /* Bright Mint - Better contrast */
-  --cyan-primary: #06B6D4;    /* Keep cyan vivid */
-  --amber-primary: #FFB84D;   /* Brightened amber */
+  --forest-primary: #3ecf8e; /* Bright Mint - Better contrast */
+  --cyan-primary: #06b6d4; /* Keep cyan vivid */
+  --amber-primary: #ffb84d; /* Brightened amber */
 }
 ```
 
 ### Horse Tracking Colors
+
 ```css
 /* Distinctive colors for multi-horse tracking */
 :root {
-  --horse-1: #06B6D4;  /* Cyan */
-  --horse-2: #10B981;  /* Emerald */
-  --horse-3: #F59E0B;  /* Amber */
-  --horse-4: #8B5CF6;  /* Violet */
-  --horse-5: #EC4899;  /* Pink */
-  --horse-6: #14B8A6;  /* Teal */
-  --horse-7: #F97316;  /* Orange */
-  --horse-8: #6366F1;  /* Indigo */
-  --horse-9: #84CC16;  /* Lime */
-  --horse-10: #EF4444; /* Red */
+  --horse-1: #06b6d4; /* Cyan */
+  --horse-2: #10b981; /* Emerald */
+  --horse-3: #f59e0b; /* Amber */
+  --horse-4: #8b5cf6; /* Violet */
+  --horse-5: #ec4899; /* Pink */
+  --horse-6: #14b8a6; /* Teal */
+  --horse-7: #f97316; /* Orange */
+  --horse-8: #6366f1; /* Indigo */
+  --horse-9: #84cc16; /* Lime */
+  --horse-10: #ef4444; /* Red */
 }
 ```
 
 ## 3. Typography System
 
 ### Font Stack
+
 ```css
 :root {
   /* Primary Font - Headlines & UI */
-  --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  
+  --font-primary:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
   /* Display Font - Large Headlines */
   --font-display: 'Sora', 'Inter', sans-serif;
-  
+
   /* Mono Font - Data & Metrics */
   --font-mono: 'JetBrains Mono', 'SF Mono', 'Monaco', monospace;
 }
 ```
 
 ### Type Scale
+
 ```css
 /* Fluid Typography with clamp() */
 .text-display-xl {
@@ -156,7 +163,9 @@
 .text-metric {
   font-family: var(--font-mono);
   font-weight: 600;
-  font-feature-settings: 'tnum' on, 'lnum' on;
+  font-feature-settings:
+    'tnum' on,
+    'lnum' on;
 }
 
 .text-metric-large {
@@ -173,6 +182,7 @@
 ## 4. Component Styles
 
 ### Glass Morphism Cards
+
 ```css
 .glass-card {
   background: linear-gradient(
@@ -184,7 +194,7 @@
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  box-shadow: 
+  box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -192,7 +202,7 @@
 
 .glass-card:hover {
   transform: translateY(-2px);
-  box-shadow: 
+  box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.15);
   border-color: rgba(255, 255, 255, 0.12);
@@ -200,12 +210,13 @@
 ```
 
 ### Neumorphic Elements
+
 ```css
 .neu-button {
-  background: linear-gradient(145deg, #1F2937, #111827);
+  background: linear-gradient(145deg, #1f2937, #111827);
   border-radius: 12px;
   padding: 12px 24px;
-  box-shadow: 
+  box-shadow:
     8px 8px 16px rgba(0, 0, 0, 0.4),
     -8px -8px 16px rgba(255, 255, 255, 0.05),
     inset 1px 1px 2px rgba(255, 255, 255, 0.1);
@@ -213,17 +224,17 @@
 }
 
 .neu-button:active {
-  box-shadow: 
+  box-shadow:
     inset 8px 8px 16px rgba(0, 0, 0, 0.4),
     inset -8px -8px 16px rgba(255, 255, 255, 0.05);
 }
 
 .neu-input {
-  background: linear-gradient(145deg, #0F172A, #1E293B);
+  background: linear-gradient(145deg, #0f172a, #1e293b);
   border: none;
   border-radius: 8px;
   padding: 12px 16px;
-  box-shadow: 
+  box-shadow:
     inset 4px 4px 8px rgba(0, 0, 0, 0.3),
     inset -4px -4px 8px rgba(255, 255, 255, 0.03);
   transition: all 0.2s ease;
@@ -231,7 +242,7 @@
 
 .neu-input:focus {
   outline: none;
-  box-shadow: 
+  box-shadow:
     inset 4px 4px 8px rgba(0, 0, 0, 0.4),
     inset -4px -4px 8px rgba(255, 255, 255, 0.05),
     0 0 0 2px rgba(6, 182, 212, 0.3);
@@ -239,6 +250,7 @@
 ```
 
 ### Stream Cards
+
 ```css
 .stream-card {
   position: relative;
@@ -256,23 +268,13 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--cyan-500),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, var(--cyan-500), transparent);
   transform: translateX(-100%);
   animation: shimmer 3s infinite;
 }
 
 .stream-card.active::before {
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--success),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, var(--success), transparent);
 }
 
 @keyframes shimmer {
@@ -291,11 +293,7 @@
 .stream-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    to bottom,
-    transparent 60%,
-    rgba(0, 0, 0, 0.9)
-  );
+  background: linear-gradient(to bottom, transparent 60%, rgba(0, 0, 0, 0.9));
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -306,6 +304,7 @@
 ```
 
 ### Detection Overlays
+
 ```css
 .detection-box {
   stroke-width: 2;
@@ -317,7 +316,8 @@
 }
 
 @keyframes pulse-subtle {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.9;
   }
   50% {
@@ -354,6 +354,7 @@
 ## 5. Animation System
 
 ### Micro-animations
+
 ```css
 /* Entrance Animations */
 @keyframes fadeInUp {
@@ -433,7 +434,10 @@
 }
 
 .transition-colors {
-  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .transition-transform {
@@ -442,10 +446,13 @@
 ```
 
 ### Interactive States
+
 ```css
 /* Hover Effects */
 .hover-lift {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .hover-lift:hover {
@@ -458,7 +465,7 @@
 }
 
 .hover-glow:hover {
-  box-shadow: 
+  box-shadow:
     0 0 20px rgba(6, 182, 212, 0.3),
     0 0 40px rgba(6, 182, 212, 0.1);
 }
@@ -479,7 +486,8 @@
 }
 
 @keyframes focus-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.6;
   }
   50% {
@@ -491,6 +499,7 @@
 ## 6. Layout System
 
 ### Grid System
+
 ```css
 .dashboard-grid {
   display: grid;
@@ -542,28 +551,26 @@
 ```
 
 ### Spacing System
+
 ```css
 :root {
-  --space-xs: 0.25rem;   /* 4px */
-  --space-sm: 0.5rem;    /* 8px */
-  --space-md: 1rem;      /* 16px */
-  --space-lg: 1.5rem;    /* 24px */
-  --space-xl: 2rem;      /* 32px */
-  --space-2xl: 3rem;     /* 48px */
-  --space-3xl: 4rem;     /* 64px */
+  --space-xs: 0.25rem; /* 4px */
+  --space-sm: 0.5rem; /* 8px */
+  --space-md: 1rem; /* 16px */
+  --space-lg: 1.5rem; /* 24px */
+  --space-xl: 2rem; /* 32px */
+  --space-2xl: 3rem; /* 48px */
+  --space-3xl: 4rem; /* 64px */
 }
 ```
 
 ## 7. Interactive Components
 
 ### Control Panel
+
 ```css
 .control-panel {
-  background: linear-gradient(
-    135deg,
-    var(--slate-900),
-    var(--slate-800)
-  );
+  background: linear-gradient(135deg, var(--slate-900), var(--slate-800));
   border-radius: 16px;
   padding: 24px;
   border: 1px solid var(--slate-700);
@@ -620,6 +627,7 @@
 ```
 
 ### Status Indicators
+
 ```css
 .status-indicator {
   display: inline-flex;
@@ -675,7 +683,8 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -694,6 +703,7 @@
 ```
 
 ### Data Visualization
+
 ```css
 .metric-card {
   background: var(--slate-800);
@@ -790,31 +800,28 @@ module.exports = {
         },
       },
       fontFamily: {
-        'sans': ['Inter', 'system-ui', 'sans-serif'],
-        'display': ['Sora', 'Inter', 'sans-serif'],
-        'mono': ['JetBrains Mono', 'monospace'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Sora', 'Inter', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
       },
       animation: {
         'fade-in': 'fadeInUp 0.5s ease-out',
         'slide-in': 'slideInRight 0.3s ease-out',
         'pulse-subtle': 'pulse-subtle 2s infinite',
-        'shimmer': 'shimmer 3s infinite',
+        shimmer: 'shimmer 3s infinite',
         'data-flash': 'data-flash 0.5s ease',
       },
       backdropBlur: {
         xs: '2px',
       },
       boxShadow: {
-        'glow': '0 0 20px rgba(6, 182, 212, 0.3)',
+        glow: '0 0 20px rgba(6, 182, 212, 0.3)',
         'glow-lg': '0 0 40px rgba(6, 182, 212, 0.4)',
         'inner-glow': 'inset 0 0 20px rgba(6, 182, 212, 0.1)',
       },
     },
   },
-  plugins: [
-    require('@tailwindcss/forms'),
-    require('@tailwindcss/typography'),
-  ],
+  plugins: [require('@tailwindcss/forms'), require('@tailwindcss/typography')],
 };
 ```
 
@@ -826,25 +833,25 @@ module.exports = {
   /* Overlay Opacity */
   --overlay-opacity-light: 0.85;
   --overlay-opacity-heavy: 0.95;
-  
+
   /* Animation Speeds */
   --animation-fast: 150ms;
   --animation-normal: 300ms;
   --animation-slow: 500ms;
-  
+
   /* Border Radius */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-full: 9999px;
-  
+
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
-  
+
   /* Glows */
   --glow-cyan: 0 0 20px rgba(6, 182, 212, 0.5);
   --glow-success: 0 0 20px rgba(16, 185, 129, 0.5);
@@ -874,23 +881,33 @@ module.exports = {
 }
 
 @media (min-width: 640px) {
-  .container { max-width: 640px; }
+  .container {
+    max-width: 640px;
+  }
 }
 
 @media (min-width: 768px) {
-  .container { max-width: 768px; }
+  .container {
+    max-width: 768px;
+  }
 }
 
 @media (min-width: 1024px) {
-  .container { max-width: 1024px; }
+  .container {
+    max-width: 1024px;
+  }
 }
 
 @media (min-width: 1280px) {
-  .container { max-width: 1280px; }
+  .container {
+    max-width: 1280px;
+  }
 }
 
 @media (min-width: 1536px) {
-  .container { max-width: 1536px; }
+  .container {
+    max-width: 1536px;
+  }
 }
 ```
 
@@ -923,11 +940,11 @@ module.exports = {
 /* High Contrast Mode Support */
 @media (prefers-contrast: high) {
   :root {
-    --forest-500: #00FF00;
-    --cyan-500: #00FFFF;
-    --amber-500: #FFFF00;
+    --forest-500: #00ff00;
+    --cyan-500: #00ffff;
+    --amber-500: #ffff00;
   }
-  
+
   .glass-card {
     border-width: 2px;
   }
@@ -949,6 +966,7 @@ module.exports = {
 ## 12. Implementation Examples
 
 ### React Component with Styles
+
 ```jsx
 // StreamCard.tsx
 import React from 'react';
@@ -956,29 +974,25 @@ import { cn } from '@/utils/cn';
 
 export const StreamCard = ({ stream, isActive }) => {
   return (
-    <div className={cn(
-      "stream-card glass-card hover-lift",
-      isActive && "stream-card-active"
-    )}>
+    <div
+      className={cn(
+        'stream-card glass-card hover-lift',
+        isActive && 'stream-card-active'
+      )}
+    >
       <div className="stream-thumbnail">
         <img src={stream.thumbnail} alt={stream.name} />
         <div className="stream-overlay">
           <div className="flex items-center justify-between p-4">
-            <span className="status-indicator status-active">
-              Live
-            </span>
-            <span className="confidence-badge">
-              95% accuracy
-            </span>
+            <span className="status-indicator status-active">Live</span>
+            <span className="confidence-badge">95% accuracy</span>
           </div>
         </div>
       </div>
-      
+
       <div className="p-4">
-        <h3 className="text-heading text-slate-100 mb-2">
-          {stream.name}
-        </h3>
-        
+        <h3 className="text-heading text-slate-100 mb-2">{stream.name}</h3>
+
         <div className="metrics-grid">
           <div className="metric-card">
             <div className="metric-label">Horses Detected</div>
@@ -996,17 +1010,18 @@ export const StreamCard = ({ stream, isActive }) => {
 ```
 
 ### Custom Hook for Theme
+
 ```javascript
 // useTheme.js
 import { useEffect, useState } from 'react';
 
 export const useTheme = () => {
   const [theme, setTheme] = useState('dark');
-  
+
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
-    
+
     // Update CSS variables based on theme
     if (theme === 'dark') {
       root.style.setProperty('--bg-primary', '#0A0F1B');
@@ -1016,7 +1031,7 @@ export const useTheme = () => {
       root.style.setProperty('--text-primary', '#0F172A');
     }
   }, [theme]);
-  
+
   return { theme, setTheme };
 };
 ```

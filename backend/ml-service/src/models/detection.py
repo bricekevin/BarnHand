@@ -1,8 +1,8 @@
-"""YOLO detection models for horse detection."""
+"""YOLO detection model for horse detection."""
 import os
 import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple, Literal
+from typing import List, Dict, Any, Optional, Tuple
 import torch
 import cv2
 import numpy as np
@@ -13,48 +13,30 @@ from ..config.settings import settings
 
 
 class HorseDetectionModel:
-    """YOLO-based horse detection with dual model support."""
-    
+    """YOLOv5-based horse detection."""
+
     def __init__(self) -> None:
         self.device = self._setup_device()
-        self.primary_model: Optional[YOLO] = None
-        self.fallback_model: Optional[YOLO] = None
-        self.current_model = "primary"
+        self.model: Optional[YOLO] = None
         self.performance_metrics = {
-            "primary_avg_time": 0.0,
-            "fallback_avg_time": 0.0,
-            "primary_detections": 0,
-            "fallback_detections": 0
+            "avg_time": 0.0,
+            "total_detections": 0
         }
-        
+
     def load_models(self) -> None:
-        """Load both primary and fallback YOLO models."""
+        """Load YOLOv5 model."""
         try:
-            # Load primary model (YOLO11)
-            primary_path = Path(settings.model_path) / settings.yolo_model
-            if primary_path.exists():
-                logger.info(f"Loading primary YOLO model: {primary_path}")
-                self.primary_model = YOLO(str(primary_path))
-                self.primary_model.to(self.device)
-                logger.info(f"Primary model loaded on {self.device}")
-            else:
-                logger.warning(f"Primary model not found: {primary_path}")
-                
-            # Load fallback model (YOLOv5) 
-            fallback_path = Path(settings.model_path) / settings.yolo_fallback
-            if fallback_path.exists():
-                logger.info(f"Loading fallback YOLO model: {fallback_path}")
-                self.fallback_model = YOLO(str(fallback_path))
-                self.fallback_model.to(self.device)
-                logger.info(f"Fallback model loaded on {self.device}")
-            else:
-                logger.warning(f"Fallback model not found: {fallback_path}")
-                
-            if not self.primary_model and not self.fallback_model:
-                raise RuntimeError("No YOLO models could be loaded")
-                
+            model_path = Path(settings.model_path) / settings.yolo_model
+            if not model_path.exists():
+                raise RuntimeError(f"YOLO model not found: {model_path}")
+
+            logger.info(f"Loading YOLOv5 model: {model_path}")
+            self.model = YOLO(str(model_path))
+            self.model.to(self.device)
+            logger.info(f"YOLOv5 model loaded on {self.device}")
+
         except Exception as error:
-            logger.error(f"Failed to load YOLO models: {error}")
+            logger.error(f"Failed to load YOLO model: {error}")
             raise
             
     def _setup_device(self) -> torch.device:
@@ -74,30 +56,28 @@ class HorseDetectionModel:
         
     def detect_horses(self, frame: np.ndarray) -> Tuple[List[Dict[str, Any]], float]:
         """
-        Detect horses in a frame using YOLO.
-        
+        Detect horses in a frame using YOLOv5.
+
         Returns:
             Tuple of (detections, processing_time_ms)
         """
         start_time = time.time()
-        
+
         try:
-            # Get active model
-            model = self._get_active_model()
-            if not model:
-                raise RuntimeError("No YOLO model available")
-                
+            if not self.model:
+                raise RuntimeError("YOLO model not loaded")
+
             # Run detection
-            results = model(frame, conf=settings.confidence_threshold, verbose=False)
+            results = self.model(frame, conf=settings.confidence_threshold, verbose=False)
             processing_time = (time.time() - start_time) * 1000
-            
-            # Extract horse detections with 70% confidence threshold
+
+            # Extract horse detections
             # COCO class ID for horse: 17
             HORSE_CLASS_ID = 17
-            
+
             detections = []
             all_detections_debug = []
-            
+
             for result in results:
                 boxes = result.boxes
                 if boxes is not None:
@@ -106,7 +86,7 @@ class HorseDetectionModel:
                         x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                         confidence = float(box.conf[0].cpu().numpy())
                         class_id = int(box.cls[0].cpu().numpy())
-                        
+
                         # Debug: log all detections above 10% to see what we're getting
                         if confidence > 0.1:
                             all_detections_debug.append({
@@ -114,24 +94,22 @@ class HorseDetectionModel:
                                 "confidence": confidence,
                                 "bbox_area": (x2-x1) * (y2-y1)
                             })
-                        
-                        # STRICT FILTERING: Only accept horses with 70%+ confidence
+
+                        # Only accept horses with confidence above threshold
                         if class_id == HORSE_CLASS_ID and confidence >= settings.confidence_threshold:
                             detection = {
                                 "bbox": {
                                     "x": float(x1),
-                                    "y": float(y1), 
+                                    "y": float(y1),
                                     "width": float(x2 - x1),
                                     "height": float(y2 - y1)
                                 },
                                 "confidence": confidence,
                                 "class_id": class_id,
-                                "class_name": "horse",
-                                "model_used": self.current_model,
-                                "is_primary_horse": True
+                                "class_name": "horse"
                             }
                             detections.append(detection)
-            
+
             # Debug logging
             if all_detections_debug:
                 logger.debug(f"All detections found: {len(all_detections_debug)}")
@@ -139,97 +117,40 @@ class HorseDetectionModel:
                     logger.debug(f"  Detection {i+1}: class_id={det['class_id']}, conf={det['confidence']:.3f}")
             else:
                 logger.debug("No detections found by YOLO model")
-            
+
             # Update performance metrics
-            self._update_performance_metrics(processing_time)
-            
+            self._update_performance_metrics(processing_time, len(detections))
+
             logger.debug(f"Detection completed: {len(detections)} horses found in {processing_time:.1f}ms")
             return detections, processing_time
-            
+
         except Exception as error:
             processing_time = (time.time() - start_time) * 1000
             logger.error(f"Detection failed after {processing_time:.1f}ms: {error}")
-            
-            # Try fallback model if primary failed
-            if self.current_model == "primary" and self.fallback_model:
-                logger.info("Switching to fallback model due to primary model failure")
-                self.current_model = "fallback"
-                return self.detect_horses(frame)
-                
             raise
             
-    def _get_active_model(self) -> Optional[YOLO]:
-        """Get the currently active YOLO model."""
-        if self.current_model == "primary" and self.primary_model:
-            return self.primary_model
-        elif self.current_model == "fallback" and self.fallback_model:
-            return self.fallback_model
-        elif self.primary_model:
-            self.current_model = "primary"
-            return self.primary_model
-        elif self.fallback_model:
-            self.current_model = "fallback"
-            return self.fallback_model
-        else:
-            return None
-            
-    def _update_performance_metrics(self, processing_time: float) -> None:
+    def _update_performance_metrics(self, processing_time: float, detection_count: int) -> None:
         """Update rolling average performance metrics."""
         alpha = 0.1  # Smoothing factor for exponential moving average
-        
-        if self.current_model == "primary":
-            if self.performance_metrics["primary_avg_time"] == 0:
-                self.performance_metrics["primary_avg_time"] = processing_time
-            else:
-                self.performance_metrics["primary_avg_time"] = (
-                    (1 - alpha) * self.performance_metrics["primary_avg_time"] + 
-                    alpha * processing_time
-                )
-            self.performance_metrics["primary_detections"] += 1
-            
-        else:  # fallback model
-            if self.performance_metrics["fallback_avg_time"] == 0:
-                self.performance_metrics["fallback_avg_time"] = processing_time
-            else:
-                self.performance_metrics["fallback_avg_time"] = (
-                    (1 - alpha) * self.performance_metrics["fallback_avg_time"] + 
-                    alpha * processing_time
-                )
-            self.performance_metrics["fallback_detections"] += 1
-            
-    def switch_model(self, model_type: Literal["primary", "fallback"]) -> bool:
-        """Switch between primary and fallback models."""
-        if model_type == "primary" and self.primary_model:
-            self.current_model = "primary"
-            logger.info("Switched to primary model (YOLO11)")
-            return True
-        elif model_type == "fallback" and self.fallback_model:
-            self.current_model = "fallback" 
-            logger.info("Switched to fallback model (YOLOv5)")
-            return True
+
+        if self.performance_metrics["avg_time"] == 0:
+            self.performance_metrics["avg_time"] = processing_time
         else:
-            logger.warning(f"Cannot switch to {model_type} model (not available)")
-            return False
-            
+            self.performance_metrics["avg_time"] = (
+                (1 - alpha) * self.performance_metrics["avg_time"] +
+                alpha * processing_time
+            )
+        self.performance_metrics["total_detections"] += detection_count
+
     def get_model_info(self) -> Dict[str, Any]:
-        """Get information about loaded models and performance."""
+        """Get information about the loaded model and performance."""
         return {
-            "current_model": self.current_model,
+            "model": "YOLOv5",
             "device": str(self.device),
-            "models": {
-                "primary": {
-                    "loaded": self.primary_model is not None,
-                    "path": settings.yolo_model,
-                    "avg_time_ms": round(self.performance_metrics["primary_avg_time"], 2),
-                    "detections": self.performance_metrics["primary_detections"]
-                },
-                "fallback": {
-                    "loaded": self.fallback_model is not None,
-                    "path": settings.yolo_fallback, 
-                    "avg_time_ms": round(self.performance_metrics["fallback_avg_time"], 2),
-                    "detections": self.performance_metrics["fallback_detections"]
-                }
-            },
+            "loaded": self.model is not None,
+            "path": settings.yolo_model,
+            "avg_time_ms": round(self.performance_metrics["avg_time"], 2),
+            "total_detections": self.performance_metrics["total_detections"],
             "configuration": {
                 "confidence_threshold": settings.confidence_threshold,
                 "target_fps": settings.target_fps,

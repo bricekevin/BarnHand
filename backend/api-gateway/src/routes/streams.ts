@@ -41,6 +41,7 @@ const streamParamsSchema = z.object({
 
 const recordChunkSchema = z.object({
   duration: z.number().min(1).max(30).default(5),
+  frame_interval: z.number().min(1).max(300).default(1),
 });
 
 const chunkParamsSchema = z.object({
@@ -349,7 +350,14 @@ router.post(
       }
 
       const { id: streamId } = req.params;
-      const { duration = 5 } = req.body;
+      const { duration = 5, frame_interval = 1 } = req.body;
+
+      logger.info('Recording chunk request received', {
+        streamId,
+        duration,
+        frame_interval,
+        body: req.body,
+      });
 
       // Ensure farmId is defined
       if (!req.user.farmId) {
@@ -367,7 +375,8 @@ router.post(
         req.user.farmId,
         req.user.userId,
         streamSourceUrl,
-        duration
+        duration,
+        frame_interval
       );
 
       logger.info('Video chunk recording initiated', {

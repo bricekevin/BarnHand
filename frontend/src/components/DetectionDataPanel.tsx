@@ -7,9 +7,6 @@ interface Horse {
   last_detected_frame: number;
   total_detections: number;
   avg_confidence: number;
-  state_distribution: {
-    [key: string]: number;
-  };
 }
 
 interface DetectionFrame {
@@ -30,10 +27,14 @@ interface DetectionData {
     duration: number;
     resolution: string;
     total_frames: number;
+    frame_interval?: number;
   };
   summary: {
     total_horses: number;
     total_detections: number;
+    frames_analyzed?: number;
+    total_frames?: number;
+    frame_interval?: number;
     processing_time_ms: number;
   };
   horses: Horse[];
@@ -58,6 +59,7 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showRawJSON, setShowRawJSON] = useState(false);
   const [selectedHorse, setSelectedHorse] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   useEffect(() => {
     if (chunkId) {
@@ -123,6 +125,34 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
 
   const rgbToString = (color: [number, number, number]): string => {
     return `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+  };
+
+  const handleCopyJSON = async () => {
+    if (!detectionData) return;
+
+    try {
+      const jsonString = JSON.stringify(detectionData, null, 2);
+      await navigator.clipboard.writeText(jsonString);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy JSON:', err);
+    }
+  };
+
+  const handleDownloadJSON = () => {
+    if (!detectionData) return;
+
+    const jsonString = JSON.stringify(detectionData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `detections_${streamId}_${chunkId}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   if (!chunkId) {
@@ -193,7 +223,7 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
         <h3 className="text-sm font-semibold text-cyan-400 mb-3 uppercase tracking-wide">
           Detection Summary
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <div className="control-group">
             <div className="control-label">Horses Detected</div>
             <div className="control-value text-2xl">
@@ -201,15 +231,32 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
             </div>
           </div>
           <div className="control-group">
-            <div className="control-label">Total Frames</div>
+            <div className="control-label">Processing Time</div>
             <div className="control-value text-2xl">
+              {formatDuration(detectionData.summary.processing_time_ms)}
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4 mt-3">
+          <div className="control-group">
+            <div className="control-label">Frames Processed</div>
+            <div className="control-value text-xl">
+              {detectionData.summary.frames_analyzed ||
+                detectionData.frames.length}
+            </div>
+          </div>
+          <div className="control-group">
+            <div className="control-label">Total Frames</div>
+            <div className="control-value text-xl">
               {detectionData.video_metadata.total_frames}
             </div>
           </div>
           <div className="control-group">
-            <div className="control-label">Processing Time</div>
-            <div className="control-value text-2xl">
-              {formatDuration(detectionData.summary.processing_time_ms)}
+            <div className="control-label">Frame Interval</div>
+            <div className="control-value text-xl">
+              {detectionData.summary.frame_interval ||
+                detectionData.video_metadata.frame_interval ||
+                1}
             </div>
           </div>
         </div>
@@ -275,40 +322,6 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
                   </span>
                 </div>
               </div>
-              {selectedHorse === horse.id && (
-                <div className="mt-3 pt-3 border-t border-slate-700">
-                  <div className="text-xs text-slate-400 mb-2">
-                    State Distribution:
-                  </div>
-                  <div className="space-y-1">
-                    {Object.entries(horse.state_distribution).map(
-                      ([state, count]) => (
-                        <div
-                          key={state}
-                          className="flex justify-between items-center"
-                        >
-                          <span className="text-slate-300 capitalize">
-                            {state}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-cyan-400 rounded-full"
-                                style={{
-                                  width: `${(count / horse.total_detections) * 100}%`,
-                                }}
-                              ></div>
-                            </div>
-                            <span className="text-cyan-400 font-mono text-xs w-8 text-right">
-                              {count}
-                            </span>
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -321,50 +334,144 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
         </h3>
         <div className="timeline-scrubber bg-slate-800 rounded-lg p-2 overflow-x-auto">
           <div className="flex gap-1 min-w-max">
-            {detectionData.frames.map(frame => (
-              <button
-                key={frame.frame_index}
-                onClick={() => handleTimelineClick(frame.frame_index)}
-                className={`timeline-frame flex-shrink-0 w-2 h-12 rounded transition-all duration-150 ${
-                  frame.detections.length > 0
-                    ? 'bg-cyan-400 hover:bg-cyan-300'
-                    : 'bg-slate-700 hover:bg-slate-600'
-                }`}
-                title={`Frame ${frame.frame_index}: ${frame.detections.length} detections at ${frame.timestamp.toFixed(2)}s`}
-              ></button>
-            ))}
+            {(() => {
+              // Create a map of processed frames for quick lookup
+              const frameMap = new Map(
+                detectionData.frames.map(f => [f.frame_index, f])
+              );
+              const totalFrames =
+                detectionData.video_metadata?.total_frames || 0;
+              const frameInterval =
+                detectionData.video_metadata?.frame_interval || 1;
+
+              // Generate timeline for ALL frames, marking processed ones
+              return Array.from({ length: totalFrames }, (_, i) => {
+                const processedFrame = frameMap.get(i);
+                const isProcessed = processedFrame !== undefined;
+                const hasDetections =
+                  isProcessed && processedFrame.detections.length > 0;
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => isProcessed && handleTimelineClick(i)}
+                    className={`timeline-frame flex-shrink-0 w-2 h-12 rounded transition-all duration-150 ${
+                      hasDetections
+                        ? 'bg-cyan-400 hover:bg-cyan-300'
+                        : isProcessed
+                          ? 'bg-slate-600 hover:bg-slate-500'
+                          : 'bg-slate-800'
+                    }`}
+                    title={
+                      isProcessed
+                        ? `Frame ${i}: ${processedFrame.detections.length} detections at ${processedFrame.timestamp.toFixed(2)}s`
+                        : `Frame ${i}: Skipped (interval=${frameInterval})`
+                    }
+                    disabled={!isProcessed}
+                  ></button>
+                );
+              });
+            })()}
           </div>
         </div>
         <div className="text-xs text-slate-400 mt-2 text-center">
           {detectionData.frames.filter(f => f.detections.length > 0).length}{' '}
-          frames with detections
+          frames with detections • {detectionData.frames.length} processed •{' '}
+          {detectionData.video_metadata?.total_frames || 0} total
         </div>
       </div>
 
       {/* Raw JSON Section */}
       <div className="json-section control-panel">
-        <button
-          onClick={() => setShowRawJSON(!showRawJSON)}
-          className="w-full flex items-center justify-between text-sm font-semibold text-cyan-400 mb-3 uppercase tracking-wide hover:text-cyan-300 transition-colors"
-        >
-          <span>Raw Detection Data (JSON)</span>
-          <svg
-            className={`w-5 h-5 transition-transform duration-200 ${showRawJSON ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <div className="flex items-center justify-between mb-3 relative z-10">
+          <button
+            onClick={() => setShowRawJSON(!showRawJSON)}
+            className="flex items-center gap-2 text-sm font-semibold text-cyan-400 uppercase tracking-wide hover:text-cyan-300 transition-colors"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
-        </button>
+            <span>Raw Detection Data (JSON)</span>
+            <svg
+              className={`w-5 h-5 transition-transform duration-200 ${showRawJSON ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+          {showRawJSON && (
+            <div className="flex gap-2">
+              <button
+                onClick={handleCopyJSON}
+                className="px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors flex items-center gap-2 relative z-10"
+                title="Copy JSON to clipboard"
+              >
+                {copySuccess ? (
+                  <>
+                    <svg
+                      className="w-4 h-4 text-green-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    <span className="text-green-400">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleDownloadJSON}
+                className="px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors flex items-center gap-2 relative z-10"
+                title="Download JSON file"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+                <span>Download</span>
+              </button>
+            </div>
+          )}
+        </div>
         {showRawJSON && (
-          <div className="json-content bg-slate-950 rounded-lg p-4 overflow-auto max-h-96">
-            <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap">
+          <div className="json-content bg-slate-950 rounded-lg p-4 overflow-y-auto overflow-x-hidden max-h-96 border border-slate-800">
+            <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap break-words">
               {JSON.stringify(detectionData, null, 2)}
             </pre>
           </div>
