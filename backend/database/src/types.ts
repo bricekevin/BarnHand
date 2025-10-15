@@ -57,6 +57,9 @@ export interface Horse {
   metadata: Record<string, any>;
   created_at: Date;
   updated_at: Date;
+  // Optional fields from JOINs for display purposes
+  stream_name?: string;
+  farm_name?: string;
 }
 
 export interface CreateHorseRequest {

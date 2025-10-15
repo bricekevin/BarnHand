@@ -38,6 +38,9 @@ interface Horse {
   metadata: Record<string, any>;
   created_at: Date;
   updated_at: Date;
+  // Optional fields from JOINs for display purposes
+  stream_name?: string;
+  farm_name?: string;
 }
 
 export interface UpdateHorseDto {
@@ -88,24 +91,37 @@ class StreamHorseService {
       return [];
     }
 
-    // Verify stream belongs to farm (authorization check)
-    const stream = await this.streamRepository.findById(streamId);
-    if (!stream) {
-      throw new Error(`Stream ${streamId} not found`);
-    }
-    if (stream.farm_id !== farmId) {
-      throw new Error(`Stream ${streamId} does not belong to farm ${farmId}`);
-    }
+    try {
+      // Verify stream belongs to farm (authorization check)
+      logger.debug('Fetching stream for verification', { streamId, farmId });
+      const stream = await this.streamRepository.findById(streamId);
+      if (!stream) {
+        throw new Error(`Stream ${streamId} not found`);
+      }
+      if (stream.farm_id !== farmId) {
+        throw new Error(`Stream ${streamId} does not belong to farm ${farmId}`);
+      }
 
-    // Fetch horses for this stream
-    const horses = await this.horseRepository.findByStreamId(streamId);
-    logger.debug('Fetched stream horses', {
-      streamId,
-      farmId,
-      count: horses.length
-    });
+      // Fetch horses for this stream
+      logger.debug('Fetching horses for stream', { streamId });
+      const horses = await this.horseRepository.findByStreamId(streamId);
+      logger.debug('Fetched stream horses', {
+        streamId,
+        farmId,
+        count: horses.length
+      });
 
-    return horses;
+      return horses;
+    } catch (error) {
+      logger.error('Error in getStreamHorses', {
+        error: (error as Error).message,
+        stack: (error as Error).stack,
+        streamId,
+        farmId,
+        useDatabase: this.useDatabase
+      });
+      throw error;
+    }
   }
 
   /**

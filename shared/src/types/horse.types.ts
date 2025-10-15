@@ -45,6 +45,9 @@ export const HorseSchema = z.object({
   metadata: z.record(z.unknown()).optional(),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
+  // Optional fields from JOINs for display purposes
+  stream_name: z.string().optional(),
+  farm_name: z.string().optional(),
 });
 
 // Horse identification request

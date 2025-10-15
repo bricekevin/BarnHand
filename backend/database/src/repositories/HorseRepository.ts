@@ -28,8 +28,17 @@ export class HorseRepository {
   }
 
   async findByStreamId(streamId: string): Promise<Horse[]> {
-    const sql =
-      'SELECT * FROM horses WHERE stream_id = $1 ORDER BY last_seen DESC';
+    const sql = `
+      SELECT
+        h.*,
+        s.name as stream_name,
+        f.name as farm_name
+      FROM horses h
+      LEFT JOIN streams s ON h.stream_id = s.id
+      LEFT JOIN farms f ON h.farm_id = f.id
+      WHERE h.stream_id = $1
+      ORDER BY h.last_seen DESC
+    `;
     const result = await query(sql, [streamId]);
 
     return result.rows.map(this.mapRowToHorse);
@@ -155,16 +164,26 @@ export class HorseRepository {
   async findSimilarHorses(
     featureVector: number[],
     threshold = 0.7,
-    maxResults = 10
+    maxResults = 10,
+    streamId?: string,
+    farmId?: string
   ): Promise<Array<{ horse: Horse; similarity: number }>> {
     const sql = `
-      SELECT h.*, similarity
-      FROM find_similar_horses($1::vector, $2, $3) fs
+      SELECT h.*, s.name as stream_name, f.name as farm_name, fs.similarity
+      FROM find_similar_horses($1::vector, $2, $3, $4::uuid, $5::uuid) fs
       JOIN horses h ON h.id = fs.horse_id
-      ORDER BY similarity DESC
+      LEFT JOIN streams s ON h.stream_id = s.id
+      LEFT JOIN farms f ON h.farm_id = f.id
+      ORDER BY fs.similarity DESC
     `;
 
-    const params = [`[${featureVector.join(',')}]`, threshold, maxResults];
+    const params = [
+      `[${featureVector.join(',')}]`,
+      threshold,
+      maxResults,
+      streamId || null,
+      farmId || null,
+    ];
     const result = await query(sql, params);
 
     return result.rows.map((row: any) => ({
@@ -225,6 +244,9 @@ export class HorseRepository {
           : row.metadata,
       created_at: row.created_at,
       updated_at: row.updated_at,
+      // Include stream and farm names when available (from JOINs)
+      stream_name: row.stream_name,
+      farm_name: row.farm_name,
     };
   }
 }
