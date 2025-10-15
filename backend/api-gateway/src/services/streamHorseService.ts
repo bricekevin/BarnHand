@@ -1,4 +1,10 @@
 import { logger } from '../config/logger';
+import { Pool } from 'pg';
+
+// Create database pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://admin:password@postgres:5432/barnhand',
+});
 
 // Try to import database, but fallback gracefully if not available
 let HorseRepository: any;
@@ -8,7 +14,7 @@ try {
   HorseRepository = db.HorseRepository;
   StreamRepository = db.StreamRepository;
 } catch (error) {
-  logger.warn('Database not available for StreamHorseService');
+  logger.warn('Database not available for StreamHorseService, using direct pool');
 }
 
 interface Horse {
@@ -49,6 +55,7 @@ class StreamHorseService {
   private horseRepository: any;
   private streamRepository: any;
   private useDatabase = false;
+  private useDirectPool = true; // Use direct pool as workaround
 
   constructor() {
     // Try to use database if available
@@ -57,13 +64,14 @@ class StreamHorseService {
         this.horseRepository = new HorseRepository();
         this.streamRepository = new StreamRepository();
         this.useDatabase = true;
-        logger.info('StreamHorseService initialized with database');
+        this.useDirectPool = false;
+        logger.info('StreamHorseService initialized with database repositories');
       } catch (error) {
         logger.warn('Database connection failed for StreamHorseService', { error });
         this.useDatabase = false;
       }
     } else {
-      logger.warn('StreamHorseService initialized without database');
+      logger.info('StreamHorseService using direct PostgreSQL pool');
     }
   }
 
@@ -74,6 +82,36 @@ class StreamHorseService {
    * @returns Array of horses for the stream
    */
   async getStreamHorses(streamId: string, farmId: string): Promise<Horse[]> {
+    if (this.useDirectPool) {
+      // Direct PostgreSQL query as workaround
+      const streamQuery = await pool.query(
+        'SELECT * FROM streams WHERE id = $1',
+        [streamId]
+      );
+
+      if (streamQuery.rows.length === 0) {
+        throw new Error(`Stream ${streamId} not found`);
+      }
+
+      const stream = streamQuery.rows[0];
+      if (stream.farm_id !== farmId) {
+        throw new Error(`Stream ${streamId} does not belong to farm ${farmId}`);
+      }
+
+      const horsesQuery = await pool.query(
+        'SELECT * FROM horses WHERE stream_id = $1 ORDER BY last_seen DESC',
+        [streamId]
+      );
+
+      logger.debug('Fetched stream horses (direct)', {
+        streamId,
+        farmId,
+        count: horsesQuery.rows.length
+      });
+
+      return horsesQuery.rows;
+    }
+
     if (!this.useDatabase) {
       throw new Error('Database not available');
     }

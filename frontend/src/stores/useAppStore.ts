@@ -318,8 +318,13 @@ export const useAppStore = create<AppStore>()(
 export const useStreams = () => useAppStore(state => state.streams);
 export const useActiveStreams = () => useAppStore(state => state.activeStreams);
 export const useHorses = () => useAppStore(state => state.horses);
-export const useStreamHorses = (streamId?: string) =>
-  useAppStore(state => (streamId ? state.streamHorses[streamId] || [] : state.streamHorses));
+export const useStreamHorses = (streamId: string) =>
+  useAppStore(state => state.streamHorses[streamId] ?? [], (a, b) => {
+    // Custom equality function to prevent infinite loops
+    if (!a || !b) return a === b;
+    if (a.length !== b.length) return false;
+    return a.every((horse, i) => horse.id === b[i]?.id);
+  });
 export const useDetections = () => useAppStore(state => state.detections);
 export const useSettings = () => useAppStore(state => state.settings);
 export const useSelectedStream = () =>
