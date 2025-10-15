@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
+import type { Horse as StreamHorse } from '../../../shared/src/types/horse.types';
 
 // Types
 
@@ -61,6 +62,9 @@ interface AppState {
   horses: Horse[];
   activeHorses: string[];
 
+  // Stream Horses (per-stream registry)
+  streamHorses: Record<string, StreamHorse[]>;
+
   // Detections
   detections: Detection[];
 
@@ -95,6 +99,12 @@ interface AppActions {
   updateHorse: (id: string, updates: Partial<Horse>) => void;
   removeHorse: (id: string) => void;
 
+  // Stream Horse actions (per-stream registry)
+  setStreamHorses: (streamId: string, horses: StreamHorse[]) => void;
+  updateStreamHorse: (streamId: string, horseId: string, updates: Partial<StreamHorse>) => void;
+  addStreamHorse: (streamId: string, horse: StreamHorse) => void;
+  clearStreamHorses: (streamId?: string) => void;
+
   // Detection actions
   addDetections: (detections: Detection[]) => void;
   clearDetections: (streamId?: string) => void;
@@ -119,6 +129,7 @@ const initialState: AppState = {
   activeStreams: [],
   horses: [],
   activeHorses: [],
+  streamHorses: {},
   detections: [],
   selectedStream: null,
   selectedHorse: null,
@@ -200,6 +211,61 @@ export const useAppStore = create<AppStore>()(
           horses: state.horses.filter(horse => horse.id !== id),
         })),
 
+      // Stream Horse actions (per-stream registry)
+      setStreamHorses: (streamId, horses) =>
+        set(state => ({
+          streamHorses: {
+            ...state.streamHorses,
+            [streamId]: horses,
+          },
+        })),
+
+      updateStreamHorse: (streamId, horseId, updates) =>
+        set(state => ({
+          streamHorses: {
+            ...state.streamHorses,
+            [streamId]: (state.streamHorses[streamId] || []).map(horse =>
+              horse.id === horseId ? { ...horse, ...updates } : horse
+            ),
+          },
+        })),
+
+      addStreamHorse: (streamId, horse) =>
+        set(state => {
+          const currentHorses = state.streamHorses[streamId] || [];
+          // Check if horse already exists (by id)
+          const existingIndex = currentHorses.findIndex(h => h.id === horse.id);
+
+          if (existingIndex >= 0) {
+            // Update existing horse
+            const updatedHorses = [...currentHorses];
+            updatedHorses[existingIndex] = horse;
+            return {
+              streamHorses: {
+                ...state.streamHorses,
+                [streamId]: updatedHorses,
+              },
+            };
+          } else {
+            // Add new horse
+            return {
+              streamHorses: {
+                ...state.streamHorses,
+                [streamId]: [...currentHorses, horse],
+              },
+            };
+          }
+        }),
+
+      clearStreamHorses: streamId =>
+        set(state => {
+          if (streamId) {
+            const { [streamId]: _, ...rest } = state.streamHorses;
+            return { streamHorses: rest };
+          }
+          return { streamHorses: {} };
+        }),
+
       // Detection actions
       addDetections: detections =>
         set(state => ({
@@ -252,6 +318,8 @@ export const useAppStore = create<AppStore>()(
 export const useStreams = () => useAppStore(state => state.streams);
 export const useActiveStreams = () => useAppStore(state => state.activeStreams);
 export const useHorses = () => useAppStore(state => state.horses);
+export const useStreamHorses = (streamId?: string) =>
+  useAppStore(state => (streamId ? state.streamHorses[streamId] || [] : state.streamHorses));
 export const useDetections = () => useAppStore(state => state.detections);
 export const useSettings = () => useAppStore(state => state.settings);
 export const useSelectedStream = () =>
