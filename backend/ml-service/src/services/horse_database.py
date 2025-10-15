@@ -366,6 +366,9 @@ class HorseDatabaseService:
             features = horse_data.get("features", [])
             total_detections = horse_data.get("total_detections", 1)
 
+            # Get farm_id from stream
+            farm_id = await self._get_farm_id_from_stream(stream_id)
+
             # Convert features to proper format
             if features and len(features) > 0:
                 if isinstance(features, np.ndarray):
@@ -380,17 +383,18 @@ class HorseDatabaseService:
             # Upsert horse record
             cursor.execute("""
                 INSERT INTO horses (
-                    tracking_id, stream_id, last_seen, total_detections,
+                    tracking_id, stream_id, farm_id, last_seen, total_detections,
                     feature_vector, metadata, track_confidence, status
-                ) VALUES (%s, %s, to_timestamp(%s), %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, to_timestamp(%s), %s, %s, %s, %s, %s)
                 ON CONFLICT (tracking_id) DO UPDATE SET
                     last_seen = to_timestamp(%s),
                     total_detections = horses.total_detections + 1,
                     feature_vector = %s,
                     metadata = %s,
-                    track_confidence = %s
+                    track_confidence = %s,
+                    farm_id = EXCLUDED.farm_id
             """, (
-                horse_id, stream_id, timestamp, total_detections,
+                horse_id, stream_id, farm_id, timestamp, total_detections,
                 json.dumps(feature_vector), json.dumps(bbox), confidence, 'active',
                 timestamp, json.dumps(feature_vector), json.dumps(bbox), confidence
             ))
@@ -403,6 +407,23 @@ class HorseDatabaseService:
             conn.rollback()
             logger.error(f"Failed to save horse to PostgreSQL: {error}")
             return False
+        finally:
+            self.pool.putconn(conn)
+
+    async def _get_farm_id_from_stream(self, stream_id: str) -> Optional[str]:
+        """Get farm_id from stream_id by querying streams table."""
+        if not self.pool:
+            return None
+
+        conn = self.pool.getconn()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT farm_id FROM streams WHERE id = %s", (stream_id,))
+            result = cursor.fetchone()
+            return result[0] if result else None
+        except Exception as error:
+            logger.error(f"Failed to get farm_id for stream {stream_id}: {error}")
+            return None
         finally:
             self.pool.putconn(conn)
 
@@ -432,6 +453,9 @@ class HorseDatabaseService:
             track_confidence = horse_state.get("tracking_confidence", 1.0)
             thumbnail_bytes = horse_state.get("thumbnail_bytes", None)
 
+            # Get farm_id from stream
+            farm_id = await self._get_farm_id_from_stream(stream_id)
+
             # Convert features to proper format
             if features and len(features) > 0:
                 if isinstance(features, np.ndarray):
@@ -455,18 +479,19 @@ class HorseDatabaseService:
                 # Update with thumbnail
                 cursor.execute("""
                     INSERT INTO horses (
-                        tracking_id, stream_id, color_hex, last_seen, total_detections,
+                        tracking_id, stream_id, farm_id, color_hex, last_seen, total_detections,
                         feature_vector, metadata, track_confidence, status, avatar_thumbnail
-                    ) VALUES (%s, %s, %s, to_timestamp(%s), %s, %s, %s, %s, %s, %s)
+                    ) VALUES (%s, %s, %s, %s, to_timestamp(%s), %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (tracking_id) DO UPDATE SET
                         last_seen = to_timestamp(%s),
                         total_detections = GREATEST(horses.total_detections, EXCLUDED.total_detections),
                         feature_vector = EXCLUDED.feature_vector,
                         metadata = EXCLUDED.metadata,
                         track_confidence = EXCLUDED.track_confidence,
-                        avatar_thumbnail = EXCLUDED.avatar_thumbnail
+                        avatar_thumbnail = EXCLUDED.avatar_thumbnail,
+                        farm_id = EXCLUDED.farm_id
                 """, (
-                    horse_id, stream_id, color, last_updated, total_detections,
+                    horse_id, stream_id, farm_id, color, last_updated, total_detections,
                     json.dumps(feature_vector), json.dumps(metadata), track_confidence, 'active',
                     psycopg2.Binary(thumbnail_bytes),
                     last_updated
@@ -475,17 +500,18 @@ class HorseDatabaseService:
                 # Update without thumbnail (don't overwrite existing thumbnail)
                 cursor.execute("""
                     INSERT INTO horses (
-                        tracking_id, stream_id, color_hex, last_seen, total_detections,
+                        tracking_id, stream_id, farm_id, color_hex, last_seen, total_detections,
                         feature_vector, metadata, track_confidence, status
-                    ) VALUES (%s, %s, %s, to_timestamp(%s), %s, %s, %s, %s, %s)
+                    ) VALUES (%s, %s, %s, %s, to_timestamp(%s), %s, %s, %s, %s, %s)
                     ON CONFLICT (tracking_id) DO UPDATE SET
                         last_seen = to_timestamp(%s),
                         total_detections = GREATEST(horses.total_detections, EXCLUDED.total_detections),
                         feature_vector = EXCLUDED.feature_vector,
                         metadata = EXCLUDED.metadata,
-                        track_confidence = EXCLUDED.track_confidence
+                        track_confidence = EXCLUDED.track_confidence,
+                        farm_id = EXCLUDED.farm_id
                 """, (
-                    horse_id, stream_id, color, last_updated, total_detections,
+                    horse_id, stream_id, farm_id, color, last_updated, total_detections,
                     json.dumps(feature_vector), json.dumps(metadata), track_confidence, 'active',
                     last_updated
                 ))
