@@ -329,17 +329,22 @@ export const useAppStore = create<AppStore>()(
   )
 );
 
+// Stable empty array to prevent infinite loops
+const EMPTY_HORSE_ARRAY: StreamHorse[] = [];
+
 // Selectors
 export const useStreams = () => useAppStore(state => state.streams);
 export const useActiveStreams = () => useAppStore(state => state.activeStreams);
 export const useHorses = () => useAppStore(state => state.horses);
 export const useStreamHorses = (streamId: string) =>
   useAppStore(
-    state => state.streamHorses[streamId] ?? [],
+    state => state.streamHorses[streamId] || EMPTY_HORSE_ARRAY,
     (a, b) => {
       // Custom equality function to prevent infinite loops
-      if (!a || !b) return a === b;
+      if (a === b) return true; // Same reference
+      if (!a || !b) return false;
       if (a.length !== b.length) return false;
+      // Compare horse IDs for shallow equality
       return a.every((horse, i) => horse.id === b[i]?.id);
     }
   );
