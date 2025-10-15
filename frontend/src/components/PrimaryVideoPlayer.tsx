@@ -4,6 +4,7 @@ import { DetectedHorsesTab } from './DetectedHorsesTab';
 import { DetectionDataPanel } from './DetectionDataPanel';
 import { OverlayCanvas } from './OverlayCanvas';
 import { VideoPlayer } from './VideoPlayer';
+import { useStreamHorses } from '../stores/useAppStore';
 
 interface VideoChunk {
   id: string;
@@ -45,6 +46,9 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
   stream,
   onClose,
 }) => {
+  // Get horses from Zustand store
+  const streamHorses = useStreamHorses(stream.id);
+
   const [viewMode, setViewMode] = useState<'live' | 'playback' | 'horses'>(
     'live'
   );
@@ -537,7 +541,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
                 clipRule="evenodd"
               />
             </svg>
-            Detected Horses
+            Detected Horses ({streamHorses.length})
           </span>
         </button>
       </div>
