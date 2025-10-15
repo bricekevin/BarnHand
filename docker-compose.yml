@@ -44,6 +44,8 @@ services:
       - CHUNK_STORAGE_PATH=/app/storage/chunks
     volumes:
       - ./backend/api-gateway/src:/app/src
+      - ./backend/database:/app/../database
+      - ./backend/shared:/app/../shared
       - ./chunks:/app/storage/chunks
       - /app/node_modules
     depends_on:

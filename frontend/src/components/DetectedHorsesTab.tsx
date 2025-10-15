@@ -23,45 +23,22 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
   const [sortBy, setSortBy] = useState<'detections' | 'recent'>('recent');
   const [selectedHorse, setSelectedHorse] = useState<Horse | null>(null);
 
-  // Get auth token (similar to PrimaryVideoPlayer)
-  const getAuthToken = async () => {
-    let token = localStorage.getItem('authToken');
-
-    // Try to refresh token
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.token) {
-          token = data.token;
-          localStorage.setItem('authToken', token);
-        }
-      }
-    } catch (err) {
-      console.error('Token refresh failed:', err);
-    }
-
-    return token;
+  // Get auth token from localStorage (no automatic refresh to avoid login spam)
+  const getAuthToken = () => {
+    return localStorage.getItem('authToken');
   };
 
   // Initialize WebSocket connection and subscribe to stream
   useEffect(() => {
-    const initWebSocket = async () => {
-      const token = await getAuthToken();
+    const token = getAuthToken();
 
-      // Connect to WebSocket server with auth token
-      websocketService.connect('http://localhost:8000', token || undefined);
+    // Connect to WebSocket server with auth token
+    if (token) {
+      websocketService.connect('http://localhost:8000', token);
+    }
 
-      // Subscribe to stream for real-time updates
-      websocketService.subscribeToStream(streamId);
-    };
-
-    initWebSocket();
+    // Subscribe to stream for real-time updates
+    websocketService.subscribeToStream(streamId);
 
     // Cleanup: unsubscribe on unmount
     return () => {
@@ -76,10 +53,10 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
       setError(null);
 
       try {
-        const token = await getAuthToken();
+        const token = getAuthToken();
 
         if (!token) {
-          throw new Error('Authentication required');
+          throw new Error('Authentication required - please log in');
         }
 
         const response = await fetch(
@@ -131,10 +108,10 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
   }) => {
     if (!selectedHorse) return;
 
-    const token = await getAuthToken();
+    const token = getAuthToken();
 
     if (!token) {
-      throw new Error('Authentication required');
+      throw new Error('Authentication required - please log in');
     }
 
     // Call API to update horse
@@ -170,10 +147,10 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
     setError(null);
 
     try {
-      const token = await getAuthToken();
+      const token = getAuthToken();
 
       if (!token) {
-        throw new Error('Authentication required');
+        throw new Error('Authentication required - please log in');
       }
 
       const response = await fetch(
