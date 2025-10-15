@@ -4,8 +4,8 @@ import type { Horse, CreateHorseRequest } from '../types';
 export class HorseRepository {
   async findAll(farmId?: string): Promise<Horse[]> {
     const sql = farmId
-      ? 'SELECT * FROM horses WHERE farm_id = $1 ORDER BY created_at DESC'
-      : 'SELECT * FROM horses ORDER BY created_at DESC';
+      ? 'SELECT * FROM horses WHERE farm_id = $1 ORDER BY last_seen DESC'
+      : 'SELECT * FROM horses ORDER BY last_seen DESC';
 
     const params = farmId ? [farmId] : [];
     const result = await query(sql, params);
