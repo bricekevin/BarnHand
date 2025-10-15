@@ -211,6 +211,50 @@ export class HorseRepository {
     return result.rows.map(this.mapRowToHorse);
   }
 
+  async update(id: string, updates: Partial<Horse>): Promise<Horse | null> {
+    const allowedFields = [
+      'farm_id',
+      'stream_id',
+      'name',
+      'breed',
+      'age',
+      'color',
+      'markings',
+      'gender',
+      'ui_color',
+      'metadata',
+    ];
+    const updateFields: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (allowedFields.includes(key) && value !== undefined) {
+        updateFields.push(`${key} = $${paramIndex}`);
+        params.push(key === 'metadata' ? JSON.stringify(value) : value);
+        paramIndex++;
+      }
+    }
+
+    if (updateFields.length === 0) {
+      return this.findById(id);
+    }
+
+    updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+    params.push(id);
+
+    const sql = `
+      UPDATE horses
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
+    const result = await query(sql, params);
+
+    return result.rows.length > 0 ? this.mapRowToHorse(result.rows[0]) : null;
+  }
+
   async delete(id: string): Promise<boolean> {
     const result = await query('DELETE FROM horses WHERE id = $1', [id]);
     return result.rowCount > 0;

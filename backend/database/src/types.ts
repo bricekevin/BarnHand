@@ -1,5 +1,16 @@
 // Local type definitions for database layer
 
+export interface Farm {
+  id: string;
+  name: string;
+  owner_id: string;
+  location?: any;
+  timezone: string;
+  metadata: Record<string, any>;
+  created_at: Date;
+  updated_at: Date;
+}
+
 export interface Stream {
   id: string;
   farm_id: string;

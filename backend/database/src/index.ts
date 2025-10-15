@@ -6,8 +6,9 @@ export * from './health';
 export { default as MigrationRunner } from './migrations/migrate';
 
 // Repository classes
+export * from './repositories/FarmRepository';
 export * from './repositories/StreamRepository';
-export * from './repositories/HorseRepository'; 
+export * from './repositories/HorseRepository';
 export * from './repositories/DetectionRepository';
 export * from './repositories/HorseFeatureRepository';
 
