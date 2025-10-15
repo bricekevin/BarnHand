@@ -137,19 +137,50 @@ const matches = await horseRepo.findSimilarHorses(
 const matches = await horseRepo.findSimilarHorses(featureVector);
 ```
 
+## ML Service Analysis
+
+### Finding: ML Pipeline Already Stream-Scoped ✅
+
+After detailed code analysis, **the ML service was already implementing stream-scoped Re-ID correctly**:
+
+1. **Horse Loading** (processor.py:260):
+   - Uses `load_stream_horse_registry(stream_id)` which filters by stream
+   - Only loads horses belonging to the current stream from Redis
+
+2. **Tracker Initialization** (processor.py:266):
+   - HorseTracker receives `stream_id` parameter
+   - Initialized with stream-specific `known_horses` only
+
+3. **Re-identification** (horse_tracker.py:451):
+   - `_try_reidentification()` only searches `self.lost_tracks`
+   - Lost tracks are from current stream session only
+   - No database queries for cross-stream matching
+
+4. **Natural Isolation**:
+   - Each chunk processing creates new HorseTracker instance
+   - Tracker only has visibility into current stream's horses
+   - Redis keys use pattern `horse:{stream_id}:*:state` for isolation
+
+### Documentation Improvements Added
+
+- Added explicit comments explaining stream-scoping
+- Added debug logging showing Re-ID scope
+- Clarified that PostgreSQL `find_similar_horses()` is for API-level searches, not real-time ML
+
+**Commits**:
+- `4c99f17` - Database/API/Frontend changes
+- `9d593de` - ML service documentation
+
 ## Remaining Tasks
 
-### High Priority
-- [ ] Update ML service to use stream-scoped Re-ID (Task 5)
-- [ ] Add integration tests for stream isolation (Task 7)
+### Optional Enhancements
+- [ ] Create admin settings page for stream-to-barn management (Task 8)
+- [ ] Add integration tests for stream-scoped horse isolation (Task 9)
 
-### Medium Priority
-- [ ] Create admin settings page for stream-to-barn management (Task 6)
-- [ ] Add validation logging in ML pipeline
-
-### Low Priority
+### Future Improvements
 - [ ] Performance benchmarking with stream filters
-- [ ] Documentation updates for operators
+- [ ] E2E testing with multiple streams
+- [ ] Operational runbook for stream reassignment
 
 ## Recommendations
 
