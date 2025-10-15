@@ -37,6 +37,9 @@ class ChunkProcessor:
         self.gait_classifiers = {}  # Per-horse gait classifiers
         self.pose_validator = PoseValidator()
 
+        # Current stream context (set during chunk processing)
+        self.current_stream_id: Optional[str] = None
+
         self.processing_stats = {
             "chunks_processed": 0,
             "total_detections": 0,
@@ -82,11 +85,14 @@ class ChunkProcessor:
         # Use chunk_id from metadata if provided, otherwise generate new one
         chunk_id = chunk_metadata.get("chunk_id", str(uuid.uuid4()))
 
+        # Set current stream context for database operations
+        self.current_stream_id = chunk_metadata.get("stream_id", "default")
+
         logger.info(f"Processing chunk: {chunk_path}",
                    chunk_id=chunk_id,
-                   stream_id=chunk_metadata.get("stream_id"),
+                   stream_id=self.current_stream_id,
                    start_time=chunk_metadata.get("start_time"))
-        
+
         try:
             # Load video chunk
             frames, fps = await self._load_video_chunk(chunk_path)
@@ -245,6 +251,10 @@ class ChunkProcessor:
         try:
             # PHASE 3 INTEGRATION: Load known horses from previous chunks
             stream_id = chunk_metadata.get("stream_id", "default")
+
+            # Set current stream context for database operations
+            self.current_stream_id = stream_id
+
             logger.info(f"Loading known horses for stream {stream_id}")
             known_horses = await self.horse_db.load_stream_horse_registry(stream_id)
             logger.info(f"Loaded {len(known_horses)} known horses from registry")
@@ -737,7 +747,7 @@ class ChunkProcessor:
         """Save horse data to database."""
         try:
             horse_data = {
-                "stream_id": "default",  # TODO: Get from chunk metadata
+                "stream_id": self.current_stream_id or "default",
                 "horse_id": str(track_info.get("tracking_id", "unknown")),
                 "timestamp": timestamp,
                 "bbox": track_info.get("bbox", {}),

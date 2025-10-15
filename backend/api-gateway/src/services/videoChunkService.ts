@@ -29,6 +29,7 @@ export interface VideoChunk {
     resolution?: string;
     bitrate?: number;
     fps?: number;
+    frame_interval?: number;
   };
   created_at: Date;
   updated_at: Date;
