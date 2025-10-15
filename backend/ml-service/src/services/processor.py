@@ -255,11 +255,14 @@ class ChunkProcessor:
             # Set current stream context for database operations
             self.current_stream_id = stream_id
 
-            logger.info(f"Loading known horses for stream {stream_id}")
+            # STREAM-SCOPED RE-ID: Load horses filtered by stream_id
+            # This ensures Re-ID only matches horses within the same stream
+            logger.info(f"Loading known horses for stream {stream_id} (stream-scoped Re-ID)")
             known_horses = await self.horse_db.load_stream_horse_registry(stream_id)
-            logger.info(f"Loaded {len(known_horses)} known horses from registry")
+            logger.info(f"Loaded {len(known_horses)} known horses from stream {stream_id} registry")
 
-            # Initialize tracker with stream_id and known horses
+            # Initialize tracker with stream_id and stream-specific known horses
+            # Re-ID will only match against horses from this stream
             self.horse_tracker = HorseTracker(
                 similarity_threshold=0.7,
                 max_lost_frames=30,
