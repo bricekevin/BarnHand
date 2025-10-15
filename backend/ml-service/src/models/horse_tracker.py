@@ -682,6 +682,8 @@ class HorseTracker:
         """
         Update best thumbnail for horse if this frame is better.
         Score = confidence * bbox_area (larger, more confident detections are better).
+
+        Creates square crop with padding to avoid cutting off the horse.
         """
         try:
             bbox = detection["bbox"]
@@ -690,17 +692,52 @@ class HorseTracker:
 
             # Update if this is better than current best
             if thumbnail_score > track.best_thumbnail_score:
-                # Extract horse crop from frame
-                x1, y1 = int(bbox["x"]), int(bbox["y"])
-                x2, y2 = x1 + int(bbox["width"]), y1 + int(bbox["height"])
+                # Get frame dimensions
+                frame_h, frame_w = frame.shape[:2]
 
-                # Ensure coordinates are within frame bounds
-                h, w = frame.shape[:2]
-                x1, y1 = max(0, x1), max(0, y1)
-                x2, y2 = min(w, x2), min(h, y2)
+                # Get bounding box coordinates
+                bbox_x, bbox_y = int(bbox["x"]), int(bbox["y"])
+                bbox_w, bbox_h = int(bbox["width"]), int(bbox["height"])
 
-                if x2 > x1 and y2 > y1:
-                    horse_crop = frame[y1:y2, x1:x2].copy()
+                # Calculate square crop size (larger dimension + 10% padding)
+                max_dim = max(bbox_w, bbox_h)
+                square_size = int(max_dim * 1.1)  # 10% padding
+
+                # Calculate center of bbox
+                center_x = bbox_x + bbox_w // 2
+                center_y = bbox_y + bbox_h // 2
+
+                # Calculate square crop coordinates centered on bbox
+                crop_x1 = center_x - square_size // 2
+                crop_y1 = center_y - square_size // 2
+                crop_x2 = crop_x1 + square_size
+                crop_y2 = crop_y1 + square_size
+
+                # Handle cases where crop extends beyond frame boundaries
+                # Calculate padding needed for each side
+                pad_left = max(0, -crop_x1)
+                pad_right = max(0, crop_x2 - frame_w)
+                pad_top = max(0, -crop_y1)
+                pad_bottom = max(0, crop_y2 - frame_h)
+
+                # Adjust crop coordinates to frame boundaries
+                crop_x1 = max(0, crop_x1)
+                crop_y1 = max(0, crop_y1)
+                crop_x2 = min(frame_w, crop_x2)
+                crop_y2 = min(frame_h, crop_y2)
+
+                # Extract the crop
+                if crop_x2 > crop_x1 and crop_y2 > crop_y1:
+                    horse_crop = frame[crop_y1:crop_y2, crop_x1:crop_x2].copy()
+
+                    # Add black padding if crop extended beyond frame
+                    if pad_left > 0 or pad_right > 0 or pad_top > 0 or pad_bottom > 0:
+                        horse_crop = cv2.copyMakeBorder(
+                            horse_crop,
+                            pad_top, pad_bottom, pad_left, pad_right,
+                            cv2.BORDER_CONSTANT,
+                            value=[0, 0, 0]  # Black padding
+                        )
 
                     # Resize to 200x200 for consistent thumbnail size
                     thumbnail = cv2.resize(horse_crop, (200, 200), interpolation=cv2.INTER_AREA)
@@ -709,7 +746,7 @@ class HorseTracker:
                     track.best_thumbnail_bbox = bbox.copy()
                     track.best_thumbnail_score = thumbnail_score
 
-                    logger.debug(f"Updated thumbnail for {track.id} (score: {thumbnail_score:.1f})")
+                    logger.debug(f"Updated thumbnail for {track.id} (score: {thumbnail_score:.1f}, conf: {confidence:.2f})")
 
         except Exception as error:
             logger.debug(f"Failed to update thumbnail for {track.id}: {error}")
