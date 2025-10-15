@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 
 import { SettingsTab } from '../components/SettingsTab';
+import { StreamBarnManagement } from '../components/StreamBarnManagement';
 import { StreamControl } from '../components/StreamControl';
 import { StreamSettings } from '../components/StreamSettings';
 
 export const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
-    'control' | 'settings' | 'developer'
+    'control' | 'settings' | 'barns' | 'developer'
   >('control');
 
   const tabs = [
     { id: 'control', label: 'Stream Control', icon: '🎬' },
     { id: 'settings', label: 'Stream Settings', icon: '⚙️' },
+    { id: 'barns', label: 'Barn Management', icon: '🏡' },
     { id: 'developer', label: 'Developer', icon: '🔧' },
   ];
 
@@ -46,7 +48,7 @@ export const Settings: React.FC = () => {
             <button
               key={tab.id}
               onClick={() =>
-                setActiveTab(tab.id as 'control' | 'settings' | 'developer')
+                setActiveTab(tab.id as 'control' | 'settings' | 'barns' | 'developer')
               }
               className={`flex items-center px-6 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                 activeTab === tab.id
@@ -65,6 +67,7 @@ export const Settings: React.FC = () => {
           <div className="transition-all duration-300">
             {activeTab === 'control' && <StreamControl />}
             {activeTab === 'settings' && <StreamSettings />}
+            {activeTab === 'barns' && <StreamBarnManagement />}
             {activeTab === 'developer' && <SettingsTab />}
           </div>
         </div>
