@@ -1,13 +1,33 @@
 # Multi-stage build for API Gateway service
 FROM node:18-alpine as base
 
-# Install dependencies only when needed
+# Build shared package
+FROM base as shared-builder
+WORKDIR /shared
+COPY shared/package*.json ./
+RUN npm install
+COPY shared/ ./
+RUN npm run build || true
+
+# Build database package
+FROM base as database-builder
+# Copy root tsconfig that database extends
+COPY tsconfig.json /tsconfig.json
+# Copy shared package that database depends on
+COPY shared /shared
+WORKDIR /database
+COPY backend/database/package*.json ./
+RUN npm install
+COPY backend/database/ ./
+RUN npm run build
+
+# Install dependencies for api-gateway
 FROM base as deps
 RUN apk add --no-cache libc6-compat ffmpeg
 WORKDIR /app
 
 # Copy package files
-COPY package.json ./
+COPY backend/api-gateway/package*.json ./
 # Install dependencies fresh (redis included in package.json)
 RUN npm install
 
@@ -15,8 +35,13 @@ RUN npm install
 FROM base as development
 RUN apk add --no-cache ffmpeg curl
 WORKDIR /app
+
+# Copy built packages with their dependencies
+COPY --from=shared-builder /shared /shared
+COPY --from=database-builder /database /database
+
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY backend/api-gateway/ .
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
