@@ -1,11 +1,14 @@
 import { logger } from '../config/logger';
 
 // Try to import database, but fallback gracefully if not available
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let HorseRepository: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let StreamRepository: any;
 let databaseAvailable = false;
 
 try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const db = require('@barnhand/database');
   HorseRepository = db.HorseRepository;
   StreamRepository = db.StreamRepository;
