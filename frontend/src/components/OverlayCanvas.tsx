@@ -22,6 +22,7 @@ interface Detection {
   };
   confidence: number;
   trackingId: string;
+  horse_name?: string; // Optional horse name from registry (Phase 3)
 }
 
 interface OverlayCanvasProps {
@@ -158,16 +159,24 @@ export const OverlayCanvas: React.FC<OverlayCanvasProps> = ({
       ctx.fillStyle = '#FFFFFF';
       ctx.fillText(labelText, bbox.x + 4, bbox.y - 8);
 
-      // Draw tracking ID if enabled
+      // Draw tracking ID and horse name if enabled
       if (showTrackingIds) {
-        const trackingText = detection.trackingId;
-        ctx.font = '10px JetBrains Mono, monospace';
-        const trackingWidth = ctx.measureText(trackingText).width;
+        // Extract tracking number from tracking_id (e.g., "horse_003" -> "#3")
+        const trackingMatch = detection.trackingId.match(/(\d+)/);
+        const trackingNumber = trackingMatch ? `#${parseInt(trackingMatch[1])}` : detection.trackingId;
 
-        ctx.fillStyle = color + '80'; // Semi-transparent
-        ctx.fillRect(bbox.x, bbox.y + bbox.height + 2, trackingWidth + 6, 14);
+        // Format: "Horse #3 - Thunder" or "Horse #3" if unnamed
+        const displayName = detection.horse_name
+          ? `Horse ${trackingNumber} - ${detection.horse_name}`
+          : `Horse ${trackingNumber}`;
+
+        ctx.font = '11px JetBrains Mono, monospace';
+        const nameWidth = ctx.measureText(displayName).width;
+
+        ctx.fillStyle = color; // Solid background with tracking color
+        ctx.fillRect(bbox.x, bbox.y + bbox.height + 2, nameWidth + 8, 16);
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(trackingText, bbox.x + 3, bbox.y + bbox.height + 12);
+        ctx.fillText(displayName, bbox.x + 4, bbox.y + bbox.height + 14);
       }
 
       // Draw pose skeleton if available and enabled

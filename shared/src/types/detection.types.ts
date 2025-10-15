@@ -82,6 +82,7 @@ export const HorseDetectionSchema = z.object({
   is_new: z.boolean().default(false),
   occlusion_ratio: z.number().min(0).max(1).optional(),
   quality_score: z.number().min(0).max(1).optional(),
+  horse_name: z.string().optional(), // Horse name from registry (Phase 3)
 });
 
 // Frame detection result
