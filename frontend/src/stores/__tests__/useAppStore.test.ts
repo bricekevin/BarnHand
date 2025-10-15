@@ -253,4 +253,178 @@ describe('useAppStore', () => {
       expect(stats.averageConfidence).toBe(0);
     });
   });
+
+  describe('Stream Horses Management', () => {
+    const mockStreamHorse = {
+      id: 'horse-1',
+      tracking_id: 'horse_001',
+      assigned_color: '#06B6D4',
+      confidence_score: 0.95,
+      first_detected: '2025-01-15T10:00:00Z',
+      last_seen: '2025-01-15T10:05:00Z',
+      total_detections: 10,
+      status: 'unidentified' as const,
+      created_at: '2025-01-15T10:00:00Z',
+      updated_at: '2025-01-15T10:05:00Z',
+    };
+
+    const mockStreamHorse2 = {
+      id: 'horse-2',
+      tracking_id: 'horse_002',
+      assigned_color: '#10B981',
+      confidence_score: 0.88,
+      first_detected: '2025-01-15T10:01:00Z',
+      last_seen: '2025-01-15T10:06:00Z',
+      total_detections: 8,
+      status: 'unidentified' as const,
+      created_at: '2025-01-15T10:01:00Z',
+      updated_at: '2025-01-15T10:06:00Z',
+    };
+
+    beforeEach(() => {
+      useAppStore.getState().clearStreamHorses();
+    });
+
+    it('sets stream horses correctly', () => {
+      const { setStreamHorses } = useAppStore.getState();
+      const streamId = 'stream-1';
+
+      setStreamHorses(streamId, [mockStreamHorse, mockStreamHorse2]);
+
+      const { streamHorses } = useAppStore.getState();
+      expect(streamHorses[streamId]).toHaveLength(2);
+      expect(streamHorses[streamId][0]).toEqual(mockStreamHorse);
+    });
+
+    it('replaces existing horses for a stream', () => {
+      const { setStreamHorses } = useAppStore.getState();
+      const streamId = 'stream-1';
+
+      setStreamHorses(streamId, [mockStreamHorse]);
+      setStreamHorses(streamId, [mockStreamHorse2]);
+
+      const { streamHorses } = useAppStore.getState();
+      expect(streamHorses[streamId]).toHaveLength(1);
+      expect(streamHorses[streamId][0].id).toBe('horse-2');
+    });
+
+    it('does not affect horses for other streams', () => {
+      const { setStreamHorses } = useAppStore.getState();
+      const stream1 = 'stream-1';
+      const stream2 = 'stream-2';
+
+      setStreamHorses(stream1, [mockStreamHorse]);
+      setStreamHorses(stream2, [mockStreamHorse2]);
+
+      const { streamHorses } = useAppStore.getState();
+      expect(streamHorses[stream1]).toHaveLength(1);
+      expect(streamHorses[stream2]).toHaveLength(1);
+      expect(streamHorses[stream1][0].id).toBe('horse-1');
+      expect(streamHorses[stream2][0].id).toBe('horse-2');
+    });
+
+    it('updates a specific horse in a stream', () => {
+      const { setStreamHorses, updateStreamHorse } = useAppStore.getState();
+      const streamId = 'stream-1';
+
+      setStreamHorses(streamId, [mockStreamHorse, mockStreamHorse2]);
+      updateStreamHorse(streamId, 'horse-1', {
+        name: 'Thunder',
+        total_detections: 15,
+      });
+
+      const { streamHorses } = useAppStore.getState();
+      const updatedHorse = streamHorses[streamId].find(h => h.id === 'horse-1');
+
+      expect(updatedHorse?.name).toBe('Thunder');
+      expect(updatedHorse?.total_detections).toBe(15);
+      expect(updatedHorse?.tracking_id).toBe('horse_001'); // Unchanged
+    });
+
+    it('does not update other horses in the stream', () => {
+      const { setStreamHorses, updateStreamHorse } = useAppStore.getState();
+      const streamId = 'stream-1';
+
+      setStreamHorses(streamId, [mockStreamHorse, mockStreamHorse2]);
+      updateStreamHorse(streamId, 'horse-1', { name: 'Thunder' });
+
+      const { streamHorses } = useAppStore.getState();
+      const unchangedHorse = streamHorses[streamId].find(h => h.id === 'horse-2');
+
+      expect(unchangedHorse?.name).toBeUndefined();
+      expect(unchangedHorse?.total_detections).toBe(8);
+    });
+
+    it('adds a new horse to a stream', () => {
+      const { setStreamHorses, addStreamHorse } = useAppStore.getState();
+      const streamId = 'stream-1';
+
+      setStreamHorses(streamId, [mockStreamHorse]);
+      addStreamHorse(streamId, mockStreamHorse2);
+
+      const { streamHorses } = useAppStore.getState();
+      expect(streamHorses[streamId]).toHaveLength(2);
+      expect(streamHorses[streamId].find(h => h.id === 'horse-2')).toEqual(mockStreamHorse2);
+    });
+
+    it('updates existing horse if id matches (upsert behavior)', () => {
+      const { setStreamHorses, addStreamHorse } = useAppStore.getState();
+      const streamId = 'stream-1';
+
+      setStreamHorses(streamId, [mockStreamHorse]);
+
+      const updatedHorse = {
+        ...mockStreamHorse,
+        name: 'Thunder',
+        total_detections: 15,
+        last_seen: '2025-01-15T10:10:00Z',
+      };
+
+      addStreamHorse(streamId, updatedHorse);
+
+      const { streamHorses } = useAppStore.getState();
+      expect(streamHorses[streamId]).toHaveLength(1); // Still only 1 horse
+      expect(streamHorses[streamId][0].name).toBe('Thunder');
+      expect(streamHorses[streamId][0].total_detections).toBe(15);
+    });
+
+    it('creates stream entry if stream does not exist', () => {
+      const { addStreamHorse } = useAppStore.getState();
+      const streamId = 'new-stream';
+
+      addStreamHorse(streamId, mockStreamHorse);
+
+      const { streamHorses } = useAppStore.getState();
+      expect(streamHorses[streamId]).toBeDefined();
+      expect(streamHorses[streamId]).toHaveLength(1);
+      expect(streamHorses[streamId][0]).toEqual(mockStreamHorse);
+    });
+
+    it('clears horses for a specific stream', () => {
+      const { setStreamHorses, clearStreamHorses } = useAppStore.getState();
+      const stream1 = 'stream-1';
+      const stream2 = 'stream-2';
+
+      setStreamHorses(stream1, [mockStreamHorse]);
+      setStreamHorses(stream2, [mockStreamHorse2]);
+      clearStreamHorses(stream1);
+
+      const { streamHorses } = useAppStore.getState();
+      expect(streamHorses[stream1]).toBeUndefined();
+      expect(streamHorses[stream2]).toEqual([mockStreamHorse2]);
+    });
+
+    it('clears all stream horses when no streamId provided', () => {
+      const { setStreamHorses, clearStreamHorses } = useAppStore.getState();
+      const stream1 = 'stream-1';
+      const stream2 = 'stream-2';
+
+      setStreamHorses(stream1, [mockStreamHorse]);
+      setStreamHorses(stream2, [mockStreamHorse2]);
+      clearStreamHorses();
+
+      const { streamHorses } = useAppStore.getState();
+      expect(streamHorses).toEqual({});
+    });
+  });
 });
