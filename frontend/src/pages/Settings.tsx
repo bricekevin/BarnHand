@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 
+import { SettingsTab } from '../components/SettingsTab';
 import { StreamControl } from '../components/StreamControl';
 import { StreamSettings } from '../components/StreamSettings';
 
 export const Settings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'control' | 'settings'>('control');
+  const [activeTab, setActiveTab] = useState<
+    'control' | 'settings' | 'developer'
+  >('control');
 
   const tabs = [
     { id: 'control', label: 'Stream Control', icon: '🎬' },
     { id: 'settings', label: 'Stream Settings', icon: '⚙️' },
+    { id: 'developer', label: 'Developer', icon: '🔧' },
   ];
 
   return (
@@ -38,10 +42,12 @@ export const Settings: React.FC = () => {
       {/* Tab Navigation */}
       <div className="max-w-7xl mx-auto px-6 pt-6">
         <div className="flex space-x-1 bg-slate-900/50 backdrop-blur-sm rounded-xl p-1 mb-8">
-          {tabs.map((tab) => (
+          {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() =>
+                setActiveTab(tab.id as 'control' | 'settings' | 'developer')
+              }
               className={`flex items-center px-6 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                 activeTab === tab.id
                   ? 'bg-cyan-500/20 text-cyan-400 shadow-glow'
@@ -59,6 +65,7 @@ export const Settings: React.FC = () => {
           <div className="transition-all duration-300">
             {activeTab === 'control' && <StreamControl />}
             {activeTab === 'settings' && <StreamSettings />}
+            {activeTab === 'developer' && <SettingsTab />}
           </div>
         </div>
       </div>

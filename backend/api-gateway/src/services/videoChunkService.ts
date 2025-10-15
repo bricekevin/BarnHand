@@ -936,6 +936,47 @@ export class VideoChunkService {
     }
   }
 
+  async getAllChunks(): Promise<VideoChunk[]> {
+    try {
+      const allChunks: VideoChunk[] = [];
+
+      // Read all farm directories
+      const farmDirs = await fs.readdir(this.chunkStoragePath);
+
+      for (const farmId of farmDirs) {
+        const farmPath = path.join(this.chunkStoragePath, farmId);
+        const farmStat = await fs.stat(farmPath);
+
+        if (!farmStat.isDirectory()) continue;
+
+        // Read all stream directories for this farm
+        const streamDirs = await fs.readdir(farmPath);
+
+        for (const streamId of streamDirs) {
+          const streamPath = path.join(farmPath, streamId);
+          const streamStat = await fs.stat(streamPath);
+
+          if (!streamStat.isDirectory()) continue;
+
+          // Get chunks for this stream
+          try {
+            const chunks = await this.getChunksForStream(streamId, farmId);
+            allChunks.push(...chunks);
+          } catch (error) {
+            logger.debug(`Failed to get chunks for stream ${streamId}`, {
+              error,
+            });
+          }
+        }
+      }
+
+      return allChunks;
+    } catch (error) {
+      logger.error('Failed to get all chunks', { error });
+      return [];
+    }
+  }
+
   getStorageStats(): { path: string; activeRecordings: number } {
     return {
       path: this.chunkStoragePath,

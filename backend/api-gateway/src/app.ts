@@ -7,6 +7,7 @@ import { requestLogger, errorLogger, logger } from './config/logger';
 import { apiRateLimit } from './middleware/rateLimiting';
 import { validateRequestSize } from './middleware/validation';
 // Route imports
+import adminRoutes from './routes/admin';
 import analyticsRoutes from './routes/analytics';
 import authRoutes from './routes/auth';
 import detectionRoutes from './routes/detections';
@@ -64,6 +65,7 @@ app.use('/api/', apiRateLimit);
 // API versioning and routes
 app.use('/api/v1/health', healthRoutes);
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/streams', streamRoutes);
 app.use('/api/v1/horses', horseRoutes);
 app.use('/api/v1/detections', detectionRoutes);
