@@ -86,17 +86,11 @@ router.delete(
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const db = require('@barnhand/database');
-        const HorseRepository = db.HorseRepository;
-        const horseRepo = new HorseRepository();
+        const { query } = db;
 
-        // Get all horses
-        const horses = await horseRepo.findAll();
-
-        // Delete each horse
-        for (const horse of horses) {
-          await horseRepo.delete(horse.id);
-          deletedCount++;
-        }
+        // Delete all horses directly
+        const result = await query('DELETE FROM horses RETURNING id');
+        deletedCount = result.rowCount || 0;
 
         logger.info('Admin cleanup: Horses deleted', {
           deletedCount,
