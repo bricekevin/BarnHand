@@ -644,6 +644,71 @@ export class VideoChunkService {
     return `http://localhost:8003/chunks/${farmId}/${chunk.stream_id}/${chunk.filename}`;
   }
 
+  /**
+   * Enrich detection data with horse names from database
+   * Maps tracking_id to horse name for each detection in each frame
+   */
+  private async enrichDetectionsWithHorseNames(
+    detections: any,
+    streamId: string
+  ): Promise<any> {
+    // Import HorseRepository lazily to avoid circular dependencies
+    const { HorseRepository } = await import(
+      '@barnhand/database/src/repositories/HorseRepository'
+    );
+    const horseRepo = new HorseRepository();
+
+    // Build a cache of tracking_id -> horse_name mappings
+    const horseCache: Map<string, string | null> = new Map();
+
+    // Process each frame in the detections
+    if (detections.frames && Array.isArray(detections.frames)) {
+      for (const frame of detections.frames) {
+        if (frame.horses && Array.isArray(frame.horses)) {
+          for (const detection of frame.horses) {
+            if (
+              detection.tracking_id &&
+              !horseCache.has(detection.tracking_id)
+            ) {
+              // Look up horse by tracking_id
+              try {
+                const horse = await horseRepo.findByTrackingId(
+                  detection.tracking_id
+                );
+                // Cache the result (null if not found, name if found)
+                horseCache.set(
+                  detection.tracking_id,
+                  horse && horse.name ? horse.name : null
+                );
+              } catch (error) {
+                logger.warn('Failed to lookup horse by tracking_id', {
+                  tracking_id: detection.tracking_id,
+                  error,
+                });
+                // Cache null to avoid repeated failed lookups
+                horseCache.set(detection.tracking_id, null);
+              }
+            }
+
+            // Set horse_name from cache
+            detection.horse_name =
+              horseCache.get(detection.tracking_id) || null;
+          }
+        }
+      }
+    }
+
+    logger.debug('Enriched detections with horse names', {
+      streamId,
+      totalHorsesCached: horseCache.size,
+      horsesWithNames: Array.from(horseCache.values()).filter(
+        name => name !== null
+      ).length,
+    });
+
+    return detections;
+  }
+
   async getChunkDetections(
     chunkId: string,
     farmId: string
@@ -666,9 +731,15 @@ export class VideoChunkService {
     try {
       // Read and parse detections JSON file
       const detectionsData = await fs.readFile(detectionsPath, 'utf-8');
-      const detections = JSON.parse(detectionsData);
+      let detections = JSON.parse(detectionsData);
 
-      logger.info('Chunk detections retrieved', {
+      // Enrich detections with horse names from database
+      detections = await this.enrichDetectionsWithHorseNames(
+        detections,
+        chunk.stream_id
+      );
+
+      logger.info('Chunk detections retrieved and enriched', {
         chunkId,
         farmId,
         detectionsPath,
