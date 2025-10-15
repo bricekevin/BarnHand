@@ -7,6 +7,7 @@ interface Horse {
   last_detected_frame: number;
   total_detections: number;
   avg_confidence: number;
+  name?: string; // Optional horse name from registry (Phase 3)
 }
 
 interface DetectionFrame {
@@ -300,9 +301,16 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
                     className="w-4 h-4 rounded-full border-2 border-white/50"
                     style={{ backgroundColor: rgbToString(horse.color) }}
                   ></div>
-                  <span className="font-mono font-semibold text-slate-100">
-                    {horse.id}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="font-mono font-semibold text-slate-100">
+                      {horse.id}
+                    </span>
+                    {horse.name && (
+                      <span className="text-xs text-cyan-400 font-medium">
+                        {horse.name}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <span className="text-xs text-slate-400">
                   {horse.total_detections} detections
