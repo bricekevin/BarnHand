@@ -15,7 +15,7 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
 }) => {
   // Get horses from Zustand store (subscribes to real-time updates)
   const storeHorses = useStreamHorses(streamId);
-  const { setStreamHorses } = useAppStore();
+  const setStreamHorses = useAppStore(state => state.setStreamHorses);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,15 +23,47 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
   const [sortBy, setSortBy] = useState<'detections' | 'recent'>('recent');
   const [selectedHorse, setSelectedHorse] = useState<Horse | null>(null);
 
+  // Get auth token (similar to PrimaryVideoPlayer)
+  const getAuthToken = async () => {
+    let token = localStorage.getItem('authToken');
+
+    // Try to refresh token
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.token) {
+          token = data.token;
+          localStorage.setItem('authToken', token);
+        }
+      }
+    } catch (err) {
+      console.error('Token refresh failed:', err);
+    }
+
+    return token;
+  };
+
   // Initialize WebSocket connection and subscribe to stream
   useEffect(() => {
-    // Connect to WebSocket server
-    websocketService.connect('http://localhost:8000');
+    const initWebSocket = async () => {
+      const token = await getAuthToken();
 
-    // Subscribe to stream for real-time updates
-    websocketService.subscribeToStream(streamId);
+      // Connect to WebSocket server with auth token
+      websocketService.connect('http://localhost:8000', token || undefined);
 
-    // Cleanup: unsubscribe and disconnect on unmount
+      // Subscribe to stream for real-time updates
+      websocketService.subscribeToStream(streamId);
+    };
+
+    initWebSocket();
+
+    // Cleanup: unsubscribe on unmount
     return () => {
       websocketService.unsubscribeFromStream(streamId);
     };
@@ -44,10 +76,18 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
       setError(null);
 
       try {
+        const token = await getAuthToken();
+
+        if (!token) {
+          throw new Error('Authentication required');
+        }
+
         const response = await fetch(
           `http://localhost:8000/api/v1/streams/${streamId}/horses`,
           {
-            credentials: 'include',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
         );
 
@@ -70,7 +110,9 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
     if (streamId) {
       fetchHorses();
     }
-  }, [streamId, setStreamHorses]);
+    // Remove setStreamHorses from dependencies - it's stable from Zustand
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streamId]);
 
   // Handle horse card click
   const handleHorseClick = (horse: Horse) => {
@@ -89,6 +131,12 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
   }) => {
     if (!selectedHorse) return;
 
+    const token = await getAuthToken();
+
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
     // Call API to update horse
     const response = await fetch(
       `http://localhost:8000/api/v1/streams/${streamId}/horses/${selectedHorse.id}`,
@@ -96,8 +144,8 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
-        credentials: 'include',
         body: JSON.stringify(updates),
       }
     );
@@ -122,10 +170,18 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
     setError(null);
 
     try {
+      const token = await getAuthToken();
+
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
       const response = await fetch(
         `http://localhost:8000/api/v1/streams/${streamId}/horses`,
         {
-          credentials: 'include',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
 
