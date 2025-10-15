@@ -1,10 +1,106 @@
 # Phase 3: Stream Horse Registry - Session Handoff
 
-**Last Updated**: 2025-10-14 23:20 PST
+**Last Updated**: 2025-10-15 00:06 PST
 
 ---
 
 ## ✅ Completed Tasks
+
+### Task 2.5: Add Horse Name Display to Video Overlays
+
+**Status**: Complete ✅
+**Commit**: `db3e5fc`
+
+**Summary**:
+
+- Added horse name display to detection overlays during chunk playback
+- Enhanced DetectionDataPanel to show horse names in sidebar list
+- Implemented comprehensive unit test suite (17 tests, all passing)
+
+**Changes Made**:
+
+**Shared Types** (`detection.types.ts`):
+
+- Added `horse_name` field to `HorseDetectionSchema` (optional string)
+- Enables horse name to be included in detection data from API
+
+**OverlayCanvas Component** (`OverlayCanvas.tsx`):
+
+- Updated `Detection` interface to include optional `horse_name` field
+- Modified label rendering logic (lines 162-180):
+  - Extracts tracking number from tracking_id (e.g., "horse_003" → "#3")
+  - Formats label as "Horse #3 - Thunder" if name exists
+  - Formats label as "Horse #3" if unnamed
+  - Uses assigned tracking color for solid background
+  - Displays label below bounding box with white text
+- Font: 11px JetBrains Mono for consistency
+- Label width auto-adjusts based on text length
+
+**DetectionDataPanel Component** (`DetectionDataPanel.tsx`):
+
+- Updated `Horse` interface to include optional `name` field
+- Enhanced horse list display (lines 304-313):
+  - Shows horse ID (tracking_id) in slate-100 color
+  - Shows horse name below ID in cyan-400 color
+  - Name only displays if present (conditional rendering)
+  - Maintains flexbox layout for proper alignment
+
+**Testing Results** (`OverlayCanvas.test.tsx`):
+
+- ✅ 17/17 unit tests pass (100% success rate)
+- **Horse Name Display Tests** (9 tests):
+  - Renders name when provided ("Horse #3 - Thunder")
+  - Renders default when not provided ("Horse #3")
+  - Extracts tracking numbers correctly (horse_001 → #1)
+  - Respects showTrackingIds prop (hides when false)
+  - Uses tracking color for background
+  - Handles multiple horses with different names
+  - Handles empty strings (treats as unnamed)
+  - Handles long names without breaking layout
+  - Handles special characters in names
+- **Confidence Label Tests** (1 test):
+  - Renders confidence percentage above bounding box
+- **Canvas Rendering Tests** (3 tests):
+  - Clears canvas before drawing
+  - Draws bounding box with tracking color
+  - Scales coordinates based on video dimensions
+- **Pose Rendering Tests** (2 tests):
+  - Renders pose keypoints when enabled
+  - Skips pose when disabled
+- **Edge Cases** (2 tests):
+  - Handles empty detections array
+  - Handles null videoRef gracefully
+
+**Test Infrastructure**:
+
+- Uses Vitest (not Jest)
+- Mocks canvas context to avoid infinite loops
+- Mocks ResizeObserver for proper cleanup
+- Prevents requestAnimationFrame from causing stack overflow
+
+**Files Modified**:
+
+- `shared/src/types/detection.types.ts` (+1 line)
+- `frontend/src/components/OverlayCanvas.tsx` (+20 lines, -7 lines)
+- `frontend/src/components/DetectionDataPanel.tsx` (+11 lines, -2 lines)
+- `frontend/src/components/__tests__/OverlayCanvas.test.tsx` (NEW, 414 lines)
+
+**Manual Testing Pending**:
+
+- ⏳ Visual test: Verify overlay text readable over video
+- ⏳ Manual test: Play chunk with named horse, verify name displays
+- ⏳ Manual test: Play chunk with unnamed horse, verify ID displays
+- ⏳ E2E test: Edit horse name, verify overlay updates immediately
+
+**Implementation Notes**:
+
+- Label positioning: Below bounding box (+2px offset)
+- Label background: Solid color (no transparency) for readability
+- Text color: Always white (#FFFFFF) for maximum contrast
+- Tracking number extraction: Uses regex to find first number sequence
+- Fallback behavior: If tracking_id has no number, shows full tracking_id
+
+---
 
 ### Task 2.3: Create Horse Edit Modal Component
 
@@ -558,7 +654,7 @@
 
 ## 📋 Next Priority
 
-### Task 2.5: Add Horse Name Display to Video Overlays (NEXT)
+### Task 3.1: Implement Real-Time Horse Registry Updates via WebSocket (NEXT)
 
 **Estimated Time**: 1-2 hours
 
@@ -662,15 +758,15 @@ docker compose logs -f api-gateway
 ## 📊 Phase 3 Progress
 
 **Total Tasks**: 15
-**Completed**: 11 (73%)
+**Completed**: 12 (80%)
 **In Progress**: 0
-**Remaining**: 4
+**Remaining**: 3
 
 **Phase Breakdown**:
 
 - Phase 0 (Foundation): ✅✅ **COMPLETE** (2/2)
 - Phase 1 (Backend): ✅✅✅✅✅ **COMPLETE** (5/5)
-- Phase 2 (Frontend): ✅✅✅✅⬜ (4/5)
+- Phase 2 (Frontend): ✅✅✅✅✅ **COMPLETE** (5/5)
 - Phase 3 (Integration): ⬜⬜⬜ (0/3)
 
-**Estimated Time Remaining**: 2-3 hours
+**Estimated Time Remaining**: 1-2 hours
