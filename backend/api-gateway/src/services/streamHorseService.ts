@@ -1,20 +1,19 @@
 import { logger } from '../config/logger';
-import { Pool } from 'pg';
-
-// Create database pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://admin:password@postgres:5432/barnhand',
-});
 
 // Try to import database, but fallback gracefully if not available
 let HorseRepository: any;
 let StreamRepository: any;
+let databaseAvailable = false;
+
 try {
   const db = require('@barnhand/database');
   HorseRepository = db.HorseRepository;
   StreamRepository = db.StreamRepository;
+  databaseAvailable = true;
+  logger.info('Database repositories loaded successfully');
 } catch (error) {
-  logger.warn('Database not available for StreamHorseService, using direct pool');
+  logger.warn('Database repositories not available - will return empty data', { error: (error as Error).message });
+  databaseAvailable = false;
 }
 
 interface Horse {
@@ -55,23 +54,21 @@ class StreamHorseService {
   private horseRepository: any;
   private streamRepository: any;
   private useDatabase = false;
-  private useDirectPool = true; // Use direct pool as workaround
 
   constructor() {
     // Try to use database if available
-    if (HorseRepository && StreamRepository) {
+    if (databaseAvailable && HorseRepository && StreamRepository) {
       try {
         this.horseRepository = new HorseRepository();
         this.streamRepository = new StreamRepository();
         this.useDatabase = true;
-        this.useDirectPool = false;
         logger.info('StreamHorseService initialized with database repositories');
       } catch (error) {
         logger.warn('Database connection failed for StreamHorseService', { error });
         this.useDatabase = false;
       }
     } else {
-      logger.info('StreamHorseService using direct PostgreSQL pool');
+      logger.info('StreamHorseService initialized without database - will return empty data');
     }
   }
 
@@ -82,38 +79,13 @@ class StreamHorseService {
    * @returns Array of horses for the stream
    */
   async getStreamHorses(streamId: string, farmId: string): Promise<Horse[]> {
-    if (this.useDirectPool) {
-      // Direct PostgreSQL query as workaround
-      const streamQuery = await pool.query(
-        'SELECT * FROM streams WHERE id = $1',
-        [streamId]
-      );
-
-      if (streamQuery.rows.length === 0) {
-        throw new Error(`Stream ${streamId} not found`);
-      }
-
-      const stream = streamQuery.rows[0];
-      if (stream.farm_id !== farmId) {
-        throw new Error(`Stream ${streamId} does not belong to farm ${farmId}`);
-      }
-
-      const horsesQuery = await pool.query(
-        'SELECT * FROM horses WHERE stream_id = $1 ORDER BY last_seen DESC',
-        [streamId]
-      );
-
-      logger.debug('Fetched stream horses (direct)', {
-        streamId,
-        farmId,
-        count: horsesQuery.rows.length
-      });
-
-      return horsesQuery.rows;
-    }
-
     if (!this.useDatabase) {
-      throw new Error('Database not available');
+      // Gracefully return empty array when database unavailable
+      logger.debug('Database not available - returning empty horse array', {
+        streamId,
+        farmId
+      });
+      return [];
     }
 
     // Verify stream belongs to farm (authorization check)
@@ -144,7 +116,8 @@ class StreamHorseService {
    */
   async getHorse(horseId: string, farmId: string): Promise<Horse | null> {
     if (!this.useDatabase) {
-      throw new Error('Database not available');
+      logger.debug('Database not available - returning null for horse', { horseId, farmId });
+      return null;
     }
 
     const horse = await this.horseRepository.findById(horseId);
@@ -205,7 +178,8 @@ class StreamHorseService {
    */
   async getHorseAvatar(horseId: string, farmId: string): Promise<Buffer | null> {
     if (!this.useDatabase) {
-      throw new Error('Database not available');
+      logger.debug('Database not available - returning null for avatar', { horseId, farmId });
+      return null;
     }
 
     // Verify horse exists and belongs to farm
@@ -238,7 +212,8 @@ class StreamHorseService {
     farmId: string
   ): Promise<{ total: number; recent: Horse[] }> {
     if (!this.useDatabase) {
-      throw new Error('Database not available');
+      logger.debug('Database not available - returning empty summary', { streamId, farmId });
+      return { total: 0, recent: [] };
     }
 
     // Verify stream belongs to farm
