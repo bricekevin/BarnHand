@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import type { Horse } from '../../../shared/src/types/horse.types';
 import { HorseCard } from './HorseCard';
 import { HorseEditModal } from './HorseEditModal';
+import { useAppStore, useStreamHorses } from '../stores/useAppStore';
+import { websocketService } from '../services/websocketService';
 
 interface DetectedHorsesTabProps {
   streamId: string;
@@ -11,12 +13,29 @@ interface DetectedHorsesTabProps {
 export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
   streamId,
 }) => {
-  const [horses, setHorses] = useState<Horse[]>([]);
+  // Get horses from Zustand store (subscribes to real-time updates)
+  const storeHorses = useStreamHorses(streamId);
+  const { setStreamHorses } = useAppStore();
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'detections' | 'recent'>('recent');
   const [selectedHorse, setSelectedHorse] = useState<Horse | null>(null);
+
+  // Initialize WebSocket connection and subscribe to stream
+  useEffect(() => {
+    // Connect to WebSocket server
+    websocketService.connect('http://localhost:8000');
+
+    // Subscribe to stream for real-time updates
+    websocketService.subscribeToStream(streamId);
+
+    // Cleanup: unsubscribe and disconnect on unmount
+    return () => {
+      websocketService.unsubscribeFromStream(streamId);
+    };
+  }, [streamId]);
 
   // Fetch horses on mount and when streamId changes
   useEffect(() => {
@@ -37,7 +56,9 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
         }
 
         const data = await response.json();
-        setHorses(data.horses || []);
+
+        // Update Zustand store with fetched horses
+        setStreamHorses(streamId, data.horses || []);
       } catch (err) {
         console.error('Error fetching horses:', err);
         setError(err instanceof Error ? err.message : 'Unknown error occurred');
@@ -49,7 +70,7 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
     if (streamId) {
       fetchHorses();
     }
-  }, [streamId]);
+  }, [streamId, setStreamHorses]);
 
   // Handle horse card click
   const handleHorseClick = (horse: Horse) => {
@@ -87,10 +108,9 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
 
     const data = await response.json();
 
-    // Update local state with updated horse
-    setHorses(prevHorses =>
-      prevHorses.map(h => (h.id === selectedHorse.id ? data.horse : h))
-    );
+    // Update Zustand store with updated horse (WebSocket will also update, but this is immediate)
+    const { updateStreamHorse } = useAppStore.getState();
+    updateStreamHorse(streamId, selectedHorse.id, data.horse);
 
     // Update selected horse
     setSelectedHorse(data.horse);
@@ -114,7 +134,9 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
       }
 
       const data = await response.json();
-      setHorses(data.horses || []);
+
+      // Update Zustand store with fetched horses
+      setStreamHorses(streamId, data.horses || []);
     } catch (err) {
       console.error('Error fetching horses:', err);
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
@@ -123,8 +145,8 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
     }
   };
 
-  // Filter and sort horses
-  const filteredHorses = horses
+  // Filter and sort horses (use storeHorses from Zustand)
+  const filteredHorses = storeHorses
     .filter(horse => {
       if (!searchTerm) return true;
       const name = horse.name?.toLowerCase() || '';
