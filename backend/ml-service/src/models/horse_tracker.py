@@ -449,10 +449,16 @@ class HorseTracker:
         return track
         
     def _try_reidentification(self, features: np.ndarray, detection: Dict[str, Any], timestamp: float) -> Optional[HorseTrack]:
-        """Try to reidentify a detection with lost tracks."""
+        """
+        Try to reidentify a detection with lost tracks.
+        NOTE: Re-ID is stream-scoped - only searches within this stream's lost tracks.
+        """
         if not self.lost_tracks:
             return None
-            
+
+        # STREAM-SCOPED RE-ID: Only searches lost tracks from current stream (self.stream_id)
+        logger.debug(f"Attempting Re-ID within stream {self.stream_id} - {len(self.lost_tracks)} lost tracks")
+
         # Search for similar features in lost tracks
         best_match = None
         best_similarity = 0.0
