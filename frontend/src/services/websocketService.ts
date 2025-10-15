@@ -69,7 +69,7 @@ class WebSocketService {
   private lastUpdate: Record<string, number> = {}; // Track last update time per stream
   private debounceDelay = 300; // 300ms debounce
 
-  connect(apiUrl: string = 'http://localhost:8000'): void {
+  connect(apiUrl: string = 'http://localhost:8000', authToken?: string): void {
     if (this.socket?.connected) {
       console.log('[WebSocket] Already connected');
       return;
@@ -82,6 +82,7 @@ class WebSocketService {
       reconnection: true,
       reconnectionAttempts: this.maxReconnectAttempts,
       reconnectionDelay: this.reconnectDelay,
+      auth: authToken ? { token: authToken } : undefined,
     });
 
     this.setupEventListeners();
