@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
+
 import type { Horse as StreamHorse } from '../../../shared/src/types/horse.types';
 
 // Types
@@ -52,7 +53,6 @@ interface Detection {
   timestamp: Date;
 }
 
-
 interface AppState {
   // Streams
   streams: Stream[];
@@ -93,7 +93,6 @@ interface AppActions {
   toggleStream: (id: string) => void;
   setActiveStreams: (streamIds: string[]) => void;
 
-
   // Horse actions
   addHorse: (horse: Omit<Horse, 'id'>) => void;
   updateHorse: (id: string, updates: Partial<Horse>) => void;
@@ -101,7 +100,11 @@ interface AppActions {
 
   // Stream Horse actions (per-stream registry)
   setStreamHorses: (streamId: string, horses: StreamHorse[]) => void;
-  updateStreamHorse: (streamId: string, horseId: string, updates: Partial<StreamHorse>) => void;
+  updateStreamHorse: (
+    streamId: string,
+    horseId: string,
+    updates: Partial<StreamHorse>
+  ) => void;
   addStreamHorse: (streamId: string, horse: StreamHorse) => void;
   clearStreamHorses: (streamId?: string) => void;
 
@@ -150,167 +153,179 @@ export const useAppStore = create<AppStore>()(
       (set, _get) => ({
         ...initialState,
 
-      // Stream actions
-      addStream: stream =>
-        set(state => ({
-          streams: [...state.streams, { ...stream, id: `stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` }],
-        })),
+        // Stream actions
+        addStream: stream =>
+          set(state => ({
+            streams: [
+              ...state.streams,
+              {
+                ...stream,
+                id: `stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              },
+            ],
+          })),
 
-      addStreamWithId: (id, stream) =>
-        set(state => ({
-          streams: state.streams.find(s => s.id === id)
-            ? state.streams // Stream already exists, don't add duplicate
-            : [...state.streams, { ...stream, id }],
-        })),
+        addStreamWithId: (id, stream) =>
+          set(state => ({
+            streams: state.streams.find(s => s.id === id)
+              ? state.streams // Stream already exists, don't add duplicate
+              : [...state.streams, { ...stream, id }],
+          })),
 
-      updateStream: (id, updates) =>
-        set(state => ({
-          streams: state.streams.map(stream =>
-            stream.id === id ? { ...stream, ...updates } : stream
-          ),
-        })),
-
-      removeStream: id =>
-        set(state => ({
-          streams: state.streams.filter(stream => stream.id !== id),
-          activeStreams: state.activeStreams.filter(
-            streamId => streamId !== id
-          ),
-        })),
-
-      toggleStream: id =>
-        set(state => ({
-          streams: state.streams.map(stream =>
-            stream.id === id 
-              ? { 
-                  ...stream, 
-                  status: stream.status === 'active' ? 'inactive' : 'active' 
-                } 
-              : stream
-          ),
-        })),
-
-      setActiveStreams: streamIds => set({ activeStreams: streamIds }),
-
-
-      // Horse actions
-      addHorse: horse =>
-        set(state => ({
-          horses: [...state.horses, { ...horse, id: `horse-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` }],
-        })),
-
-      updateHorse: (id, updates) =>
-        set(state => ({
-          horses: state.horses.map(horse =>
-            horse.id === id ? { ...horse, ...updates } : horse
-          ),
-        })),
-
-      removeHorse: id =>
-        set(state => ({
-          horses: state.horses.filter(horse => horse.id !== id),
-        })),
-
-      // Stream Horse actions (per-stream registry)
-      setStreamHorses: (streamId, horses) =>
-        set(state => ({
-          streamHorses: {
-            ...state.streamHorses,
-            [streamId]: horses,
-          },
-        })),
-
-      updateStreamHorse: (streamId, horseId, updates) =>
-        set(state => ({
-          streamHorses: {
-            ...state.streamHorses,
-            [streamId]: (state.streamHorses[streamId] || []).map(horse =>
-              horse.id === horseId ? { ...horse, ...updates } : horse
+        updateStream: (id, updates) =>
+          set(state => ({
+            streams: state.streams.map(stream =>
+              stream.id === id ? { ...stream, ...updates } : stream
             ),
-          },
-        })),
+          })),
 
-      addStreamHorse: (streamId, horse) =>
-        set(state => {
-          const currentHorses = state.streamHorses[streamId] || [];
-          // Check if horse already exists (by id)
-          const existingIndex = currentHorses.findIndex(h => h.id === horse.id);
+        removeStream: id =>
+          set(state => ({
+            streams: state.streams.filter(stream => stream.id !== id),
+            activeStreams: state.activeStreams.filter(
+              streamId => streamId !== id
+            ),
+          })),
 
-          if (existingIndex >= 0) {
-            // Update existing horse
-            const updatedHorses = [...currentHorses];
-            updatedHorses[existingIndex] = horse;
-            return {
-              streamHorses: {
-                ...state.streamHorses,
-                [streamId]: updatedHorses,
+        toggleStream: id =>
+          set(state => ({
+            streams: state.streams.map(stream =>
+              stream.id === id
+                ? {
+                    ...stream,
+                    status: stream.status === 'active' ? 'inactive' : 'active',
+                  }
+                : stream
+            ),
+          })),
+
+        setActiveStreams: streamIds => set({ activeStreams: streamIds }),
+
+        // Horse actions
+        addHorse: horse =>
+          set(state => ({
+            horses: [
+              ...state.horses,
+              {
+                ...horse,
+                id: `horse-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               },
-            };
-          } else {
-            // Add new horse
-            return {
-              streamHorses: {
-                ...state.streamHorses,
-                [streamId]: [...currentHorses, horse],
-              },
-            };
-          }
-        }),
+            ],
+          })),
 
-      clearStreamHorses: streamId =>
-        set(state => {
-          if (streamId) {
-            const { [streamId]: _, ...rest } = state.streamHorses;
-            return { streamHorses: rest };
-          }
-          return { streamHorses: {} };
-        }),
+        updateHorse: (id, updates) =>
+          set(state => ({
+            horses: state.horses.map(horse =>
+              horse.id === id ? { ...horse, ...updates } : horse
+            ),
+          })),
 
-      // Detection actions
-      addDetections: detections =>
-        set(state => ({
-          detections: [...state.detections, ...detections].slice(-1000), // Keep last 1000 detections
-        })),
+        removeHorse: id =>
+          set(state => ({
+            horses: state.horses.filter(horse => horse.id !== id),
+          })),
 
-      clearDetections: streamId =>
-        set(state => ({
-          detections: streamId
-            ? state.detections.filter(
-                detection => detection.streamId !== streamId
-              )
-            : [],
-        })),
+        // Stream Horse actions (per-stream registry)
+        setStreamHorses: (streamId, horses) =>
+          set(state => ({
+            streamHorses: {
+              ...state.streamHorses,
+              [streamId]: horses,
+            },
+          })),
 
+        updateStreamHorse: (streamId, horseId, updates) =>
+          set(state => ({
+            streamHorses: {
+              ...state.streamHorses,
+              [streamId]: (state.streamHorses[streamId] || []).map(horse =>
+                horse.id === horseId ? { ...horse, ...updates } : horse
+              ),
+            },
+          })),
 
-      // UI actions
-      setSelectedStream: streamId => set({ selectedStream: streamId }),
+        addStreamHorse: (streamId, horse) =>
+          set(state => {
+            const currentHorses = state.streamHorses[streamId] || [];
+            // Check if horse already exists (by id)
+            const existingIndex = currentHorses.findIndex(
+              h => h.id === horse.id
+            );
 
-      setSelectedHorse: horseId => set({ selectedHorse: horseId }),
+            if (existingIndex >= 0) {
+              // Update existing horse
+              const updatedHorses = [...currentHorses];
+              updatedHorses[existingIndex] = horse;
+              return {
+                streamHorses: {
+                  ...state.streamHorses,
+                  [streamId]: updatedHorses,
+                },
+              };
+            } else {
+              // Add new horse
+              return {
+                streamHorses: {
+                  ...state.streamHorses,
+                  [streamId]: [...currentHorses, horse],
+                },
+              };
+            }
+          }),
 
-      setLoading: loading => set({ isLoading: loading }),
+        clearStreamHorses: streamId =>
+          set(state => {
+            if (streamId) {
+              const { [streamId]: _, ...rest } = state.streamHorses;
+              return { streamHorses: rest };
+            }
+            return { streamHorses: {} };
+          }),
 
-      setError: error => set({ error }),
+        // Detection actions
+        addDetections: detections =>
+          set(state => ({
+            detections: [...state.detections, ...detections].slice(-1000), // Keep last 1000 detections
+          })),
 
-      // Settings actions
-      updateSettings: settings =>
-        set(state => ({
-          settings: { ...state.settings, ...settings },
-        })),
+        clearDetections: streamId =>
+          set(state => ({
+            detections: streamId
+              ? state.detections.filter(
+                  detection => detection.streamId !== streamId
+                )
+              : [],
+          })),
 
-      // Reset
-      reset: () => set(initialState),
-    }),
-    {
-      name: 'barnhand-store',
-      partialize: (state) => ({
-        streams: state.streams,
-        settings: state.settings
+        // UI actions
+        setSelectedStream: streamId => set({ selectedStream: streamId }),
+
+        setSelectedHorse: horseId => set({ selectedHorse: horseId }),
+
+        setLoading: loading => set({ isLoading: loading }),
+
+        setError: error => set({ error }),
+
+        // Settings actions
+        updateSettings: settings =>
+          set(state => ({
+            settings: { ...state.settings, ...settings },
+          })),
+
+        // Reset
+        reset: () => set(initialState),
       }),
+      {
+        name: 'barnhand-store',
+        partialize: state => ({
+          streams: state.streams,
+          settings: state.settings,
+        }),
+      }
+    ),
+    {
+      name: 'barnhand-devtools',
     }
-  ),
-  {
-    name: 'barnhand-devtools',
-  }
   )
 );
 
@@ -319,18 +334,19 @@ export const useStreams = () => useAppStore(state => state.streams);
 export const useActiveStreams = () => useAppStore(state => state.activeStreams);
 export const useHorses = () => useAppStore(state => state.horses);
 export const useStreamHorses = (streamId: string) =>
-  useAppStore(state => state.streamHorses[streamId] ?? [], (a, b) => {
-    // Custom equality function to prevent infinite loops
-    if (!a || !b) return a === b;
-    if (a.length !== b.length) return false;
-    return a.every((horse, i) => horse.id === b[i]?.id);
-  });
+  useAppStore(
+    state => state.streamHorses[streamId] ?? [],
+    (a, b) => {
+      // Custom equality function to prevent infinite loops
+      if (!a || !b) return a === b;
+      if (a.length !== b.length) return false;
+      return a.every((horse, i) => horse.id === b[i]?.id);
+    }
+  );
 export const useDetections = () => useAppStore(state => state.detections);
 export const useSettings = () => useAppStore(state => state.settings);
 export const useSelectedStream = () =>
   useAppStore(state => state.selectedStream);
-export const useSelectedHorse = () =>
-  useAppStore(state => state.selectedHorse);
+export const useSelectedHorse = () => useAppStore(state => state.selectedHorse);
 export const useLoading = () => useAppStore(state => state.isLoading);
 export const useError = () => useAppStore(state => state.error);
-
