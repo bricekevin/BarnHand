@@ -685,7 +685,11 @@ router.get(
         total: horses.length,
       });
     } catch (error: any) {
-      logger.error('Get stream horses error', { error: error.message });
+      logger.error('Get stream horses error', {
+        error: error.message,
+        stack: error.stack,
+        errorType: error.constructor.name
+      });
 
       // Handle specific error cases
       if (error.message.includes('not found')) {
