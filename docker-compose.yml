@@ -26,8 +26,8 @@ services:
   # API Gateway Service
   api-gateway:
     build:
-      context: ./backend/api-gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/api-gateway/Dockerfile
       target: development
     ports:
       - "${API_GATEWAY_PORT:-8000}:8000"
@@ -44,10 +44,12 @@ services:
       - CHUNK_STORAGE_PATH=/app/storage/chunks
     volumes:
       - ./backend/api-gateway/src:/app/src
-      - ./backend/database:/app/../database
-      - ./backend/shared:/app/../shared
+      - ./backend/database/src:/database/src
+      - ./shared/src:/shared/src
       - ./chunks:/app/storage/chunks
       - /app/node_modules
+      - /database/node_modules
+      - /database/dist
     depends_on:
       - postgres
       - redis
