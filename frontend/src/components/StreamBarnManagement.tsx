@@ -45,9 +45,11 @@ export const StreamBarnManagement: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
       if (!token) {
-        throw new Error('Authentication required');
+        setError('Authentication required - please log in');
+        setLoading(false);
+        return;
       }
 
       const response = await fetch('http://localhost:8000/api/v1/settings/stream-management', {
