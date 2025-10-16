@@ -15,8 +15,12 @@ export class StreamRepository {
 
   async findById(id: string): Promise<Stream | null> {
     const result = await query('SELECT * FROM streams WHERE id = $1', [id]);
-    
+
     return result.rows.length > 0 ? this.mapRowToStream(result.rows[0]) : null;
+  }
+
+  async findByFarmId(farmId: string): Promise<Stream[]> {
+    return this.findAll(farmId);
   }
 
   async create(streamData: CreateStreamRequest): Promise<Stream> {
@@ -40,23 +44,36 @@ export class StreamRepository {
     return this.mapRowToStream(result.rows[0]);
   }
 
-  async update(id: string, updates: Partial<StreamConfig>): Promise<Stream | null> {
-    const setClause = Object.keys(updates)
-      .map((key, index) => `${key} = $${index + 2}`)
-      .join(', ');
-    
-    if (!setClause) return this.findById(id);
-    
+  async update(id: string, updates: Partial<Stream>): Promise<Stream | null> {
+    const allowedFields = ['farm_id', 'name', 'source_type', 'source_url', 'status', 'processing_delay', 'chunk_duration', 'config'];
+    const updateFields: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (allowedFields.includes(key) && value !== undefined) {
+        updateFields.push(`${key} = $${paramIndex}`);
+        params.push(key === 'config' ? JSON.stringify(value) : value);
+        paramIndex++;
+      }
+    }
+
+    if (updateFields.length === 0) {
+      return this.findById(id);
+    }
+
+    updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+    params.push(id);
+
     const sql = `
-      UPDATE streams 
-      SET ${setClause}, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1
+      UPDATE streams
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex}
       RETURNING *
     `;
-    
-    const params = [id, ...Object.values(updates)];
+
     const result = await query(sql, params);
-    
+
     return result.rows.length > 0 ? this.mapRowToStream(result.rows[0]) : null;
   }
 
