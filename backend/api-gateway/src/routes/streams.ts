@@ -654,36 +654,87 @@ router.get(
 
       // Handle summary request (for stream cards)
       if (summary) {
-        const summaryData = await streamHorseService.getStreamHorseSummary(
+        // Super admins can access streams from any farm
+        if (req.user.role === UserRole.SUPER_ADMIN) {
+          const streamRepository = new (require('@barnhand/database').StreamRepository)();
+          const stream = await streamRepository.findById(streamId);
+          if (!stream) {
+            return res.status(404).json({ error: 'Stream not found' });
+          }
+
+          const summaryData = await streamHorseService.getStreamHorseSummary(
+            streamId,
+            stream.farm_id
+          );
+
+          logger.info('Stream horse summary retrieved (super admin)', {
+            userId: req.user.userId,
+            streamId,
+            streamFarmId: stream.farm_id,
+            total: summaryData.total,
+          });
+
+          return res.json(summaryData);
+        } else {
+          const summaryData = await streamHorseService.getStreamHorseSummary(
+            streamId,
+            req.user.farmId
+          );
+
+          logger.info('Stream horse summary retrieved', {
+            userId: req.user.userId,
+            streamId,
+            total: summaryData.total,
+          });
+
+          return res.json(summaryData);
+        }
+      }
+
+      // Handle full list request
+      // Super admins can access streams from any farm
+      // For other users, verify stream belongs to their farm
+      if (req.user.role !== UserRole.SUPER_ADMIN) {
+        const horses = await streamHorseService.getStreamHorses(
           streamId,
           req.user.farmId
         );
 
-        logger.info('Stream horse summary retrieved', {
+        logger.info('Stream horses listed', {
           userId: req.user.userId,
           streamId,
-          total: summaryData.total,
+          count: horses.length,
         });
 
-        return res.json(summaryData);
+        return res.json({
+          horses,
+          total: horses.length,
+        });
+      } else {
+        // Super admin - fetch stream to get its farm_id, then get horses
+        const streamRepository = new (require('@barnhand/database').StreamRepository)();
+        const stream = await streamRepository.findById(streamId);
+        if (!stream) {
+          return res.status(404).json({ error: 'Stream not found' });
+        }
+
+        const horses = await streamHorseService.getStreamHorses(
+          streamId,
+          stream.farm_id
+        );
+
+        logger.info('Stream horses listed (super admin)', {
+          userId: req.user.userId,
+          streamId,
+          streamFarmId: stream.farm_id,
+          count: horses.length,
+        });
+
+        return res.json({
+          horses,
+          total: horses.length,
+        });
       }
-
-      // Handle full list request
-      const horses = await streamHorseService.getStreamHorses(
-        streamId,
-        req.user.farmId
-      );
-
-      logger.info('Stream horses listed', {
-        userId: req.user.userId,
-        streamId,
-        count: horses.length,
-      });
-
-      return res.json({
-        horses,
-        total: horses.length,
-      });
     } catch (error: any) {
       logger.error('Get stream horses error', {
         error: error.message,
