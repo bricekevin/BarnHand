@@ -17,7 +17,7 @@ const reassignStreamSchema = z.object({
 });
 
 const streamParamsSchema = z.object({
-  streamId: z.string().uuid('Invalid stream ID format'),
+  streamId: z.string().min(1, 'Stream ID required'),
 });
 
 const router = Router();
