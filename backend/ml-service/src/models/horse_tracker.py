@@ -488,8 +488,11 @@ class HorseTracker:
         
     def _create_new_track(self, detection: Dict[str, Any], features: np.ndarray, timestamp: float,
                           frame: Optional[np.ndarray] = None) -> HorseTrack:
-        """Create a new horse track."""
-        track_id = f"horse_{self.next_track_id:03d}"
+        """Create a new horse track with globally unique ID."""
+        # Generate stream-scoped tracking ID to prevent collisions across streams
+        # Format: {stream_id}_horse_{counter:03d}
+        stream_prefix = self.stream_id.replace('-', '_')[:8]  # Use first 8 chars of stream ID
+        track_id = f"{stream_prefix}_horse_{self.next_track_id:03d}"
         self.next_track_id += 1
 
         track = HorseTrack(
@@ -523,7 +526,7 @@ class HorseTracker:
         # Update stats
         self.tracking_stats["total_tracks_created"] += 1
 
-        logger.info(f"Created new horse track: {track_id} (tracking_id: {track.tracking_id})")
+        logger.info(f"Created new horse track: {track_id} (stream: {self.stream_id}, tracking_id: {track.tracking_id})")
         return track
         
     def _reactivate_track(self, track: HorseTrack, detection: Dict[str, Any], features: np.ndarray,
