@@ -5,6 +5,7 @@ import uuid
 import json
 import subprocess
 import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 import cv2
@@ -255,14 +256,22 @@ class ChunkProcessor:
             # Set current stream context for database operations
             self.current_stream_id = stream_id
 
-            # STREAM-SCOPED RE-ID: Load horses filtered by stream_id
-            # This ensures Re-ID only matches horses within the same stream
-            logger.info(f"Loading known horses for stream {stream_id} (stream-scoped Re-ID)")
-            known_horses = await self.horse_db.load_stream_horse_registry(stream_id)
-            logger.info(f"Loaded {len(known_horses)} known horses from stream {stream_id} registry")
+            # BARN-SCOPED RE-ID: Load horses from ALL streams in the same barn/farm
+            # This enables cross-stream horse re-identification within a barn
+            logger.info(f"🐴 Loading known horses for stream {stream_id} (barn-scoped Re-ID)")
+            known_horses = await self.horse_db.load_barn_horse_registry(stream_id)
+            logger.info(f"🐴 Loaded {len(known_horses)} known horses from barn registry for stream {stream_id}")
 
-            # Initialize tracker with stream_id and stream-specific known horses
-            # Re-ID will only match against horses from this stream
+            # Log which streams contributed horses
+            if known_horses:
+                stream_sources = {}
+                for horse_id, horse_state in known_horses.items():
+                    source_stream = horse_state.get("stream_id", "unknown")
+                    stream_sources[source_stream] = stream_sources.get(source_stream, 0) + 1
+                logger.info(f"🐴 Horse sources by stream: {stream_sources}")
+
+            # Initialize tracker with stream_id and barn-level known horses
+            # Re-ID will match against horses from ALL streams in this barn
             self.horse_tracker = HorseTracker(
                 similarity_threshold=0.7,
                 max_lost_frames=30,
@@ -913,14 +922,26 @@ class ChunkProcessor:
             # Prepare horse data for WebSocket event
             horses_data = []
             for horse_id, state in horse_states.items():
+                # Ensure timestamps are formatted as ISO strings
+                last_seen = state.get("last_seen")
+                if isinstance(last_seen, (int, float)):
+                    last_seen = datetime.fromtimestamp(last_seen).isoformat()
+                elif not last_seen:
+                    # Required field - use current time if missing
+                    last_seen = datetime.now().isoformat()
+
+                first_detected = state.get("first_seen")
+                if isinstance(first_detected, (int, float)):
+                    first_detected = datetime.fromtimestamp(first_detected).isoformat()
+
                 horses_data.append({
                     "id": state.get("id", horse_id),
                     "tracking_id": state.get("tracking_id", horse_id),
                     "assigned_color": state.get("color", "#06B6D4"),
-                    "confidence_score": state.get("confidence", 0.0),
-                    "first_detected": state.get("first_seen"),
-                    "last_seen": state.get("last_seen"),
-                    "total_detections": state.get("detection_count", 0),
+                    "confidence_score": float(state.get("confidence", 0.0)),
+                    "first_detected": first_detected,
+                    "last_seen": last_seen,
+                    "total_detections": int(state.get("detection_count", 0)),
                 })
 
             # Send HTTP POST to API Gateway webhook endpoint
