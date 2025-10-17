@@ -92,8 +92,15 @@ class HorseTracker:
         """Initialize the tracking system."""
         try:
             self.reid_model.load_model()
+
+            # Add any pre-loaded lost tracks to the ReID index (now that it's initialized)
+            if self.lost_tracks:
+                logger.info(f"Adding {len(self.lost_tracks)} pre-loaded horses to ReID index")
+                for horse_id, track in self.lost_tracks.items():
+                    self.reid_model.add_horse_to_index(horse_id, track.feature_vector)
+
             logger.info("Horse tracker initialized successfully")
-            
+
         except Exception as error:
             logger.error(f"Failed to initialize horse tracker: {error}")
             raise
@@ -839,8 +846,8 @@ class HorseTracker:
                 # Add to lost tracks initially (will be reactivated on detection)
                 self.lost_tracks[horse_id] = track
 
-                # Add to ReID model index for matching
-                self.reid_model.add_horse_to_index(horse_id, feature_vector)
+                # Note: We don't add to ReID index here because it's not initialized yet.
+                # Horses will be added to index when reidentified or when initialize() is called.
 
                 logger.debug(f"Loaded known horse {horse_id} (tracking_id: {tracking_id})")
 
