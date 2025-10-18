@@ -242,7 +242,25 @@ class ChunkProcessor:
         start_time = time.time()
         chunk_id = chunk_metadata.get("chunk_id", str(uuid.uuid4()))
 
-        logger.info(f"Processing chunk with video output: {chunk_path}",
+        # Performance timing breakdown
+        timings = {
+            "db_load": 0,
+            "tracker_init": 0,
+            "video_load": 0,
+            "frame_read": 0,
+            "yolo_detection": 0,
+            "tracking_update": 0,
+            "reid_extraction": 0,
+            "pose_estimation": 0,
+            "overlay_drawing": 0,
+            "frame_writing": 0,
+            "video_assembly": 0,
+            "json_export": 0,
+            "db_save": 0,
+            "total": 0
+        }
+
+        logger.info(f"⏱️ PERFORMANCE PROFILING: Processing chunk with video output: {chunk_path}",
                    chunk_id=chunk_id,
                    chunk_id_from_metadata=chunk_metadata.get("chunk_id"),
                    output_video=output_video_path,
@@ -258,9 +276,11 @@ class ChunkProcessor:
 
             # BARN-SCOPED RE-ID: Load horses from ALL streams in the same barn/farm
             # This enables cross-stream horse re-identification within a barn
+            db_start = time.time()
             logger.info(f"🐴 Loading known horses for stream {stream_id} (barn-scoped Re-ID)")
             known_horses = await self.horse_db.load_barn_horse_registry(stream_id)
-            logger.info(f"🐴 Loaded {len(known_horses)} known horses from barn registry for stream {stream_id}")
+            timings["db_load"] = (time.time() - db_start) * 1000
+            logger.info(f"🐴 Loaded {len(known_horses)} known horses from barn registry for stream {stream_id} in {timings['db_load']:.1f}ms")
 
             # Log which streams contributed horses
             if known_horses:
@@ -272,6 +292,7 @@ class ChunkProcessor:
 
             # Initialize tracker with stream_id and barn-level known horses
             # Re-ID will match against horses from ALL streams in this barn
+            tracker_start = time.time()
             self.horse_tracker = HorseTracker(
                 similarity_threshold=0.7,
                 max_lost_frames=30,
@@ -279,8 +300,11 @@ class ChunkProcessor:
                 known_horses=known_horses
             )
             await self.horse_tracker.initialize()
+            timings["tracker_init"] = (time.time() - tracker_start) * 1000
+            logger.info(f"⏱️ Tracker initialized in {timings['tracker_init']:.1f}ms")
 
             # Load video chunk
+            video_start = time.time()
             cap = cv2.VideoCapture(chunk_path)
             if not cap.isOpened():
                 raise ValueError(f"Failed to open video: {chunk_path}")
@@ -290,8 +314,9 @@ class ChunkProcessor:
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            timings["video_load"] = (time.time() - video_start) * 1000
 
-            logger.info(f"Video properties: {width}x{height} @ {fps}fps, {total_frames} frames")
+            logger.info(f"⏱️ Video loaded: {width}x{height} @ {fps}fps, {total_frames} frames in {timings['video_load']:.1f}ms")
 
             # Create output directories
             Path(output_video_path).parent.mkdir(parents=True, exist_ok=True)
@@ -329,9 +354,11 @@ class ChunkProcessor:
             logger.info(f"Frame interval: {frame_interval}, will process {len(frames_to_process)} out of {total_frames} frames")
 
             while cap.isOpened() and frame_idx < total_frames:
+                read_start = time.time()
                 ret, frame = cap.read()
                 if not ret:
                     break
+                timings["frame_read"] += (time.time() - read_start) * 1000
 
                 # Check if this frame should be processed based on interval
                 should_process = (frame_idx % frame_interval == 0)
@@ -340,11 +367,15 @@ class ChunkProcessor:
 
                 if should_process:
                     # Step 1: Detect horses
+                    yolo_start = time.time()
                     detections, _ = self.detection_model.detect_horses(frame)
+                    timings["yolo_detection"] += (time.time() - yolo_start) * 1000
                     total_detections += len(detections)
 
-                    # Step 2: Update tracking
+                    # Step 2: Update tracking (includes ReID feature extraction)
+                    tracking_start = time.time()
                     tracked_horses = self.horse_tracker.update_tracks(detections, frame, frame_timestamp)
+                    timings["tracking_update"] += (time.time() - tracking_start) * 1000
                     total_tracks = len(tracked_horses)
                 else:
                     # Skip processing but keep empty placeholders
@@ -369,7 +400,9 @@ class ChunkProcessor:
                     # Batch pose estimation for all horses at once
                     if valid_bboxes:
                         try:
+                            pose_start = time.time()
                             batch_pose_results = self.pose_model.estimate_pose_batch(frame, valid_bboxes)
+                            timings["pose_estimation"] += (time.time() - pose_start) * 1000
 
                             # Process batch results
                             for track_info, (pose_result, pose_time) in zip(valid_tracks, batch_pose_results):
@@ -404,11 +437,13 @@ class ChunkProcessor:
                                     logger.debug(f"Pose estimation failed for horse {horse_id}: {pose_error}")
 
                     # Draw overlays on processed frames
+                    overlay_start = time.time()
                     processed_frame = self._draw_overlays(
                         frame.copy(),
                         tracked_horses,
                         frame_poses
                     )
+                    timings["overlay_drawing"] += (time.time() - overlay_start) * 1000
                     # Store tracking/pose data to reuse overlays on skipped frames
                     last_tracked_horses = tracked_horses
                     last_frame_poses = frame_poses
@@ -416,18 +451,22 @@ class ChunkProcessor:
                     # For skipped frames: use current raw frame but draw last overlays
                     # This shows fresh video content with consistent overlays until next processed frame
                     if last_tracked_horses or last_frame_poses:
+                        overlay_start = time.time()
                         processed_frame = self._draw_overlays(
                             frame.copy(),
                             last_tracked_horses,
                             last_frame_poses
                         )
+                        timings["overlay_drawing"] += (time.time() - overlay_start) * 1000
                     else:
                         # If no processed frame yet, use raw frame
                         processed_frame = frame.copy()
 
                 # Save frame as PNG for FFmpeg (all frames for continuous video)
+                write_start = time.time()
                 frame_path = temp_frames_dir / f"frame_{frame_idx:04d}.png"
                 cv2.imwrite(str(frame_path), processed_frame)
+                timings["frame_writing"] += (time.time() - write_start) * 1000
                 processed_frames.append(frame_path)
 
                 # Save frame results ONLY for processed frames (to reduce data size)
@@ -471,14 +510,18 @@ class ChunkProcessor:
             cap.release()
 
             # Use FFmpeg to create video from frames
+            ffmpeg_start = time.time()
             logger.info(f"Creating video with FFmpeg from {len(processed_frames)} frames...")
             self._create_video_with_ffmpeg(temp_frames_dir, output_video_path, fps)
+            timings["video_assembly"] = (time.time() - ffmpeg_start) * 1000
+            logger.info(f"⏱️ FFmpeg video assembly: {timings['video_assembly']:.1f}ms")
 
             # Cleanup temporary frames
             logger.info(f"Cleaning up temporary frames directory: {temp_frames_dir}")
             shutil.rmtree(temp_frames_dir, ignore_errors=True)
 
             # PHASE 3 INTEGRATION: Save all horses to registry after chunk complete
+            db_save_start = time.time()
             logger.info(f"Saving horses to registry for stream {stream_id}")
             all_horse_states = self.horse_tracker.get_all_horse_states()
 
@@ -490,7 +533,8 @@ class ChunkProcessor:
                     logger.debug(f"Extracted thumbnail for {horse_id}: {len(thumbnail_bytes)} bytes")
 
             await self.horse_db.save_stream_horse_registry(stream_id, all_horse_states)
-            logger.info(f"Saved {len(all_horse_states)} horses to registry")
+            timings["db_save"] = (time.time() - db_save_start) * 1000
+            logger.info(f"⏱️ Saved {len(all_horse_states)} horses to registry in {timings['db_save']:.1f}ms")
 
             # Notify API Gateway about detected horses for WebSocket emission
             await self._notify_horses_detected(stream_id, all_horse_states)
@@ -499,6 +543,7 @@ class ChunkProcessor:
             processing_time = (time.time() - start_time) * 1000
 
             # Save detections JSON
+            json_start = time.time()
             detections_data = {
                 "video_metadata": {
                     "fps": fps,
@@ -517,11 +562,43 @@ class ChunkProcessor:
                     "processing_fps": len(frame_results) / (processing_time / 1000) if processing_time > 0 else 0
                 },
                 "horses": self._generate_horse_summary(frame_results),
-                "frames": frame_results
+                "frames": frame_results,
+                "performance_timing": timings
             }
+            timings["json_export"] = (time.time() - json_start) * 1000
 
             with open(output_json_path, 'w') as f:
                 json.dump(detections_data, f, indent=2, default=str)
+
+            # Calculate final timings
+            timings["total"] = processing_time
+
+            # Log comprehensive performance breakdown
+            logger.info(f"⏱️ ========== PERFORMANCE BREAKDOWN ==========")
+            logger.info(f"⏱️ Total processing time: {timings['total']:.1f}ms ({timings['total']/1000:.2f}s)")
+            logger.info(f"⏱️ ")
+            logger.info(f"⏱️ Setup & Initialization:")
+            logger.info(f"⏱️   DB Load (known horses):  {timings['db_load']:>8.1f}ms ({timings['db_load']/timings['total']*100:>5.1f}%)")
+            logger.info(f"⏱️   Tracker Init (ReID):     {timings['tracker_init']:>8.1f}ms ({timings['tracker_init']/timings['total']*100:>5.1f}%)")
+            logger.info(f"⏱️   Video Load:              {timings['video_load']:>8.1f}ms ({timings['video_load']/timings['total']*100:>5.1f}%)")
+            logger.info(f"⏱️ ")
+            logger.info(f"⏱️ Per-Frame Processing ({total_frames} total, {len(frames_to_process)} processed @ interval={frame_interval}):")
+            logger.info(f"⏱️   Frame Reading:           {timings['frame_read']:>8.1f}ms ({timings['frame_read']/timings['total']*100:>5.1f}%) - {timings['frame_read']/total_frames:.2f}ms/frame")
+            logger.info(f"⏱️   YOLO Detection:          {timings['yolo_detection']:>8.1f}ms ({timings['yolo_detection']/timings['total']*100:>5.1f}%) - {timings['yolo_detection']/len(frames_to_process) if len(frames_to_process) > 0 else 0:.2f}ms/processed-frame")
+            logger.info(f"⏱️   Tracking Update (ReID):  {timings['tracking_update']:>8.1f}ms ({timings['tracking_update']/timings['total']*100:>5.1f}%) - {timings['tracking_update']/len(frames_to_process) if len(frames_to_process) > 0 else 0:.2f}ms/processed-frame")
+            logger.info(f"⏱️   Pose Estimation (batch): {timings['pose_estimation']:>8.1f}ms ({timings['pose_estimation']/timings['total']*100:>5.1f}%) - {timings['pose_estimation']/len(frames_to_process) if len(frames_to_process) > 0 else 0:.2f}ms/processed-frame")
+            logger.info(f"⏱️   Overlay Drawing:         {timings['overlay_drawing']:>8.1f}ms ({timings['overlay_drawing']/timings['total']*100:>5.1f}%) - {timings['overlay_drawing']/total_frames:.2f}ms/frame")
+            logger.info(f"⏱️   Frame Writing (PNG):     {timings['frame_writing']:>8.1f}ms ({timings['frame_writing']/timings['total']*100:>5.1f}%) - {timings['frame_writing']/total_frames:.2f}ms/frame")
+            logger.info(f"⏱️ ")
+            logger.info(f"⏱️ Post-Processing:")
+            logger.info(f"⏱️   FFmpeg Video Assembly:   {timings['video_assembly']:>8.1f}ms ({timings['video_assembly']/timings['total']*100:>5.1f}%)")
+            logger.info(f"⏱️   JSON Export:             {timings['json_export']:>8.1f}ms ({timings['json_export']/timings['total']*100:>5.1f}%)")
+            logger.info(f"⏱️   DB Save (horses):        {timings['db_save']:>8.1f}ms ({timings['db_save']/timings['total']*100:>5.1f}%)")
+            logger.info(f"⏱️ ")
+            logger.info(f"⏱️ Throughput:")
+            logger.info(f"⏱️   Overall FPS: {total_frames / (timings['total']/1000):.1f} frames/sec")
+            logger.info(f"⏱️   ML Processing FPS: {len(frames_to_process) / (timings['total']/1000) if timings['total'] > 0 else 0:.1f} processed-frames/sec")
+            logger.info(f"⏱️ ============================================")
 
             logger.info(f"Chunk processing completed",
                        chunk_id=chunk_id,
