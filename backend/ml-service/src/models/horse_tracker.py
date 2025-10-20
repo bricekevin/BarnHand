@@ -498,8 +498,9 @@ class HorseTracker:
         """Create a new horse track with globally unique ID."""
         # Generate stream-scoped tracking ID to prevent collisions across streams
         # Format: {stream_id}_horse_{counter:03d}
-        stream_prefix = self.stream_id.replace('-', '_')[:8]  # Use first 8 chars of stream ID
-        track_id = f"{stream_prefix}_horse_{self.next_track_id:03d}"
+        # Clean stream_id: replace hyphens with underscores, remove "stream_" prefix if present
+        clean_id = self.stream_id.replace('-', '_').replace('stream_', '')
+        track_id = f"{clean_id}_horse_{self.next_track_id:03d}"
         self.next_track_id += 1
 
         track = HorseTrack(
