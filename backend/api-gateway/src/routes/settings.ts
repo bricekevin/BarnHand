@@ -157,7 +157,7 @@ router.post(
 
       const newFarm = await farmRepository.create({
         name,
-        owner_id: req.user.userId, // Use the authenticated user as owner
+        owner_id: req.user.userId || null, // Use the authenticated user as owner (or null if no user)
         location,
         timezone,
         expected_horse_count,
@@ -172,7 +172,12 @@ router.post(
 
       return res.status(201).json(newFarm);
     } catch (error: any) {
-      logger.error('Create farm error', { error: error.message });
+      logger.error('Create farm error', {
+        error: error.message,
+        stack: error.stack,
+        code: error.code,
+        detail: error.detail
+      });
       return res.status(500).json({ error: 'Internal server error' });
     }
   })
