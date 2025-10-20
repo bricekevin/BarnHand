@@ -27,11 +27,12 @@ export class FarmRepository {
     owner_id: string;
     location?: any;
     timezone?: string;
+    expected_horse_count?: number;
     metadata?: Record<string, any>;
   }): Promise<Farm> {
     const sql = `
-      INSERT INTO farms (name, owner_id, location, timezone, metadata)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO farms (name, owner_id, location, timezone, expected_horse_count, metadata)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `;
 
@@ -40,6 +41,7 @@ export class FarmRepository {
       farmData.owner_id,
       farmData.location ? JSON.stringify(farmData.location) : null,
       farmData.timezone || 'UTC',
+      farmData.expected_horse_count || 0,
       JSON.stringify(farmData.metadata || {})
     ];
 
@@ -48,7 +50,7 @@ export class FarmRepository {
   }
 
   async update(id: string, updates: Partial<Farm>): Promise<Farm | null> {
-    const allowedFields = ['name', 'owner_id', 'location', 'timezone', 'metadata'];
+    const allowedFields = ['name', 'owner_id', 'location', 'timezone', 'expected_horse_count', 'metadata'];
     const updateFields: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -96,6 +98,7 @@ export class FarmRepository {
       owner_id: row.owner_id,
       location: typeof row.location === 'string' ? JSON.parse(row.location) : row.location,
       timezone: row.timezone || 'UTC',
+      expected_horse_count: row.expected_horse_count || 0,
       metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata,
       created_at: row.created_at,
       updated_at: row.updated_at

@@ -6,6 +6,7 @@ export interface Farm {
   owner_id: string;
   location?: any;
   timezone: string;
+  expected_horse_count?: number;
   metadata: Record<string, any>;
   created_at: Date;
   updated_at: Date;
@@ -68,6 +69,10 @@ export interface Horse {
   metadata: Record<string, any>;
   created_at: Date;
   updated_at: Date;
+  // Official horse designation
+  is_official?: boolean;
+  made_official_at?: Date;
+  made_official_by?: string;
   // Optional fields from JOINs for display purposes
   stream_name?: string;
   farm_name?: string;

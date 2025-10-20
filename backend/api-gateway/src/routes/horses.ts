@@ -210,6 +210,56 @@ router.get(
   })
 );
 
+// GET /api/v1/horses/:id/streams - Get streams featuring this horse
+router.get(
+  '/:id/streams',
+  validateSchema(horseParamsSchema, 'params'),
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { id } = req.params;
+
+      // TODO: Replace with HorseRepository.getStreamsForHorse()
+      // This should query detections/chunks tables to find streams where this horse appears
+      const mockStreams = [
+        {
+          stream_id: 'stream_001',
+          stream_name: 'Barn A - Main Camera',
+          last_seen: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
+          total_detections: 42,
+          latest_chunk_id: '123e4567-e89b-12d3-a456-426614174100',
+        },
+        {
+          stream_id: 'stream_003',
+          stream_name: 'Barn A - Side Camera',
+          last_seen: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+          total_detections: 18,
+          latest_chunk_id: '123e4567-e89b-12d3-a456-426614174101',
+        },
+      ];
+
+      logger.info('Horse streams retrieved', {
+        userId: req.user.userId,
+        horseId: id,
+        streamCount: mockStreams.length,
+      });
+
+      return res.json({
+        horseId: id,
+        streams: mockStreams,
+        total: mockStreams.length,
+      });
+    } catch (error) {
+      logger.error('Get horse streams error', { error });
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+);
+
 // GET /api/v1/horses/:id - Get specific horse details
 router.get(
   '/:id',
@@ -249,6 +299,147 @@ router.get(
       return res.json(mockHorse);
     } catch (error) {
       logger.error('Get horse error', { error });
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+);
+
+// PATCH /api/v1/horses/:id/official - Mark/unmark horse as official
+router.patch(
+  '/:id/official',
+  validateSchema(horseParamsSchema, 'params'),
+  validateSchema(z.object({
+    is_official: z.boolean(),
+  })),
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN]),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { id } = req.params;
+      const { is_official } = req.body;
+
+      // Import HorseRepository
+      const { HorseRepository } = await import('@barnhand/database/src/repositories/HorseRepository');
+      const horseRepo = new HorseRepository();
+
+      // Verify horse exists
+      const horse = await horseRepo.findById(id);
+
+      if (!horse) {
+        return res.status(404).json({ error: 'Horse not found' });
+      }
+
+      // Check farm access for non-super-admin users
+      if (
+        req.user.role !== UserRole.SUPER_ADMIN &&
+        req.user.farmId !== horse.farm_id
+      ) {
+        return res.status(403).json({ error: 'Access denied to this horse' });
+      }
+
+      // If marking as official, check if farm has reached capacity
+      if (is_official && !horse.is_official) {
+        const { FarmRepository } = await import('@barnhand/database/src/repositories/FarmRepository');
+        const farmRepo = new FarmRepository();
+        const farm = await farmRepo.findById(horse.farm_id);
+
+        if (farm && farm.expected_horse_count) {
+          const officialCount = await horseRepo.countOfficialHorses(horse.farm_id);
+
+          if (officialCount >= farm.expected_horse_count) {
+            return res.status(400).json({
+              error: 'Barn capacity reached',
+              message: `This barn is configured for ${farm.expected_horse_count} horses and already has ${officialCount} official horses. Increase the expected horse count in barn settings or unmark another horse first.`,
+              current_count: officialCount,
+              max_count: farm.expected_horse_count,
+            });
+          }
+        }
+      }
+
+      // Update official status
+      const updated = await horseRepo.update(id, {
+        is_official,
+        made_official_at: is_official ? new Date() : null,
+        made_official_by: is_official ? req.user.userId : null,
+      });
+
+      if (!updated) {
+        return res.status(500).json({ error: 'Failed to update horse official status' });
+      }
+
+      logger.info('Horse official status updated', {
+        userId: req.user.userId,
+        horseId: id,
+        is_official,
+        farmId: horse.farm_id,
+      });
+
+      return res.json({
+        message: is_official ? 'Horse marked as official' : 'Horse unmarked as official',
+        horse: updated,
+      });
+    } catch (error) {
+      logger.error('Update horse official status error', { error });
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+);
+
+// DELETE /api/v1/horses/:id - Delete a horse
+router.delete(
+  '/:id',
+  validateSchema(horseParamsSchema, 'params'),
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN]),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { id } = req.params;
+
+      // Import HorseRepository to delete from database
+      const { HorseRepository } = await import('@barnhand/database/src/repositories/HorseRepository');
+      const horseRepo = new HorseRepository();
+
+      // Verify horse exists and belongs to user's farm before deleting
+      const horse = await horseRepo.findById(id);
+
+      if (!horse) {
+        return res.status(404).json({ error: 'Horse not found' });
+      }
+
+      // Check farm access for non-super-admin users
+      if (
+        req.user.role !== UserRole.SUPER_ADMIN &&
+        req.user.farmId !== horse.farm_id
+      ) {
+        return res.status(403).json({ error: 'Access denied to this horse' });
+      }
+
+      // Delete the horse from database
+      const deleted = await horseRepo.delete(id);
+
+      if (!deleted) {
+        return res.status(500).json({ error: 'Failed to delete horse' });
+      }
+
+      logger.info('Horse deleted from database', {
+        userId: req.user.userId,
+        horseId: id,
+        farmId: req.user.farmId,
+      });
+
+      return res.json({
+        message: 'Horse deleted successfully',
+        horseId: id,
+      });
+    } catch (error) {
+      logger.error('Delete horse error', { error });
       return res.status(500).json({ error: 'Internal server error' });
     }
   })
