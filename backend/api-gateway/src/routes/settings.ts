@@ -153,13 +153,14 @@ router.post(
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      const { name, location, timezone, metadata } = req.body;
+      const { name, location, timezone, expected_horse_count, metadata } = req.body;
 
       const newFarm = await farmRepository.create({
         name,
         owner_id: req.user.userId, // Use the authenticated user as owner
         location,
         timezone,
+        expected_horse_count,
         metadata,
       });
 
