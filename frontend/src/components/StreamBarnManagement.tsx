@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FarmCard } from './FarmCard';
 import { ReassignStreamModal } from './ReassignStreamModal';
+import { BarnModal } from './BarnModal';
 
 interface StreamSummary {
   id: string;
@@ -16,7 +17,10 @@ interface FarmSummary {
   name: string;
   streamCount: number;
   horseCount: number;
+  expected_horse_count?: number;
   streams: StreamSummary[];
+  timezone?: string;
+  metadata?: Record<string, any>;
 }
 
 interface StreamManagementOverview {
@@ -30,11 +34,17 @@ interface ReassignModalData {
   currentFarmName: string;
 }
 
+interface BarnModalData {
+  mode: 'create' | 'edit';
+  farm?: FarmSummary;
+}
+
 export const StreamBarnManagement: React.FC = () => {
   const [overview, setOverview] = useState<StreamManagementOverview>({ farms: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reassignModal, setReassignModal] = useState<ReassignModalData | null>(null);
+  const [barnModal, setBarnModal] = useState<BarnModalData | null>(null);
 
   useEffect(() => {
     fetchStreamManagementOverview();
@@ -93,6 +103,45 @@ export const StreamBarnManagement: React.FC = () => {
     fetchStreamManagementOverview();
   };
 
+  const handleBarnComplete = () => {
+    setBarnModal(null);
+    // Refresh the overview after barn creation/update
+    fetchStreamManagementOverview();
+  };
+
+  const handleDeleteBarn = async (farmId: string, farmName: string) => {
+    if (!confirm(`Are you sure you want to delete "${farmName}"? This action cannot be undone.\n\nNote: You must reassign or delete all streams and horses first.`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        alert('Authentication required - please log in');
+        return;
+      }
+
+      const response = await fetch(`http://localhost:8000/api/v1/settings/farms/${farmId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to delete barn: ${response.status}`);
+      }
+
+      // Refresh after successful deletion
+      fetchStreamManagementOverview();
+    } catch (err) {
+      console.error('Error deleting barn:', err);
+      alert(err instanceof Error ? err.message : 'Failed to delete barn');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -138,15 +187,26 @@ export const StreamBarnManagement: React.FC = () => {
             Assign video streams to barns and manage horse tracking across your farm
           </p>
         </div>
-        <button
-          onClick={fetchStreamManagementOverview}
-          className="btn-secondary flex items-center"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setBarnModal({ mode: 'create' })}
+            className="btn-primary flex items-center"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Create Barn
+          </button>
+          <button
+            onClick={fetchStreamManagementOverview}
+            className="btn-secondary flex items-center"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Summary Stats */}
@@ -203,6 +263,8 @@ export const StreamBarnManagement: React.FC = () => {
               farm={farm}
               allFarms={overview.farms}
               onReassignClick={handleReassignClick}
+              onEditClick={() => setBarnModal({ mode: 'edit', farm })}
+              onDeleteClick={() => handleDeleteBarn(farm.id, farm.name)}
             />
           ))}
         </div>
@@ -218,6 +280,16 @@ export const StreamBarnManagement: React.FC = () => {
           allFarms={overview.farms}
           onClose={() => setReassignModal(null)}
           onSuccess={handleReassignComplete}
+        />
+      )}
+
+      {/* Barn Create/Edit Modal */}
+      {barnModal && (
+        <BarnModal
+          mode={barnModal.mode}
+          farm={barnModal.farm}
+          onClose={() => setBarnModal(null)}
+          onSuccess={handleBarnComplete}
         />
       )}
     </div>

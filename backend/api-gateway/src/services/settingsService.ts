@@ -36,6 +36,9 @@ interface FarmSummary {
   name: string;
   streamCount: number;
   horseCount: number;
+  expected_horse_count?: number;
+  timezone?: string;
+  metadata?: Record<string, any>;
   streams: StreamSummary[];
 }
 
@@ -130,6 +133,9 @@ class SettingsService {
           name: farm.name,
           streamCount: streams.length,
           horseCount: totalHorses,
+          expected_horse_count: farm.expected_horse_count,
+          timezone: farm.timezone,
+          metadata: farm.metadata,
           streams: streamSummaries
         });
       }
@@ -156,25 +162,28 @@ class SettingsService {
    * Reassign a stream to a different farm
    * @param streamId - Stream ID to reassign
    * @param newFarmId - Target farm ID
-   * @param currentUserFarmId - Current user's farm ID for authorization
+   * @param currentUserFarmId - Current user's farm ID for authorization (null for SUPER_ADMIN)
    * @returns Updated stream and count of horses reassigned
    */
   async reassignStreamToFarm(
     streamId: string,
     newFarmId: string,
-    currentUserFarmId: string
+    currentUserFarmId: string | null
   ): Promise<{ stream: any; horsesReassigned: number; message: string }> {
     if (!this.useDatabase) {
       throw new Error('Database not available');
     }
 
     try {
-      // Verify stream exists and belongs to user's farm
+      // Verify stream exists
       const stream = await this.streamRepository.findById(streamId);
       if (!stream) {
         throw new Error(`Stream ${streamId} not found`);
       }
-      if (stream.farm_id !== currentUserFarmId) {
+
+      // Only check farm ownership if user is not a SUPER_ADMIN
+      // (SUPER_ADMIN passes null for currentUserFarmId)
+      if (currentUserFarmId !== null && stream.farm_id !== currentUserFarmId) {
         throw new Error(`Stream ${streamId} does not belong to your farm`);
       }
 
