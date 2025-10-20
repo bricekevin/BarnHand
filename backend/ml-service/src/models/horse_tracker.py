@@ -40,6 +40,12 @@ class HorseTrack:
     best_thumbnail_score: float = 0.0  # confidence * bbox_area
     best_thumbnail_frame: Optional[np.ndarray] = None
     best_thumbnail_bbox: Optional[Dict[str, float]] = None
+
+    # Horse type and re-ID metadata
+    horse_type: str = "guest"  # "official" (from barn registry) or "guest" (detected)
+    horse_name: Optional[str] = None  # Name for official horses
+    reid_match_confidence: float = 0.0  # How confident we are this is the matched horse
+    matched_official_id: Optional[str] = None  # Original DB ID if matched to official horse
     
 
 class HorseTracker:
@@ -75,6 +81,9 @@ class HorseTracker:
         self.lost_tracks: Dict[str, HorseTrack] = {}
         self.track_history: List[HorseTrack] = []
 
+        # Official horses from barn registry (persistent)
+        self.official_horses: Dict[str, HorseTrack] = {}
+
         # Load known horses from previous chunks (cross-chunk continuity)
         if known_horses:
             self._load_known_horses(known_horses)
@@ -83,6 +92,8 @@ class HorseTracker:
         self.tracking_stats = {
             "total_tracks_created": 0,
             "successful_reidentifications": 0,
+            "official_horse_matches": 0,
+            "guest_horse_matches": 0,
             "track_merges": 0,
             "track_splits": 0,
             "avg_track_lifetime": 0.0
@@ -93,13 +104,19 @@ class HorseTracker:
         try:
             self.reid_model.load_model()
 
-            # Add any pre-loaded lost tracks to the ReID index (now that it's initialized)
+            # Add official horses to the ReID index (highest priority)
+            if self.official_horses:
+                logger.info(f"Adding {len(self.official_horses)} official horses to ReID index")
+                for horse_id, track in self.official_horses.items():
+                    self.reid_model.add_horse_to_index(horse_id, track.feature_vector)
+
+            # Add any pre-loaded guest/lost tracks to the ReID index
             if self.lost_tracks:
-                logger.info(f"Adding {len(self.lost_tracks)} pre-loaded horses to ReID index")
+                logger.info(f"Adding {len(self.lost_tracks)} pre-loaded guest horses to ReID index")
                 for horse_id, track in self.lost_tracks.items():
                     self.reid_model.add_horse_to_index(horse_id, track.feature_vector)
 
-            logger.info("Horse tracker initialized successfully")
+            logger.info(f"Horse tracker initialized: {len(self.official_horses)} official, {len(self.lost_tracks)} guest horses")
 
         except Exception as error:
             logger.error(f"Failed to initialize horse tracker: {error}")
@@ -151,16 +168,23 @@ class HorseTracker:
                 detection = detections[det_idx]
                 features = self._extract_single_detection_features(detection, frame)
 
-                # Try to reidentify from lost tracks
-                reidentified_track = self._try_reidentification(features, detection, timestamp)
+                # Try hierarchical reidentification (official → guest → new)
+                reid_result = self._try_reidentification(features, detection, timestamp)
 
-                if reidentified_track:
-                    # Reactivate lost track
-                    track = self._reactivate_track(reidentified_track, detection, features, timestamp, frame)
+                if reid_result:
+                    # Reactivate matched track
+                    reidentified_track, similarity, match_type = reid_result
+                    track = self._reactivate_track(reidentified_track, detection, features, timestamp, frame, similarity)
                     updated_tracks.append(self._track_to_output(track))
+
+                    # Update stats
                     self.tracking_stats["successful_reidentifications"] += 1
+                    if match_type == "official":
+                        self.tracking_stats["official_horse_matches"] += 1
+                    elif match_type == "guest":
+                        self.tracking_stats["guest_horse_matches"] += 1
                 else:
-                    # Create new track
+                    # PHASE 3: Create new GUEST horse (no match found)
                     new_track = self._create_new_track(detection, features, timestamp, frame)
                     updated_tracks.append(self._track_to_output(new_track))
 
@@ -455,43 +479,70 @@ class HorseTracker:
 
         return track
         
-    def _try_reidentification(self, features: np.ndarray, detection: Dict[str, Any], timestamp: float) -> Optional[HorseTrack]:
+    def _try_reidentification(self, features: np.ndarray, detection: Dict[str, Any], timestamp: float) -> Optional[Tuple[HorseTrack, float, str]]:
         """
-        Try to reidentify a detection with lost tracks.
-        NOTE: Re-ID is stream-scoped - only searches within this stream's lost tracks.
+        Hierarchical re-identification: Try official horses first, then guests, then create new.
+
+        Returns:
+            Tuple of (matched_track, similarity_score, match_type) or None
+            match_type: "official", "guest", or None
         """
-        if not self.lost_tracks:
-            return None
-
-        # STREAM-SCOPED RE-ID: Only searches lost tracks from current stream (self.stream_id)
-        logger.debug(f"Attempting Re-ID within stream {self.stream_id} - {len(self.lost_tracks)} lost tracks")
-
-        # Search for similar features in lost tracks
         best_match = None
         best_similarity = 0.0
-        
-        for track_id, track in self.lost_tracks.items():
-            # Check if track was lost recently (within reasonable time window)
-            time_since_lost = timestamp - track.last_seen
-            if time_since_lost > 10.0:  # Don't reidentify tracks lost more than 10 seconds ago
-                continue
-                
-            # Calculate feature similarity
-            similarity = self._cosine_similarity(features, track.feature_vector)
-            
-            # Also check spatial proximity (track shouldn't teleport)
-            spatial_distance = self._calculate_spatial_distance(detection["bbox"], track.last_bbox)
-            max_movement = time_since_lost * 200  # Max 200 pixels/second movement
-            
-            if similarity > self.similarity_threshold and spatial_distance < max_movement and similarity > best_similarity:
-                best_match = track
-                best_similarity = similarity
-                
+        match_type = None
+
+        # PHASE 1: Try to match with OFFICIAL horses (highest priority)
+        # Official horses never expire - they're always in the barn
+        if self.official_horses:
+            logger.debug(f"Phase 1: Checking {len(self.official_horses)} official horses")
+
+            for track_id, track in self.official_horses.items():
+                # Calculate feature similarity
+                similarity = self._cosine_similarity(features, track.feature_vector)
+
+                # Lower threshold for official horses (they might look different at different angles)
+                # But higher confidence requirement
+                official_threshold = max(0.6, self.similarity_threshold - 0.1)
+
+                if similarity > official_threshold and similarity > best_similarity:
+                    # Also check detection confidence - avoid matching low-quality detections
+                    if detection.get("confidence", 0) >= 0.7:
+                        best_match = track
+                        best_similarity = similarity
+                        match_type = "official"
+                        logger.info(f"🎯 Matched official horse: {track.horse_name} (similarity: {similarity:.3f})")
+
+        # PHASE 2: If no official match, try GUEST horses (recently seen unknowns)
+        if not best_match and self.lost_tracks:
+            logger.debug(f"Phase 2: Checking {len(self.lost_tracks)} guest horses")
+
+            for track_id, track in self.lost_tracks.items():
+                # Check if track was lost recently (within reasonable time window)
+                time_since_lost = timestamp - track.last_seen
+                if time_since_lost > 10.0:  # Don't reidentify tracks lost more than 10 seconds ago
+                    continue
+
+                # Calculate feature similarity
+                similarity = self._cosine_similarity(features, track.feature_vector)
+
+                # Standard threshold for guests
+                if similarity > self.similarity_threshold and similarity > best_similarity:
+                    # Also check spatial proximity (track shouldn't teleport)
+                    spatial_distance = self._calculate_spatial_distance(detection["bbox"], track.last_bbox)
+                    max_movement = time_since_lost * 200  # Max 200 pixels/second movement
+
+                    if spatial_distance < max_movement:
+                        best_match = track
+                        best_similarity = similarity
+                        match_type = "guest"
+                        logger.info(f"👤 Matched guest horse: {track.id} (similarity: {similarity:.3f})")
+
+        # Return match with metadata
         if best_match:
-            logger.info(f"Reidentified horse {best_match.id} with similarity {best_similarity:.3f}")
-            return best_match
-            
-        return None
+            return (best_match, best_similarity, match_type)
+        else:
+            logger.debug("No re-ID match found - will create new guest horse")
+            return None
         
     def _create_new_track(self, detection: Dict[str, Any], features: np.ndarray, timestamp: float,
                           frame: Optional[np.ndarray] = None) -> HorseTrack:
@@ -538,11 +589,20 @@ class HorseTracker:
         return track
         
     def _reactivate_track(self, track: HorseTrack, detection: Dict[str, Any], features: np.ndarray,
-                          timestamp: float, frame: Optional[np.ndarray] = None) -> HorseTrack:
-        """Reactivate a lost track with new detection."""
-        # Move from lost to active
+                          timestamp: float, frame: Optional[np.ndarray] = None, reid_confidence: float = 0.0) -> HorseTrack:
+        """Reactivate a lost or official track with new detection."""
+        # Update reid_match_confidence with the similarity score
+        track.reid_match_confidence = reid_confidence
+
+        # Move from lost/official to active
         if track.id in self.lost_tracks:
             del self.lost_tracks[track.id]
+        elif track.id in self.official_horses:
+            # Don't remove from official_horses - keep the reference
+            # But also add to active tracks
+            logger.info(f"Official horse {track.horse_name} detected and activated!")
+            pass
+
         self.tracks[track.id] = track
 
         # Update track state
@@ -640,19 +700,25 @@ class HorseTracker:
         return color
         
     def _track_to_output(self, track: HorseTrack) -> Dict[str, Any]:
-        """Convert track object to output format."""
+        """Convert track object to output format with enhanced re-ID metadata."""
         return {
             "id": track.id,
             "tracking_id": track.tracking_id,
             "color": track.color,
             "bbox": track.last_bbox.copy(),
-            "confidence": track.confidence,
+            "confidence": track.confidence,  # YOLO detection confidence
             "track_confidence": track.track_confidence,
             "state": track.state,
             "total_detections": track.total_detections,
             "frames_since_seen": track.frames_since_seen,
             "velocity": list(track.velocity_history)[-1] if track.velocity_history else 0.0,
-            "is_new": track.total_detections == 1
+            "is_new": track.total_detections == 1,
+            # Enhanced re-ID metadata
+            "horse_type": track.horse_type,  # "official" or "guest"
+            "horse_name": track.horse_name,  # Name for official horses, None for guests
+            "reid_confidence": track.reid_match_confidence,  # How confident we are this is the matched horse
+            "is_official": track.horse_type == "official",
+            "matched_official_id": track.matched_official_id  # Database ID if matched to official horse
         }
         
     def get_all_tracks(self, include_lost: bool = False) -> List[Dict[str, Any]]:
@@ -800,15 +866,18 @@ class HorseTracker:
 
     def _load_known_horses(self, known_horses: Dict[str, Dict[str, Any]]) -> None:
         """
-        Load known horses from previous chunks to maintain cross-chunk continuity.
+        Load known horses from barn registry and previous chunks.
+        Separates official horses (confirmed, named) from guest horses (detected, unnamed).
 
         Args:
-            known_horses: Dict of {horse_id: horse_state} from Redis/PostgreSQL
+            known_horses: Dict of {horse_id: horse_state} from Redis/PostgreSQL (barn-level registry)
         """
         try:
             logger.info(f"Loading {len(known_horses)} known horses for stream {self.stream_id}")
 
             max_tracking_id = 0
+            official_count = 0
+            guest_count = 0
 
             for horse_id, horse_state in known_horses.items():
                 # Extract horse data from state
@@ -820,9 +889,22 @@ class HorseTracker:
                     logger.warning(f"Skipping horse {horse_id} - no valid features")
                     continue
 
-                # Parse tracking ID from horse_id (format: horse_001)
+                # Determine if this is an official horse (has name and is_official flag)
+                horse_name = horse_state.get("name")
+                is_official = horse_state.get("is_official", False) or (horse_name is not None and horse_name != "")
+                horse_type = "official" if is_official else "guest"
+
+                # Parse tracking ID from horse_id (format: {stream_id}_horse_{tracking_id})
                 try:
-                    tracking_id = int(horse_id.split('_')[1])
+                    parts = horse_id.split('_horse_')
+                    if len(parts) == 2:
+                        tracking_id = int(parts[1])
+                    else:
+                        # Fallback for different format
+                        tracking_id = horse_state.get("tracking_id", self.next_track_id)
+                        if tracking_id == 0:
+                            tracking_id = self.next_track_id
+                            self.next_track_id += 1
                 except (IndexError, ValueError):
                     tracking_id = self.next_track_id
                     self.next_track_id += 1
@@ -834,32 +916,42 @@ class HorseTracker:
                 track = HorseTrack(
                     id=horse_id,
                     tracking_id=tracking_id,
-                    color=self.TRACKING_COLORS[(tracking_id - 1) % len(self.TRACKING_COLORS)],
+                    color=horse_state.get("color", self.TRACKING_COLORS[(tracking_id - 1) % len(self.TRACKING_COLORS)]),
                     feature_vector=feature_vector,
                     last_bbox=horse_state.get("bbox", {}),
                     last_seen=horse_state.get("last_updated", time.time()),
                     confidence=horse_state.get("confidence", 0.5),
                     total_detections=horse_state.get("total_detections", 0),
                     track_confidence=horse_state.get("tracking_confidence", 1.0),
-                    first_appearance_features=feature_vector.copy()
+                    first_appearance_features=feature_vector.copy(),
+                    # New re-ID metadata
+                    horse_type=horse_type,
+                    horse_name=horse_name,
+                    reid_match_confidence=1.0 if is_official else 0.8,  # Official horses are pre-confirmed
+                    matched_official_id=horse_state.get("id")  # Database ID
                 )
 
-                # Add to lost tracks initially (will be reactivated on detection)
-                self.lost_tracks[horse_id] = track
-
-                # Note: We don't add to ReID index here because it's not initialized yet.
-                # Horses will be added to index when reidentified or when initialize() is called.
-
-                logger.debug(f"Loaded known horse {horse_id} (tracking_id: {tracking_id})")
+                # Separate official vs guest horses
+                if is_official:
+                    self.official_horses[horse_id] = track
+                    official_count += 1
+                    logger.info(f"Loaded official horse: {horse_name} (id: {horse_id}, tracking_id: {tracking_id})")
+                else:
+                    # Guest horses start in lost_tracks (will be reactivated on re-detection)
+                    self.lost_tracks[horse_id] = track
+                    guest_count += 1
+                    logger.debug(f"Loaded guest horse {horse_id} (tracking_id: {tracking_id})")
 
             # Set next_track_id to avoid conflicts
             self.next_track_id = max_tracking_id + 1
             self.color_index = max_tracking_id % len(self.TRACKING_COLORS)
 
-            logger.info(f"Successfully loaded {len(self.lost_tracks)} known horses, next_track_id={self.next_track_id}")
+            logger.info(f"Successfully loaded {official_count} official horses, {guest_count} guest horses, next_track_id={self.next_track_id}")
 
         except Exception as error:
             logger.error(f"Failed to load known horses: {error}")
+            import traceback
+            traceback.print_exc()
 
     def get_all_horse_states(self) -> Dict[str, Dict[str, Any]]:
         """

@@ -97,16 +97,49 @@ class HorseDetectionModel:
 
                         # Only accept horses with confidence above threshold
                         if class_id == HORSE_CLASS_ID and confidence >= settings.confidence_threshold:
+                            bbox_width = float(x2 - x1)
+                            bbox_height = float(y2 - y1)
+                            bbox_area = bbox_width * bbox_height
+                            aspect_ratio = bbox_width / bbox_height if bbox_height > 0 else 0
+
+                            # Apply quality filters to reduce false positives
+                            # Filter 1: Minimum area (avoid tiny detections like distant objects)
+                            if bbox_area < 1000:  # 31x31 pixels minimum
+                                logger.debug(f"Rejected detection: area too small ({bbox_area:.0f} < 1000)")
+                                continue
+
+                            # Filter 2: Aspect ratio check (horses are roughly 0.5:1 to 2.5:1)
+                            # This filters out very wide objects (tires: 5:1) or very tall objects (posts: 1:5)
+                            if aspect_ratio < 0.4 or aspect_ratio > 3.0:
+                                logger.debug(f"Rejected detection: invalid aspect ratio ({aspect_ratio:.2f})")
+                                continue
+
+                            # Filter 3: Higher confidence for larger bounding boxes
+                            # Large detections need lower confidence, small ones need higher
+                            adjusted_threshold = settings.confidence_threshold
+                            if bbox_area < 5000:  # Small detection
+                                adjusted_threshold = min(0.85, settings.confidence_threshold + 0.15)
+
+                            if confidence < adjusted_threshold:
+                                logger.debug(f"Rejected detection: confidence too low ({confidence:.2f} < {adjusted_threshold:.2f} for area {bbox_area:.0f})")
+                                continue
+
                             detection = {
                                 "bbox": {
                                     "x": float(x1),
                                     "y": float(y1),
-                                    "width": float(x2 - x1),
-                                    "height": float(y2 - y1)
+                                    "width": bbox_width,
+                                    "height": bbox_height
                                 },
                                 "confidence": confidence,
                                 "class_id": class_id,
-                                "class_name": "horse"
+                                "class_name": "horse",
+                                # Quality metadata for tracking
+                                "quality_metrics": {
+                                    "area": bbox_area,
+                                    "aspect_ratio": aspect_ratio,
+                                    "adjusted_threshold": adjusted_threshold
+                                }
                             }
                             detections.append(detection)
 
