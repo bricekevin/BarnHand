@@ -71,10 +71,30 @@ router.delete(
         }
       }
 
+      // Clear chunk-related Redis cache
+      let redisKeysCleared = 0;
+      try {
+        const Redis = require('ioredis');
+        const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+
+        // Clear chunk progress keys
+        const chunkKeys = await redis.keys('chunk:*:progress');
+        if (chunkKeys.length > 0) {
+          await redis.del(...chunkKeys);
+          redisKeysCleared = chunkKeys.length;
+        }
+
+        await redis.quit();
+        logger.info('Admin cleanup: Chunk Redis cache cleared', { keysCleared: redisKeysCleared });
+      } catch (redisError: any) {
+        logger.warn('Failed to clear chunk Redis cache (non-fatal)', { error: redisError.message });
+      }
+
       logger.info('Admin cleanup: Chunks deleted', {
         deletedCount,
         errorCount,
         detectionsDeleted,
+        redisKeysCleared,
         userId: req.user.userId,
       });
 
@@ -83,6 +103,7 @@ router.delete(
         chunksDeleted: deletedCount,
         errorCount,
         detectionsDeleted,
+        redisKeysCleared,
         total: chunks.length,
       });
     } catch (error) {
@@ -145,12 +166,32 @@ router.delete(
 
         await query('COMMIT');
 
+        // 7. Clear Redis cache (horse state, tracking data)
+        let redisKeysCleared = 0;
+        try {
+          const Redis = require('ioredis');
+          const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+
+          // Clear all horse-related keys
+          const horseKeys = await redis.keys('horse:*:state');
+          if (horseKeys.length > 0) {
+            await redis.del(...horseKeys);
+            redisKeysCleared = horseKeys.length;
+          }
+
+          await redis.quit();
+          logger.info('Admin cleanup: Redis cache cleared', { keysCleared: redisKeysCleared });
+        } catch (redisError: any) {
+          logger.warn('Failed to clear Redis cache (non-fatal)', { error: redisError.message });
+        }
+
         logger.info('Admin cleanup: Complete horse cleanup successful', {
           horsesDeleted,
           detectionsDeleted,
           featuresDeleted,
           streamHorsesDeleted,
           alertsDeleted,
+          redisKeysCleared,
           userId: req.user.userId,
         });
 
@@ -161,6 +202,7 @@ router.delete(
           featuresDeleted,
           streamHorsesDeleted,
           alertsDeleted,
+          redisKeysCleared,
         });
       } catch (dbError: any) {
         // Rollback on error
@@ -282,8 +324,39 @@ router.delete(
 
         await query('COMMIT');
 
+        // Step 3: Clear ALL Redis cache (comprehensive cleanup)
+        let redisKeysCleared = 0;
+        try {
+          const Redis = require('ioredis');
+          const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+
+          // Clear all horse-related keys
+          const horseKeys = await redis.keys('horse:*');
+          // Clear all chunk-related keys
+          const chunkKeys = await redis.keys('chunk:*');
+          // Clear any other processing keys
+          const processKeys = await redis.keys('process:*');
+
+          const allKeys = [...horseKeys, ...chunkKeys, ...processKeys];
+          if (allKeys.length > 0) {
+            await redis.del(...allKeys);
+            redisKeysCleared = allKeys.length;
+          }
+
+          await redis.quit();
+          logger.info('Admin cleanup: All Redis cache cleared', {
+            keysCleared: redisKeysCleared,
+            horseKeys: horseKeys.length,
+            chunkKeys: chunkKeys.length,
+            processKeys: processKeys.length
+          });
+        } catch (redisError: any) {
+          logger.warn('Failed to clear Redis cache (non-fatal)', { error: redisError.message });
+        }
+
         logger.info('Complete system reset successful', {
           ...summary,
+          redisKeysCleared,
           userId: req.user.userId,
         });
 
@@ -291,6 +364,7 @@ router.delete(
           message:
             'Complete system reset successful - all horses, detections, chunks, and related data removed',
           ...summary,
+          redisKeysCleared,
         });
       } catch (dbError: any) {
         // Rollback on database error
