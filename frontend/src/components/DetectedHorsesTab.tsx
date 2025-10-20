@@ -2,16 +2,18 @@ import React, { useState, useEffect } from 'react';
 
 import type { Horse } from '../../../shared/src/types/horse.types';
 import { HorseCard } from './HorseCard';
-import { HorseEditModal } from './HorseEditModal';
+import { HorseDetailsModal } from './HorseDetailsModal';
 import { useAppStore, useStreamHorses } from '../stores/useAppStore';
 import { websocketService } from '../services/websocketService';
 
 interface DetectedHorsesTabProps {
   streamId: string;
+  onSelectStreamChunk?: (streamId: string, chunkId?: string) => void;
 }
 
 export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
   streamId,
+  onSelectStreamChunk,
 }) => {
   // Get horses from Zustand store (subscribes to real-time updates)
   const storeHorses = useStreamHorses(streamId);
@@ -91,14 +93,24 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [streamId]);
 
-  // Handle horse card click
+  // Handle horse card click - now opens actions modal
   const handleHorseClick = (horse: Horse) => {
+    setActionsModalHorse(horse);
+  };
+
+  // Handle settings button click - opens edit modal
+  const handleSettingsClick = (horse: Horse) => {
     setSelectedHorse(horse);
   };
 
   // Handle modal close
   const handleModalClose = () => {
     setSelectedHorse(null);
+  };
+
+  // Handle actions modal close
+  const handleActionsModalClose = () => {
+    setActionsModalHorse(null);
   };
 
   // Handle horse save
@@ -139,6 +151,39 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
 
     // Update selected horse
     setSelectedHorse(data.horse);
+  };
+
+  // Handle horse delete
+  const handleHorseDelete = async () => {
+    if (!selectedHorse) return;
+
+    const token = getAuthToken();
+
+    if (!token) {
+      throw new Error('Authentication required - please log in');
+    }
+
+    // Call API to delete horse
+    const response = await fetch(
+      `http://localhost:8000/api/v1/horses/${selectedHorse.id}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete horse: ${response.statusText}`);
+    }
+
+    // Remove horse from Zustand store
+    const { removeStreamHorse } = useAppStore.getState();
+    removeStreamHorse(streamId, selectedHorse.id);
+
+    // Close modal
+    setSelectedHorse(null);
   };
 
   // Refresh horses manually
@@ -441,18 +486,23 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
             <HorseCard
               key={horse.id}
               horse={horse}
-              onClick={() => handleHorseClick(horse)}
+              onClick={() => setSelectedHorse(horse)}
             />
           ))}
         </div>
       )}
 
-      {/* Horse Edit Modal */}
+      {/* Horse Details Modal */}
       {selectedHorse && (
-        <HorseEditModal
+        <HorseDetailsModal
           horse={selectedHorse}
-          onClose={handleModalClose}
-          onSave={handleHorseSave}
+          onClose={() => setSelectedHorse(null)}
+          onUpdate={handleRefresh}
+          onSelectStream={(selectedStreamId, chunkId) => {
+            if (onSelectStreamChunk) {
+              onSelectStreamChunk(selectedStreamId, chunkId);
+            }
+          }}
         />
       )}
     </div>
