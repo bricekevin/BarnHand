@@ -15,7 +15,7 @@ const router = Router();
 router.use(authenticateToken);
 router.use(requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN]));
 
-// DELETE /api/v1/admin/chunks - Delete all recorded chunks
+// DELETE /api/v1/admin/chunks - Delete all recorded chunks and related detections
 router.delete(
   '/chunks',
   createAuthenticatedRoute(async (req, res) => {
@@ -24,7 +24,7 @@ router.delete(
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      logger.warn('Admin cleanup: Deleting all chunks', {
+      logger.warn('Admin cleanup: Deleting all chunks and related data', {
         userId: req.user.userId,
         userEmail: req.user.email,
       });
@@ -34,11 +34,35 @@ router.delete(
 
       let deletedCount = 0;
       let errorCount = 0;
+      let detectionsDeleted = 0;
 
-      // Delete each chunk
+      // First, delete all detections that reference chunks
+      // This prevents orphaned detections from staying around
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const db = require('@barnhand/database');
+        const { query } = db;
+
+        // Delete detections that have chunk_id set
+        // Note: detections.chunk_id has ON DELETE CASCADE, but we delete explicitly first
+        const detectionsResult = await query(
+          'DELETE FROM detections WHERE chunk_id IS NOT NULL'
+        );
+        detectionsDeleted = detectionsResult.rowCount || 0;
+
+        logger.info('Deleted detections associated with chunks', {
+          detectionsDeleted,
+        });
+      } catch (dbError) {
+        logger.error('Failed to delete chunk-related detections', { dbError });
+        // Continue anyway - the cascade will handle it
+      }
+
+      // Delete each chunk (files + DB record)
       for (const chunk of chunks) {
         try {
-          // Delete files and DB record
+          // This will delete files and DB record
+          // DB record deletion will cascade to any remaining detections via ON DELETE CASCADE
           await videoChunkService.deleteChunk(chunk.id, chunk.farm_id);
           deletedCount++;
         } catch (error) {
@@ -50,13 +74,15 @@ router.delete(
       logger.info('Admin cleanup: Chunks deleted', {
         deletedCount,
         errorCount,
+        detectionsDeleted,
         userId: req.user.userId,
       });
 
       return res.json({
-        message: 'Chunk cleanup completed',
-        deletedCount,
+        message: 'Chunk cleanup completed - files and detections removed',
+        chunksDeleted: deletedCount,
         errorCount,
+        detectionsDeleted,
         total: chunks.length,
       });
     } catch (error) {
@@ -66,7 +92,7 @@ router.delete(
   })
 );
 
-// DELETE /api/v1/admin/horses - Delete all detected horses
+// DELETE /api/v1/admin/horses - Delete all detected horses and related data
 router.delete(
   '/horses',
   createAuthenticatedRoute(async (req, res) => {
@@ -75,39 +101,224 @@ router.delete(
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      logger.warn('Admin cleanup: Deleting all horses', {
+      logger.warn('Admin cleanup: Deleting all horses and related data', {
         userId: req.user.userId,
         userEmail: req.user.email,
       });
-
-      // Use database package if available
-      let deletedCount = 0;
 
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const db = require('@barnhand/database');
         const { query } = db;
 
-        // Delete all horses directly
-        const result = await query('DELETE FROM horses RETURNING id');
-        deletedCount = result.rowCount || 0;
+        // Start transaction for comprehensive cleanup
+        await query('BEGIN');
 
-        logger.info('Admin cleanup: Horses deleted', {
-          deletedCount,
+        // 1. Delete all detections (TimescaleDB hypertable)
+        // Note: detections.horse_id has ON DELETE SET NULL, so we must delete explicitly
+        const detectionsResult = await query('DELETE FROM detections');
+        const detectionsDeleted = detectionsResult.rowCount || 0;
+
+        // 2. Delete all horse_features (has CASCADE so would auto-delete, but explicit is better)
+        const featuresResult = await query('DELETE FROM horse_features');
+        const featuresDeleted = featuresResult.rowCount || 0;
+
+        // 3. Delete all stream_horses associations (has CASCADE so would auto-delete)
+        const streamHorsesResult = await query('DELETE FROM stream_horses');
+        const streamHorsesDeleted = streamHorsesResult.rowCount || 0;
+
+        // 4. Delete all horse-related alerts (has CASCADE so would auto-delete)
+        const alertsResult = await query('DELETE FROM alerts WHERE horse_id IS NOT NULL');
+        const alertsDeleted = alertsResult.rowCount || 0;
+
+        // 5. Finally delete all horses
+        const horsesResult = await query('DELETE FROM horses RETURNING id');
+        const horsesDeleted = horsesResult.rowCount || 0;
+
+        // 6. Refresh continuous aggregate views to clear cached data
+        await query('CALL refresh_continuous_aggregate(\'hourly_horse_activity\', NULL, NULL)').catch(() => {
+          logger.warn('Could not refresh hourly_horse_activity view');
+        });
+        await query('CALL refresh_continuous_aggregate(\'daily_stream_summary\', NULL, NULL)').catch(() => {
+          logger.warn('Could not refresh daily_stream_summary view');
+        });
+
+        await query('COMMIT');
+
+        logger.info('Admin cleanup: Complete horse cleanup successful', {
+          horsesDeleted,
+          detectionsDeleted,
+          featuresDeleted,
+          streamHorsesDeleted,
+          alertsDeleted,
           userId: req.user.userId,
         });
 
         return res.json({
-          message: 'Horse cleanup completed',
-          deletedCount,
+          message: 'Complete horse cleanup successful - all related data removed',
+          horsesDeleted,
+          detectionsDeleted,
+          featuresDeleted,
+          streamHorsesDeleted,
+          alertsDeleted,
         });
-      } catch (dbError) {
-        logger.error('Database not available for horse cleanup', { dbError });
-        return res.status(503).json({ error: 'Database not available' });
+      } catch (dbError: any) {
+        // Rollback on error
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const db = require('@barnhand/database');
+          const { query } = db;
+          await query('ROLLBACK');
+        } catch (rollbackError) {
+          logger.error('Failed to rollback transaction', { rollbackError });
+        }
+
+        logger.error('Database error during horse cleanup', {
+          dbError: dbError.message,
+          stack: dbError.stack,
+        });
+        return res.status(503).json({
+          error: 'Database cleanup failed',
+          details: dbError.message,
+        });
       }
-    } catch (error) {
-      logger.error('Admin cleanup: Failed to delete horses', { error });
+    } catch (error: any) {
+      logger.error('Admin cleanup: Failed to delete horses', {
+        error: error.message,
+        stack: error.stack,
+      });
       return res.status(500).json({ error: 'Failed to delete horses' });
+    }
+  })
+);
+
+// DELETE /api/v1/admin/reset-all - Complete system reset (chunks + horses + all related data)
+router.delete(
+  '/reset-all',
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      logger.warn('Admin cleanup: COMPLETE SYSTEM RESET requested', {
+        userId: req.user.userId,
+        userEmail: req.user.email,
+      });
+
+      const summary = {
+        chunksDeleted: 0,
+        chunkErrors: 0,
+        horsesDeleted: 0,
+        detectionsDeleted: 0,
+        featuresDeleted: 0,
+        streamHorsesDeleted: 0,
+        alertsDeleted: 0,
+      };
+
+      // Step 1: Delete all video chunks and files
+      try {
+        const chunks = await videoChunkService.getAllChunks();
+        logger.info(`Deleting ${chunks.length} video chunks...`);
+
+        for (const chunk of chunks) {
+          try {
+            await videoChunkService.deleteChunk(chunk.id, chunk.farm_id);
+            summary.chunksDeleted++;
+          } catch (error) {
+            logger.error(`Failed to delete chunk ${chunk.id}`, { error });
+            summary.chunkErrors++;
+          }
+        }
+      } catch (error) {
+        logger.error('Failed to fetch/delete chunks', { error });
+      }
+
+      // Step 2: Comprehensive database cleanup
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const db = require('@barnhand/database');
+        const { query } = db;
+
+        await query('BEGIN');
+
+        // Delete ALL detections (removes both chunk-related and horse-related)
+        const detectionsResult = await query('DELETE FROM detections');
+        summary.detectionsDeleted = detectionsResult.rowCount || 0;
+
+        // Delete all horse features
+        const featuresResult = await query('DELETE FROM horse_features');
+        summary.featuresDeleted = featuresResult.rowCount || 0;
+
+        // Delete all stream-horse associations
+        const streamHorsesResult = await query('DELETE FROM stream_horses');
+        summary.streamHorsesDeleted = streamHorsesResult.rowCount || 0;
+
+        // Delete all horse-related alerts
+        const alertsResult = await query(
+          'DELETE FROM alerts WHERE horse_id IS NOT NULL'
+        );
+        summary.alertsDeleted = alertsResult.rowCount || 0;
+
+        // Delete all horses
+        const horsesResult = await query('DELETE FROM horses');
+        summary.horsesDeleted = horsesResult.rowCount || 0;
+
+        // Refresh continuous aggregate views
+        await query(
+          'CALL refresh_continuous_aggregate(\'hourly_horse_activity\', NULL, NULL)'
+        ).catch(() => {
+          logger.warn('Could not refresh hourly_horse_activity view');
+        });
+        await query(
+          'CALL refresh_continuous_aggregate(\'daily_stream_summary\', NULL, NULL)'
+        ).catch(() => {
+          logger.warn('Could not refresh daily_stream_summary view');
+        });
+
+        await query('COMMIT');
+
+        logger.info('Complete system reset successful', {
+          ...summary,
+          userId: req.user.userId,
+        });
+
+        return res.json({
+          message:
+            'Complete system reset successful - all horses, detections, chunks, and related data removed',
+          ...summary,
+        });
+      } catch (dbError: any) {
+        // Rollback on database error
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const db = require('@barnhand/database');
+          const { query } = db;
+          await query('ROLLBACK');
+        } catch (rollbackError) {
+          logger.error('Failed to rollback transaction', { rollbackError });
+        }
+
+        logger.error('Database error during system reset', {
+          dbError: dbError.message,
+          stack: dbError.stack,
+        });
+
+        return res.status(503).json({
+          error: 'System reset failed during database cleanup',
+          details: dbError.message,
+          partialResults: summary,
+        });
+      }
+    } catch (error: any) {
+      logger.error('Admin cleanup: System reset failed', {
+        error: error.message,
+        stack: error.stack,
+      });
+      return res.status(500).json({
+        error: 'System reset failed',
+        details: error.message,
+      });
     }
   })
 );
