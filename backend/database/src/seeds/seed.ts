@@ -104,7 +104,7 @@ function createSeedData(): SeedData {
     streams: [
       {
         id: stream1Id,
-        farm_id: farmId,
+        farm_id: null, // Start unassigned - user can assign via drag-and-drop
         name: 'Paddock Camera 1',
         source_type: 'local',
         source_url: 'http://video-streamer:8003/stream1/index.m3u8',
@@ -120,9 +120,9 @@ function createSeedData(): SeedData {
       },
       {
         id: stream2Id,
-        farm_id: farmId,
+        farm_id: null, // Start unassigned - user can assign via drag-and-drop
         name: 'Training Ring Camera',
-        source_type: 'local', 
+        source_type: 'local',
         source_url: 'http://video-streamer:8003/stream2/index.m3u8',
         status: 'inactive',
         processing_delay: 20,
@@ -136,10 +136,10 @@ function createSeedData(): SeedData {
       },
       {
         id: stream3Id,
-        farm_id: farmId,
+        farm_id: null, // Start unassigned - user can assign via drag-and-drop
         name: 'Barn Interior Camera',
         source_type: 'local',
-        source_url: 'http://video-streamer:8003/stream3/index.m3u8', 
+        source_url: 'http://video-streamer:8003/stream3/index.m3u8',
         status: 'inactive',
         processing_delay: 25,
         chunk_duration: 10,
@@ -147,6 +147,22 @@ function createSeedData(): SeedData {
           resolution: '1280x720',
           fps: 15,
           quality: 'medium'
+        },
+        health_check_url: 'http://video-streamer:8003/health'
+      },
+      {
+        id: generateUUID(),
+        farm_id: null, // Start unassigned - user can assign via drag-and-drop
+        name: 'Pasture Camera 4',
+        source_type: 'local',
+        source_url: 'http://video-streamer:8003/stream4/index.m3u8',
+        status: 'inactive',
+        processing_delay: 15,
+        chunk_duration: 10,
+        config: {
+          resolution: '1920x1080',
+          fps: 30,
+          quality: 'high'
         },
         health_check_url: 'http://video-streamer:8003/health'
       }
