@@ -75,7 +75,7 @@ export class HorseRepository {
     featureVector: number[]
   ): Promise<void> {
     await query(
-      'UPDATE horses SET feature_vector = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      'UPDATE horses SET feature_vector = $1 WHERE id = $2',
       [`[${featureVector.join(',')}]`, id]
     );
   }
@@ -83,28 +83,28 @@ export class HorseRepository {
   async updateLastSeen(id: string, timestamp?: Date): Promise<void> {
     const time = timestamp || new Date();
     await query(
-      'UPDATE horses SET last_seen = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      'UPDATE horses SET last_seen = $1 WHERE id = $2',
       [time, id]
     );
   }
 
   async incrementDetectionCount(id: string): Promise<void> {
     await query(
-      'UPDATE horses SET total_detections = total_detections + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      'UPDATE horses SET total_detections = total_detections + 1 WHERE id = $1',
       [id]
     );
   }
 
   async updateConfidenceScore(id: string, confidence: number): Promise<void> {
     await query(
-      'UPDATE horses SET confidence_score = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      'UPDATE horses SET confidence_score = $1 WHERE id = $2',
       [confidence, id]
     );
   }
 
   async updateAvatar(horseId: string, avatarData: Buffer): Promise<void> {
     await query(
-      'UPDATE horses SET avatar_thumbnail = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      'UPDATE horses SET avatar_thumbnail = $1 WHERE id = $2',
       [avatarData, horseId]
     );
   }
@@ -142,7 +142,7 @@ export class HorseRepository {
       return horse;
     }
 
-    updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+    // Note: updated_at is auto-updated by database trigger if column exists
     params.push(horseId);
 
     const sql = `
@@ -211,6 +211,15 @@ export class HorseRepository {
     return result.rows.map(this.mapRowToHorse);
   }
 
+  async countOfficialHorses(farmId: string): Promise<number> {
+    const result = await query(
+      'SELECT COUNT(*) FROM horses WHERE farm_id = $1 AND is_official = TRUE',
+      [farmId]
+    );
+
+    return parseInt(result.rows[0].count, 10);
+  }
+
   async update(id: string, updates: Partial<Horse>): Promise<Horse | null> {
     const allowedFields = [
       'farm_id',
@@ -223,6 +232,9 @@ export class HorseRepository {
       'gender',
       'ui_color',
       'metadata',
+      'is_official',
+      'made_official_at',
+      'made_official_by',
     ];
     const updateFields: string[] = [];
     const params: any[] = [];
@@ -240,7 +252,7 @@ export class HorseRepository {
       return this.findById(id);
     }
 
-    updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+    // Note: updated_at is auto-updated by database trigger if column exists
     params.push(id);
 
     const sql = `
@@ -291,6 +303,10 @@ export class HorseRepository {
       // Include stream and farm names when available (from JOINs)
       stream_name: row.stream_name,
       farm_name: row.farm_name,
+      // Official horse fields
+      is_official: row.is_official,
+      made_official_at: row.made_official_at,
+      made_official_by: row.made_official_by,
     };
   }
 }
