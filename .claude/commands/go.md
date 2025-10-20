@@ -1,115 +1,136 @@
-markdown# BarnHand Development Session Command
+markdown# BarnHand Development Session Start
 
-You are working on BarnHand, an intelligent horse streaming platform with ML-powered video detection, tracking, and behavioral analysis. This is an actively evolving system where understanding the complete architecture is CRITICAL before making any changes.
+You are working on BarnHand, an intelligent horse streaming platform with ML-powered video detection, tracking, and behavioral analysis.
+
+## CURRENT STATE
+
+**Branch**: `feature/documentation`
+**Recent Completion**: Barn-based ReID implementation (cross-stream horse tracking) ✅
+
+**Key Recent Work**:
+- ✅ Barn-based ReID pooling (horses tracked across all streams in same barn)
+- ✅ Horse ID collision fixes and performance profiling
+- ✅ Stream-to-barn management infrastructure
+- ✅ Frontend improvements: horse context display, stream management UI
 
 ## PROJECT OVERVIEW
 
 **Core System:**
-
-- Real-time video processing with chunk-based ML inference
-- Multi-horse tracking with persistent IDs across chunks
-- Pose estimation (17 keypoints) and behavioral state detection
+- Real-time video processing with 10s chunk-based ML inference
+- Multi-horse tracking with barn-scoped persistent ReID
+- Pose estimation (17 keypoints) + behavioral state detection
 - HLS streaming with synchronized detection overlays
 
 **Tech Stack:**
-
-- Frontend: React 18 + TypeScript + Vite (dev: 5174, prod: 3000)
-- Backend: Express.js API Gateway (8000), Node.js Stream Service (8001), Python ML Service (8002), FFmpeg Video Streamer (8003)
+- Frontend: React 18 + TypeScript + Vite + Zustand (dev: 5174, prod: 3000)
+- Backend: Express.js API Gateway (8000), Node.js Stream Service (8001), Python ML Service (8002), Video Streamer (8003)
 - ML Models: YOLO11 (primary), YOLOv5 (fallback), RTMPose-M AP10K, MegaDescriptor ReID
-- Database: PostgreSQL + TimescaleDB + pgvector
-- Cache/Queue: Redis
+- Database: PostgreSQL + TimescaleDB + pgvector (512-dim feature vectors)
+- Cache/Queue: Redis (real-time tracking state + processing queue)
 - Infrastructure: Docker Compose (ALL development/testing in Docker)
 
 **Project Structure:**
+```
 BarnHand/
-├── frontend/ # React app
+├── frontend/                    # React app
 ├── backend/
-│ ├── api-gateway/ # Express.js REST API + WebSocket
-│ ├── stream-service/ # Node.js chunk processor
-│ ├── ml-service/ # Python FastAPI ML inference
-│ ├── video-streamer/ # FFmpeg HLS streaming
-│ └── database/ # Migrations and schema
-├── models/ # ML model weights (138MB)
-├── media/ # Test videos
-├── docs/ # Phase folders + general docs
-│ ├── phase1/ # Phase 1 planning docs
-│ ├── phase2/ # Phase 2 planning docs
-│ ├── phase[N]/ # Future phase planning
-│ │ ├── [epic]-overview.md # PM-generated overview
-│ │ └── [epic]-tasks.md # PM-generated task checklist
-│ └── [general docs] # Architecture, styles, implementation guides
-├── testing/ # Test suites
-└── scripts/ # Utility scripts
+│   ├── api-gateway/            # Express.js REST API + WebSocket
+│   ├── stream-service/         # Node.js chunk processor
+│   ├── ml-service/             # Python FastAPI ML inference
+│   ├── video-streamer/         # FFmpeg HLS streaming
+│   └── database/               # Migrations and schema
+├── models/                     # ML model weights (138MB)
+├── media/                      # Test videos
+├── docs/
+│   ├── BARN_BASED_REID_IMPLEMENTATION.md  # Recent completion
+│   ├── BARN_REID_QUICK_REFERENCE.md       # Quick reference
+│   └── [other docs]            # Architecture, styles, guides
+├── testing/                    # Test suites
+└── scripts/                    # Utility scripts
+```
 
 ## SESSION START PROTOCOL
 
-### 1. MANDATORY: Read Current State
+### 1. MANDATORY: Read Current State (IN ORDER)
 
 ```bash
-# Read these IN ORDER before any work:
-1. docs/HANDOFF_NOTES.md (or phase-specific handoff notes)
-2. docs/phase[N]/[epic-name]-tasks.md (if working from PM-generated plan)
-3. git log --oneline -10
-4. git status
-5. docker compose ps
-CRITICAL: The handoff notes contain context about what was done last session, current blockers, and next priorities. READ THEM FIRST.
-If working from a planned EPIC: Check docs/phase[N]/ for:
+1. docs/HANDOFF_NOTES.md        # Last session context
+2. git status                   # Current uncommitted changes
+3. git log --oneline -10        # Recent commits
+```
 
-[epic-name]-overview.md - Strategic context and architecture decisions
-[epic-name]-tasks.md - Task checklist with detailed implementation steps
+**CRITICAL**: Handoff notes contain what was done last session, current blockers, and next priorities.
 
-2. Review Relevant Documentation
-Based on task keywords, automatically reference:
+### 2. Context-Specific Documentation (by topic)
 
-video/streaming/playback → docs/horse_streaming_implementation.md, docs/horse_streaming_architecture.md
-ML/detection/pose/tracking → backend/ml-service/README.md, test_advanced_state_pipeline.py
-chunk/processing → Phase 2 docs in docs/phase2/
-frontend/UI/component → docs/styles.md, frontend component structure
-database/schema → backend/database/src/migrations/sql/
-deployment/docker → docker-compose.yml, service Dockerfiles
-phase planning → docs/phase[N]/[epic-name]-overview.md and [epic-name]-tasks.md
+**By Topic** (auto-reference based on keywords):
+- **video/streaming/playback** → `docs/horse_streaming_implementation.md`, `docs/horse_streaming_architecture.md`
+- **ML/detection/pose/tracking** → `backend/ml-service/README.md`, `backend/ml-service/src/services/processor.py`
+- **ReID/horse matching** → `docs/BARN_BASED_REID_IMPLEMENTATION.md`, `backend/ml-service/src/services/horse_database.py`
+- **chunk processing** → `backend/stream-service/`
+- **frontend/UI/components** → `docs/styles.md`, `frontend/src/components/`
+- **database/schema** → `backend/database/src/migrations/sql/`
+- **barn/farm management** → `backend/api-gateway/src/services/settingsService.ts`
 
-3. Understand Before Changing
-IMPORTANT: This is an integrated system. Before modifying any component:
+### 3. Understand System Architecture Before Changing
 
-Trace how it connects to other services
-Check for existing patterns (don't reinvent)
-Verify you won't break existing functionality
-Look for TODO markers or existing partial implementations
+**IMPORTANT**: This is an integrated system with multiple services. Before modifying:
 
-TASK: {USER_SPECIFIED_TASK}
-EXECUTION APPROACH
-Phase 1: Planning & Assessment
+1. **Trace connections**: How does this component interact with other services?
+2. **Check patterns**: Look for existing implementations to follow (don't reinvent)
+3. **Verify safety**: Will this break existing functionality?
+4. **Check TODOs**: Are there partial implementations or notes?
 
-Break down task into logical, testable steps (or follow PM-generated task breakdown)
-Identify all affected components/services
-Check for existing implementations or patterns to follow
-Confirm approach before implementing
+**Data Flow to Understand**:
+- Video chunks → ML Service → Detections → API Gateway → Frontend
+- Horse ReID: Barn-scoped pool (all streams in barn share horse registry)
+- Stream assignment: farm_id links streams to barns
+- Redis: Real-time state, PostgreSQL: Persistent storage
 
-Phase 2: Implementation
+---
 
-Docker-only workflow: All changes must run in Docker
-Commit strategy: Small, focused commits with conventional format (feat:, fix:, docs:, test:)
-Update existing files: Prefer modifying over creating new (unless truly needed)
-Follow established patterns: Review similar implementations first
+## EXECUTION APPROACH
 
-Phase 3: Testing (Collaborative)
+### Phase 1: Planning & Assessment
+1. Break down task into logical, testable steps
+2. Identify all affected components/services
+3. Check for existing implementations or patterns to follow
+4. Confirm approach before implementing if task is complex
 
-Provide clear testing steps for Kevin to execute
-Use Playwright MCP for automated frontend testing when applicable
-Request inspection of Docker logs: docker compose logs -f [service]
-Verify end-to-end flow, not just individual components
+### Phase 2: Implementation
+- **Docker-first**: All changes must run in Docker containers
+- **Commit strategy**: Small, focused commits
+  - Format: `{type}(scope): description`
+  - Types: feat, fix, docs, test, refactor, chore
+- **File changes**: Prefer modifying existing files over creating new ones
+- **Pattern matching**: Review similar implementations before writing new code
+- **Test as you go**: Don't wait until end to test
 
-Phase 4: Documentation
+### Phase 3: Testing & Validation
+- **Unit tests**: Write tests alongside implementation
+- **Integration tests**: Test service interactions in Docker
+- **Manual testing**: Provide clear testing steps for validation
+- **E2E tests**: Use Playwright MCP for automated frontend testing
+- **Logs**: Always check Docker logs: `docker compose logs -f [service]`
+- **End-to-end**: Verify complete flow, not just individual components
 
-Update EXISTING docs (don't create new unless necessary)
-Add session notes to work log (see format below)
-Update handoff notes for next session
-Update task checklist (if working from PM plan): mark tasks [x] complete or [~] in progress
+### Phase 4: Documentation & Handoff
+- **Update existing docs**: Don't create new docs unless necessary
+- **Handoff notes**: Update `docs/HANDOFF_NOTES.md` at session end with:
+  - What was completed
+  - Current blockers (if any)
+  - Next priorities
+  - Testing notes
+  - Context for next developer
 
-DOCKER WORKFLOW
-Service Management:
-bash# Start all services
+---
+
+## DOCKER WORKFLOW
+
+### Service Management
+
+```bash
+# Start all services
 docker compose up -d
 
 # Rebuild specific service after changes

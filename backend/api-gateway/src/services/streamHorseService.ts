@@ -105,10 +105,11 @@ class StreamHorseService {
         throw new Error(`Stream ${streamId} does not belong to farm ${farmId}`);
       }
 
-      // Fetch horses for this stream
-      logger.debug('Fetching horses for stream', { streamId });
-      const horses = await this.horseRepository.findByStreamId(streamId);
-      logger.debug('Fetched stream horses', {
+      // Fetch ALL horses for this farm/barn
+      // This enables barn-based RE-ID where all horses appear in all stream tabs
+      logger.debug('Fetching all horses for barn', { streamId, farmId });
+      const horses = await this.horseRepository.findAll(farmId);
+      logger.debug('Fetched barn horses for stream view', {
         streamId,
         farmId,
         count: horses.length
@@ -161,20 +162,30 @@ class StreamHorseService {
    */
   async updateHorse(
     horseId: string,
-    farmId: string,
+    farmId: string | null,
     updates: UpdateHorseDto
   ): Promise<Horse> {
     if (!this.useDatabase) {
       throw new Error('Database not available');
     }
 
-    // Verify horse exists and belongs to farm
+    // Verify horse exists
     const existingHorse = await this.horseRepository.findById(horseId);
     if (!existingHorse) {
       throw new Error(`Horse ${horseId} not found`);
     }
-    if (existingHorse.farm_id !== farmId) {
+
+    // Only check farm ownership if farmId is provided (not SUPER_ADMIN)
+    if (farmId !== null && existingHorse.farm_id !== farmId) {
       throw new Error(`Horse ${horseId} does not belong to farm ${farmId}`);
+    }
+
+    // Merge metadata with existing metadata to preserve other fields
+    if (updates.metadata) {
+      updates.metadata = {
+        ...(existingHorse.metadata || {}),
+        ...updates.metadata
+      };
     }
 
     // Update horse details
@@ -244,7 +255,8 @@ class StreamHorseService {
       throw new Error(`Stream ${streamId} does not belong to farm ${farmId}`);
     }
 
-    const horses = await this.horseRepository.findByStreamId(streamId);
+    // Get ALL horses for the barn (not just this stream)
+    const horses = await this.horseRepository.findAll(farmId);
 
     // Return total count and up to 3 most recent horses
     return {

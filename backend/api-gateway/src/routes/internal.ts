@@ -9,7 +9,7 @@ const router = Router();
 
 // Validation schema for horses detected webhook
 const horsesDetectedSchema = z.object({
-  streamId: z.string().uuid(),
+  streamId: z.string().min(1), // Accept any non-empty string (e.g., stream_001, UUID, etc.)
   horses: z.array(
     z.object({
       id: z.string(),

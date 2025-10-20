@@ -163,7 +163,125 @@ class HorseDatabaseService:
         except Exception as error:
             logger.error(f"Failed to load stream horse registry: {error}")
             return {}
-    
+
+    async def load_barn_horse_registry(self, stream_id: str, farm_id: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+        """
+        Load all active horses for a barn/farm (across all streams in that barn).
+        This enables barn-based RE-ID pooling where horses detected in any stream
+        assigned to a barn can be re-identified in all streams in that barn.
+
+        Returns dict of {horse_id: horse_state}
+        """
+        try:
+            # Get farm_id if not provided
+            if not farm_id:
+                farm_id = await self._get_farm_id_from_stream(stream_id)
+                if not farm_id:
+                    logger.warning(f"Could not determine farm_id for stream {stream_id}, falling back to stream-only")
+                    return await self.load_stream_horse_registry(stream_id)
+
+            horses = {}
+
+            # Step 1: Load horses from PostgreSQL for this farm
+            # This ensures we get ALL horses ever seen in this barn, even if not in Redis
+            if self.pool:
+                conn = self.pool.getconn()
+                try:
+                    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                    cursor.execute("""
+                        SELECT
+                            tracking_id, stream_id, farm_id, color_hex, last_seen,
+                            total_detections, feature_vector, metadata, track_confidence, status
+                        FROM horses
+                        WHERE farm_id = %s AND status = 'active'
+                        ORDER BY last_seen DESC
+                    """, (farm_id,))
+
+                    rows = cursor.fetchall()
+                    for row in rows:
+                        horse_id = row['tracking_id']
+                        # Convert PostgreSQL row to horse_state format
+                        # Note: psycopg2 automatically deserializes JSON/JSONB columns
+                        feature_vector = row['feature_vector'] if row['feature_vector'] else []
+                        metadata = row['metadata'] if row['metadata'] else {}
+
+                        # Handle case where they might still be strings (older psycopg versions)
+                        if isinstance(feature_vector, str):
+                            feature_vector = json.loads(feature_vector)
+                        if isinstance(metadata, str):
+                            metadata = json.loads(metadata)
+
+                        horses[horse_id] = {
+                            "horse_id": horse_id,
+                            "tracking_id": horse_id,
+                            "stream_id": row['stream_id'],
+                            "farm_id": row['farm_id'],
+                            "color": row['color_hex'],
+                            "confidence": 1.0,  # Default confidence
+                            "features": feature_vector,
+                            "bbox": metadata.get("bbox", {}),
+                            "total_detections": row['total_detections'],
+                            "tracking_confidence": row['track_confidence'],
+                            "last_updated": row['last_seen'].timestamp() if row['last_seen'] else time.time(),
+                            "status": row['status']
+                        }
+
+                    logger.info(f"Loaded {len(horses)} horses from PostgreSQL for farm {farm_id}")
+
+                except Exception as error:
+                    logger.error(f"Failed to load horses from PostgreSQL for farm {farm_id}: {error}")
+                finally:
+                    self.pool.putconn(conn)
+
+            # Step 2: Overlay with Redis data (which has fresher state)
+            # Redis horses take precedence over PostgreSQL for active tracks
+            if self.redis_client and self.pool:
+                try:
+                    # Get all streams for this farm
+                    conn = self.pool.getconn()
+                    try:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT id FROM streams WHERE farm_id = %s", (farm_id,))
+                        stream_ids = [row[0] for row in cursor.fetchall()]
+                        logger.debug(f"Found {len(stream_ids)} streams in farm {farm_id}: {stream_ids}")
+                    finally:
+                        self.pool.putconn(conn)
+
+                    # Load Redis horses from ALL streams in this farm
+                    redis_count = 0
+                    for sid in stream_ids:
+                        pattern = f"horse:{sid}:*:state"
+                        keys = self.redis_client.keys(pattern)
+
+                        for key in keys:
+                            try:
+                                state_json = self.redis_client.get(key)
+                                if state_json:
+                                    state_data = json.loads(state_json)
+                                    horse_id = state_data.get("horse_id")
+                                    if horse_id:
+                                        # Redis data overrides PostgreSQL (fresher)
+                                        horses[horse_id] = state_data
+                                        redis_count += 1
+                            except Exception as e:
+                                logger.debug(f"Failed to load horse state from Redis key {key}: {e}")
+                                continue
+
+                    logger.info(f"Loaded {redis_count} horses from Redis across {len(stream_ids)} streams in farm {farm_id}")
+
+                except Exception as error:
+                    logger.error(f"Failed to load horses from Redis for farm {farm_id}: {error}")
+
+            logger.info(f"🏠 Barn-level registry: {len(horses)} total horses available for RE-ID in farm {farm_id}")
+            return horses
+
+        except Exception as error:
+            logger.error(f"Failed to load barn horse registry: {error}")
+            import traceback
+            traceback.print_exc()
+            # Fallback to stream-only registry
+            return await self.load_stream_horse_registry(stream_id)
+
     async def save_stream_horse_registry(self, stream_id: str, horses: Dict[str, Dict[str, Any]]) -> bool:
         """
         Save entire horse registry for a stream to Redis + PostgreSQL.

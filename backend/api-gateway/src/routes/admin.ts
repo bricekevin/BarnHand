@@ -264,6 +264,10 @@ router.delete(
         const horsesResult = await query('DELETE FROM horses');
         summary.horsesDeleted = horsesResult.rowCount || 0;
 
+        // Unassign all streams from barns (set farm_id to NULL)
+        await query('UPDATE streams SET farm_id = NULL');
+        logger.info('All streams unassigned from barns');
+
         // Refresh continuous aggregate views
         await query(
           'CALL refresh_continuous_aggregate(\'hourly_horse_activity\', NULL, NULL)'

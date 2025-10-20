@@ -546,10 +546,11 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
         </button>
       </div>
 
-      {/* Main Video Display */}
-      <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-        {(stream.status === 'active' && viewMode === 'live') ||
-        (viewMode === 'playback' && currentVideoUrl) ? (
+      {/* Main Video Display - Hidden in horses view mode */}
+      {viewMode !== 'horses' && (
+        <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+          {(stream.status === 'active' && viewMode === 'live') ||
+          (viewMode === 'playback' && currentVideoUrl) ? (
           <>
             <VideoPlayer
               key={`${selectedChunk?.id || 'live'}-${showRawVideo ? 'raw' : 'processed'}`}
@@ -686,7 +687,8 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
             </div>
           </div>
         )}
-      </div>
+        </div>
+      )}
 
       {/* Live Mode Controls */}
       {stream.status === 'active' && viewMode === 'live' && (
@@ -859,7 +861,84 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
       {/* Detected Horses Tab */}
       {viewMode === 'horses' && (
         <div className="detected-horses-container">
-          <DetectedHorsesTab streamId={stream.id} />
+          <DetectedHorsesTab
+            streamId={stream.id}
+            onSelectStreamChunk={async (selectedStreamId, chunkId) => {
+              console.log('🎬 onSelectStreamChunk called:', { selectedStreamId, chunkId });
+
+              // TODO: Handle navigation to different streams if needed
+              // For now, if it's a different stream, log a warning
+              if (selectedStreamId !== stream.id) {
+                console.warn(
+                  'Cross-stream navigation not yet implemented. Selected stream:',
+                  selectedStreamId
+                );
+                // Could potentially emit an event or callback to parent to switch streams
+                return;
+              }
+
+              // If chunk ID is provided, switch to playback mode and load that chunk
+              if (chunkId) {
+                console.log('🔄 Fetching chunks to find chunk ID:', chunkId);
+
+                try {
+                  const token = await getAuthToken();
+                  if (!token) {
+                    console.error('No authentication token available');
+                    return;
+                  }
+
+                  // Fetch chunks directly to avoid state timing issues
+                  const response = await fetch(
+                    `http://localhost:8000/api/v1/streams/${stream.id}/chunks`,
+                    {
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                    }
+                  );
+
+                  if (response.ok) {
+                    const data = await response.json();
+                    const chunks = data.chunks || [];
+                    console.log('📦 Fetched chunks:', chunks.length);
+
+                    // Update state for UI
+                    setVideoChunks(chunks);
+
+                    // Find the requested chunk
+                    const chunk = chunks.find((c: VideoChunk) => c.id === chunkId);
+                    console.log('🔍 Found chunk:', chunk);
+
+                    if (chunk) {
+                      if (chunk.status === 'completed') {
+                        console.log('✅ Selecting chunk:', chunk.filename);
+                        await handleChunkSelect(chunk);
+                        setViewMode('playback');
+                      } else {
+                        console.error('❌ Chunk not completed. Status:', chunk.status);
+                        alert(`Chunk is not ready for playback. Status: ${chunk.status}`);
+                      }
+                    } else {
+                      console.error('❌ Chunk not found. Available chunks:',
+                        chunks.map((c: VideoChunk) => ({ id: c.id, filename: c.filename }))
+                      );
+                      alert(`Chunk not found. This may be from a different stream or not yet processed.`);
+                    }
+                  } else {
+                    console.error('Failed to load video chunks:', response.statusText);
+                  }
+                } catch (error) {
+                  console.error('Error loading chunks:', error);
+                }
+              } else {
+                // No chunk ID, just switch to playback view
+                console.log('📺 Switching to playback view without specific chunk');
+                setViewMode('playback');
+              }
+            }}
+          />
         </div>
       )}
     </div>
