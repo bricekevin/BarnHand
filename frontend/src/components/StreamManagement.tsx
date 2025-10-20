@@ -48,7 +48,7 @@ export const StreamManagement: React.FC = () => {
         .filter((stream: BackendStream) => stream.status === 'active')
         .map((stream: BackendStream) => ({
           id: stream.id,
-          name: stream.videoFile.filename.replace('.mp4', '').replace(/[_-]/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+          name: stream.name, // Use database name from stream settings
           url: stream.playlistUrl,
           status: stream.status === 'active' ? 'active' : 'inactive' as const,
         }));
