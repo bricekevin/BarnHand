@@ -190,11 +190,11 @@ class HorseDatabaseService:
                     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
                     cursor.execute("""
                         SELECT
-                            tracking_id, stream_id, farm_id, color_hex, last_seen,
-                            total_detections, feature_vector, metadata, track_confidence, status
+                            id, tracking_id, stream_id, farm_id, name, color_hex, last_seen,
+                            total_detections, feature_vector, metadata, track_confidence, status, is_official
                         FROM horses
                         WHERE farm_id = %s AND status = 'active'
-                        ORDER BY last_seen DESC
+                        ORDER BY is_official DESC, last_seen DESC
                     """, (farm_id,))
 
                     rows = cursor.fetchall()
@@ -212,10 +212,13 @@ class HorseDatabaseService:
                             metadata = json.loads(metadata)
 
                         horses[horse_id] = {
+                            "id": str(row['id']),  # Database UUID
                             "horse_id": horse_id,
                             "tracking_id": horse_id,
                             "stream_id": row['stream_id'],
                             "farm_id": row['farm_id'],
+                            "name": row['name'],  # Horse name (for official horses)
+                            "is_official": row['is_official'],  # Official vs guest
                             "color": row['color_hex'],
                             "confidence": 1.0,  # Default confidence
                             "features": feature_vector,

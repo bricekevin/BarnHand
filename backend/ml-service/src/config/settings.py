@@ -86,6 +86,11 @@ class Settings(BaseSettings):
     reid_feature_dimension: int = Field(
         default=512, description="ReID feature vector dimension"
     )
+
+    # Frame Processing Configuration
+    frame_skip_interval: int = Field(
+        default=1, ge=1, le=30, description="Process every Nth frame (1=all frames, 10=every 10th frame)"
+    )
     
     # Storage Configuration
     chunk_input_path: str = Field(
