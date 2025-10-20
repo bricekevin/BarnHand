@@ -421,14 +421,42 @@ router.delete(
         return res.status(403).json({ error: 'Access denied to this horse' });
       }
 
-      // Delete the horse from database
+      // Get tracking info before deletion (needed for Redis cleanup)
+      const trackingInfo = await horseRepo.getTrackingInfo(id);
+
+      // Soft delete the horse from database (sets status='deleted')
       const deleted = await horseRepo.delete(id);
 
       if (!deleted) {
         return res.status(500).json({ error: 'Failed to delete horse' });
       }
 
-      logger.info('Horse deleted from database', {
+      // Clear horse from Redis cache to prevent re-loading
+      if (trackingInfo && trackingInfo.tracking_id && trackingInfo.stream_id) {
+        try {
+          const Redis = require('ioredis');
+          const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+
+          // Clear horse state from Redis (barn-level registry)
+          const redisKey = `horse:${trackingInfo.stream_id}:${trackingInfo.tracking_id}:state`;
+          await redis.del(redisKey);
+          await redis.quit();
+
+          logger.info('Horse cleared from Redis cache', {
+            userId: req.user.userId,
+            horseId: id,
+            trackingId: trackingInfo.tracking_id,
+            streamId: trackingInfo.stream_id,
+          });
+        } catch (redisError: any) {
+          logger.warn('Failed to clear horse from Redis (non-fatal)', {
+            error: redisError.message,
+            horseId: id,
+          });
+        }
+      }
+
+      logger.info('Horse deleted (soft delete + Redis cleanup)', {
         userId: req.user.userId,
         horseId: id,
         farmId: req.user.farmId,

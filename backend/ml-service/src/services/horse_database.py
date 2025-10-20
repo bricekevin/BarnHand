@@ -193,7 +193,9 @@ class HorseDatabaseService:
                             id, tracking_id, stream_id, farm_id, name, color_hex, last_seen,
                             total_detections, feature_vector, metadata, track_confidence, status, is_official
                         FROM horses
-                        WHERE farm_id = %s AND status = 'active'
+                        WHERE farm_id = %s
+                          AND status = 'active'
+                          AND status != 'deleted'
                         ORDER BY is_official DESC, last_seen DESC
                     """, (farm_id,))
 
