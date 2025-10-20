@@ -2,27 +2,27 @@
 -- Adds barn capacity tracking and official horse designation
 
 -- Add expected_horse_count to farms table
-ALTER TABLE farms ADD COLUMN expected_horse_count INTEGER DEFAULT 0 CHECK (expected_horse_count >= 0);
+ALTER TABLE farms ADD COLUMN IF NOT EXISTS expected_horse_count INTEGER DEFAULT 0 CHECK (expected_horse_count >= 0);
 
 COMMENT ON COLUMN farms.expected_horse_count IS 'Expected number of horses in this barn. Used as a cap for Re-ID to prevent over-detection.';
 
 -- Add is_official flag to horses table
-ALTER TABLE horses ADD COLUMN is_official BOOLEAN DEFAULT FALSE;
-ALTER TABLE horses ADD COLUMN made_official_at TIMESTAMPTZ;
-ALTER TABLE horses ADD COLUMN made_official_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE horses ADD COLUMN IF NOT EXISTS is_official BOOLEAN DEFAULT FALSE;
+ALTER TABLE horses ADD COLUMN IF NOT EXISTS made_official_at TIMESTAMPTZ;
+ALTER TABLE horses ADD COLUMN IF NOT EXISTS made_official_by UUID;
 
 COMMENT ON COLUMN horses.is_official IS 'True if this horse has been confirmed as one of the official barn horses. False for guest/transient horses.';
 COMMENT ON COLUMN horses.made_official_at IS 'Timestamp when the horse was marked as official';
 COMMENT ON COLUMN horses.made_official_by IS 'User who marked the horse as official';
 
 -- Create index for querying official horses
-CREATE INDEX idx_horses_official ON horses(farm_id, is_official) WHERE is_official = TRUE;
+CREATE INDEX IF NOT EXISTS idx_horses_official ON horses(farm_id, is_official) WHERE is_official = TRUE;
 
 -- Create index for guest horses (non-official active horses)
-CREATE INDEX idx_horses_guest ON horses(farm_id, is_official, last_seen DESC) WHERE is_official = FALSE;
+CREATE INDEX IF NOT EXISTS idx_horses_guest ON horses(farm_id, is_official, last_seen DESC) WHERE is_official = FALSE;
 
 -- Add view for official horse allocation status per farm
-CREATE VIEW farm_horse_allocation AS
+CREATE OR REPLACE VIEW farm_horse_allocation AS
 SELECT
     f.id as farm_id,
     f.name as farm_name,
