@@ -317,8 +317,14 @@ async def health_check():
             models_info = {
                 "detection_model": processor.detection_model.get_model_info(),
                 "pose_model": processor.pose_model.get_performance_info(),
-                "tracking_model": processor.horse_tracker.reid_model.get_model_info()
             }
+
+            # Add tracking model info if ReID model exists
+            if processor.horse_tracker and hasattr(processor.horse_tracker, 'reid_model') and processor.horse_tracker.reid_model:
+                models_info["tracking_model"] = processor.horse_tracker.reid_model.get_model_info()
+            else:
+                models_info["tracking_model"] = {"status": "not loaded", "type": "reid"}
+
             performance_info = processor.get_stats()
         
         # System information

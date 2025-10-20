@@ -44,6 +44,7 @@ interface FarmSummary {
 
 interface StreamManagementOverview {
   farms: FarmSummary[];
+  unassignedStreams: StreamSummary[];
 }
 
 class SettingsService {
@@ -78,7 +79,7 @@ class SettingsService {
   async getStreamManagementOverview(farmId?: string): Promise<StreamManagementOverview> {
     if (!this.useDatabase) {
       logger.debug('Database not available - returning empty stream management overview');
-      return { farms: [] };
+      return { farms: [], unassignedStreams: [] };
     }
 
     try {
@@ -88,7 +89,7 @@ class SettingsService {
         : await this.farmRepository.findAll();
 
       if (!farms || farms.length === 0) {
-        return { farms: [] };
+        return { farms: [], unassignedStreams: [] };
       }
 
       // Build farm summaries with stream and horse counts
@@ -140,13 +141,43 @@ class SettingsService {
         });
       }
 
+      // Get unassigned streams (farm_id is NULL)
+      const unassignedStreams: StreamSummary[] = [];
+      const allStreams = await this.streamRepository.findAll();
+
+      for (const stream of allStreams) {
+        if (!stream.farm_id) {
+          // Get horses for this stream
+          const horses = await this.horseRepository.findByStreamId(stream.id);
+          const horseCount = horses.length;
+
+          // Find most recent horse activity
+          const lastActivity = horses.length > 0
+            ? horses.reduce((latest: Date, horse: any) =>
+              horse.last_seen > latest ? horse.last_seen : latest,
+              horses[0].last_seen
+            )
+            : undefined;
+
+          unassignedStreams.push({
+            id: stream.id,
+            name: stream.name,
+            status: stream.status,
+            horseCount,
+            last_activity: lastActivity,
+            source_url: stream.source_url
+          });
+        }
+      }
+
       logger.debug('Stream management overview generated', {
         farmCount: farmSummaries.length,
         totalStreams: farmSummaries.reduce((sum, f) => sum + f.streamCount, 0),
-        totalHorses: farmSummaries.reduce((sum, f) => sum + f.horseCount, 0)
+        totalHorses: farmSummaries.reduce((sum, f) => sum + f.horseCount, 0),
+        unassignedStreamsCount: unassignedStreams.length
       });
 
-      return { farms: farmSummaries };
+      return { farms: farmSummaries, unassignedStreams };
     } catch (error) {
       logger.error('Error in getStreamManagementOverview', {
         error: (error as Error).message,

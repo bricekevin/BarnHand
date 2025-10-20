@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 
 interface Horse {
-  id: string;
+  id: string; // This IS the tracking_id from ML service (e.g., "horse_001")
   color: [number, number, number];
   first_detected_frame: number;
   last_detected_frame: number;
   total_detections: number;
   avg_confidence: number;
-  name?: string; // Optional horse name from registry (Phase 3)
+  name?: string; // Optional horse name from registry (enriched by backend)
 }
 
 interface DetectionFrame {
@@ -99,6 +99,8 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Detection data received:', data);
+        console.log('Horses array:', data.horses);
         setDetectionData(data);
         setError(null);
       } else if (response.status === 404) {
@@ -302,12 +304,18 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
                     style={{ backgroundColor: rgbToString(horse.color) }}
                   ></div>
                   <div className="flex flex-col">
-                    <span className="font-mono font-semibold text-slate-100">
-                      {horse.id}
-                    </span>
-                    {horse.name && (
-                      <span className="text-xs text-cyan-400 font-medium">
-                        {horse.name}
+                    {horse.name ? (
+                      <>
+                        <span className="font-semibold text-slate-100">
+                          {horse.name}
+                        </span>
+                        <span className="text-xs text-cyan-400 font-mono">
+                          {horse.id}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="font-mono font-semibold text-slate-100">
+                        {horse.id}
                       </span>
                     )}
                   </div>

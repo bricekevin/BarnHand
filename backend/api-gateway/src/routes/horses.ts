@@ -363,8 +363,8 @@ router.patch(
       // Update official status
       const updated = await horseRepo.update(id, {
         is_official,
-        made_official_at: is_official ? new Date() : null,
-        made_official_by: is_official ? req.user.userId : null,
+        made_official_at: is_official ? new Date() : undefined,
+        made_official_by: is_official ? req.user.userId : undefined,
       });
 
       if (!updated) {

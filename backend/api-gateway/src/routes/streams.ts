@@ -63,6 +63,7 @@ const updateHorseSchema = z.object({
   color: z.string().min(1).max(50).optional(),
   markings: z.string().max(500).optional(),
   gender: z.enum(['mare', 'stallion', 'gelding', 'unknown']).optional(),
+  notes: z.string().max(500).optional(), // Stored in metadata.notes
   metadata: z.record(z.any()).optional(),
 });
 
@@ -818,16 +819,31 @@ router.put(
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      if (!req.user.farmId) {
+      // SUPER_ADMIN can update any horse (pass null for farm check)
+      // FARM_ADMIN can only update horses from their own farm
+      const currentUserFarmId = req.user.role === UserRole.SUPER_ADMIN
+        ? null
+        : req.user.farmId;
+
+      // Farm admins must have a farmId
+      if (req.user.role === UserRole.FARM_ADMIN && !currentUserFarmId) {
         return res.status(403).json({ error: 'Farm ID required' });
       }
 
       const { horseId } = req.params;
-      const updates = req.body;
+      const { notes, ...updates } = req.body;
+
+      // If notes are provided, merge them into metadata
+      if (notes !== undefined) {
+        updates.metadata = {
+          ...(updates.metadata || {}),
+          notes,
+        };
+      }
 
       const updatedHorse = await streamHorseService.updateHorse(
         horseId,
-        req.user.farmId,
+        currentUserFarmId,
         updates
       );
 
@@ -856,7 +872,12 @@ router.put(
 
       return res.json(updatedHorse);
     } catch (error: any) {
-      logger.error('Update horse error', { error: error.message });
+      logger.error('Update horse error', {
+        error: error.message,
+        stack: error.stack,
+        horseId: req.params.horseId,
+        updates: req.body
+      });
 
       if (error.message.includes('not found')) {
         return res.status(404).json({ error: error.message });

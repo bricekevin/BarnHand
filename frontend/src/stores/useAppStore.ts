@@ -106,6 +106,7 @@ interface AppActions {
     updates: Partial<StreamHorse>
   ) => void;
   addStreamHorse: (streamId: string, horse: StreamHorse) => void;
+  removeStreamHorse: (streamId: string, horseId: string) => void;
   clearStreamHorses: (streamId?: string) => void;
 
   // Detection actions
@@ -272,6 +273,16 @@ export const useAppStore = create<AppStore>()(
               };
             }
           }),
+
+        removeStreamHorse: (streamId, horseId) =>
+          set(state => ({
+            streamHorses: {
+              ...state.streamHorses,
+              [streamId]: (state.streamHorses[streamId] || []).filter(
+                horse => horse.id !== horseId
+              ),
+            },
+          })),
 
         clearStreamHorses: streamId =>
           set(state => {

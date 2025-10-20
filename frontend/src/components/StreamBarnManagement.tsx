@@ -25,6 +25,7 @@ interface FarmSummary {
 
 interface StreamManagementOverview {
   farms: FarmSummary[];
+  unassignedStreams: StreamSummary[];
 }
 
 interface ReassignModalData {
@@ -40,11 +41,12 @@ interface BarnModalData {
 }
 
 export const StreamBarnManagement: React.FC = () => {
-  const [overview, setOverview] = useState<StreamManagementOverview>({ farms: [] });
+  const [overview, setOverview] = useState<StreamManagementOverview>({ farms: [], unassignedStreams: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reassignModal, setReassignModal] = useState<ReassignModalData | null>(null);
   const [barnModal, setBarnModal] = useState<BarnModalData | null>(null);
+  const [draggedStream, setDraggedStream] = useState<StreamSummary | null>(null);
 
   useEffect(() => {
     fetchStreamManagementOverview();
@@ -139,6 +141,51 @@ export const StreamBarnManagement: React.FC = () => {
     } catch (err) {
       console.error('Error deleting barn:', err);
       alert(err instanceof Error ? err.message : 'Failed to delete barn');
+    }
+  };
+
+  const handleDragStart = (stream: StreamSummary) => {
+    setDraggedStream(stream);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Allow drop
+  };
+
+  const handleDrop = async (farmId: string, farmName: string) => {
+    if (!draggedStream) return;
+
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        alert('Authentication required - please log in');
+        return;
+      }
+
+      const response = await fetch(
+        `http://localhost:8000/api/v1/settings/streams/${draggedStream.id}/farm`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ farmId }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to assign stream');
+      }
+
+      // Refresh after successful assignment
+      fetchStreamManagementOverview();
+      setDraggedStream(null);
+    } catch (err) {
+      console.error('Error assigning stream:', err);
+      alert(err instanceof Error ? err.message : 'Failed to assign stream');
+      setDraggedStream(null);
     }
   };
 
@@ -248,6 +295,51 @@ export const StreamBarnManagement: React.FC = () => {
         </div>
       )}
 
+      {/* Unassigned Streams */}
+      {overview.unassignedStreams.length > 0 && (
+        <div className="bg-gradient-to-br from-amber-900/30 to-orange-900/30 border-2 border-amber-500/50 rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+              <h3 className="text-lg font-semibold text-amber-200">
+                Unassigned Streams ({overview.unassignedStreams.length})
+              </h3>
+              <p className="text-sm text-amber-300/80">
+                Drag and drop streams onto barns below to assign them
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {overview.unassignedStreams.map(stream => (
+              <div
+                key={stream.id}
+                draggable
+                onDragStart={() => handleDragStart(stream)}
+                className="flex-shrink-0 bg-slate-900/70 border border-amber-500/50 rounded-lg p-4 cursor-move hover:border-amber-400 hover:shadow-lg transition-all min-w-[200px]"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <h4 className="font-semibold text-amber-100">{stream.name}</h4>
+                </div>
+                <div className="text-xs text-amber-300/70 flex items-center gap-2">
+                  <span className="capitalize">{stream.status}</span>
+                  {stream.horseCount > 0 && (
+                    <>
+                      <span>•</span>
+                      <span>{stream.horseCount} horses</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Farms List */}
       {overview.farms.length === 0 ? (
         <div className="text-center py-12 bg-slate-900/50 rounded-xl border border-slate-700/50">
@@ -258,14 +350,20 @@ export const StreamBarnManagement: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 gap-6">
           {overview.farms.map(farm => (
-            <FarmCard
+            <div
               key={farm.id}
-              farm={farm}
-              allFarms={overview.farms}
-              onReassignClick={handleReassignClick}
-              onEditClick={() => setBarnModal({ mode: 'edit', farm })}
-              onDeleteClick={() => handleDeleteBarn(farm.id, farm.name)}
-            />
+              onDragOver={handleDragOver}
+              onDrop={() => handleDrop(farm.id, farm.name)}
+              className={draggedStream ? 'ring-2 ring-cyan-500 ring-opacity-50 rounded-xl transition-all' : ''}
+            >
+              <FarmCard
+                farm={farm}
+                allFarms={overview.farms}
+                onReassignClick={handleReassignClick}
+                onEditClick={() => setBarnModal({ mode: 'edit', farm })}
+                onDeleteClick={() => handleDeleteBarn(farm.id, farm.name)}
+              />
+            </div>
           ))}
         </div>
       )}
