@@ -8,6 +8,18 @@ import { VideoFile } from './VideoScanner';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
 
+// Database access for stream names
+let StreamRepository: any;
+let databaseAvailable = false;
+
+try {
+  const db = require('@barnhand/database');
+  StreamRepository = db.StreamRepository;
+  databaseAvailable = true;
+} catch (error) {
+  logger.warn('Database not available for stream names - using generic names');
+}
+
 export interface StreamInfo {
   id: string;
   name: string;
@@ -60,9 +72,27 @@ export class StreamManager {
     const streamOutputPath = path.join(this.outputPath, streamId);
     await fs.mkdir(streamOutputPath, { recursive: true });
 
+    // Fetch stream name from database if available
+    let streamName = `Stream ${streamId}`; // Default fallback
+    if (databaseAvailable && StreamRepository) {
+      try {
+        const streamRepo = new StreamRepository();
+        const dbStream = await streamRepo.findById(streamId);
+        if (dbStream && dbStream.name) {
+          streamName = dbStream.name;
+          logger.debug('Using database stream name', { streamId, name: streamName });
+        }
+      } catch (error) {
+        logger.warn('Failed to fetch stream name from database, using default', {
+          streamId,
+          error: error instanceof Error ? error.message : error,
+        });
+      }
+    }
+
     const streamInfo: StreamInfo = {
       id: streamId,
-      name: `Stream ${streamId}`,
+      name: streamName,
       videoFile,
       status: 'starting',
       restartCount: 0,
