@@ -10,6 +10,9 @@ import {
 import { validateSchema } from '../middleware/validation';
 import { settingsService } from '../services/settingsService';
 import { UserRole } from '../types/auth';
+import { FarmRepository } from '../../../database/src/repositories/FarmRepository';
+
+const farmRepository = new FarmRepository();
 
 // Validation schemas
 const reassignStreamSchema = z.object({
@@ -18,6 +21,26 @@ const reassignStreamSchema = z.object({
 
 const streamParamsSchema = z.object({
   streamId: z.string().min(1, 'Stream ID required'),
+});
+
+const createFarmSchema = z.object({
+  name: z.string().min(1, 'Farm name required').max(100, 'Farm name too long'),
+  location: z.any().optional(),
+  timezone: z.string().optional(),
+  expected_horse_count: z.number().int().min(0).max(999).optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+const updateFarmSchema = z.object({
+  name: z.string().min(1, 'Farm name required').max(100, 'Farm name too long').optional(),
+  location: z.any().optional(),
+  timezone: z.string().optional(),
+  expected_horse_count: z.number().int().min(0).max(999).optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+const farmParamsSchema = z.object({
+  farmId: z.string().uuid('Invalid farm ID format'),
 });
 
 const router = Router();
@@ -68,7 +91,14 @@ router.patch(
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      if (!req.user.farmId) {
+      // SUPER_ADMIN can reassign any stream (pass null for farm check)
+      // FARM_ADMIN can only reassign streams from their own farm
+      const currentUserFarmId = req.user.role === UserRole.SUPER_ADMIN
+        ? null
+        : req.user.farmId;
+
+      // Farm admins must have a farmId
+      if (req.user.role === UserRole.FARM_ADMIN && !currentUserFarmId) {
         return res
           .status(403)
           .json({ error: 'Farm ID required for stream reassignment' });
@@ -80,7 +110,7 @@ router.patch(
       const result = await settingsService.reassignStreamToFarm(
         streamId,
         newFarmId,
-        req.user.farmId
+        currentUserFarmId
       );
 
       logger.info('Stream reassigned to new farm', {
@@ -105,6 +135,130 @@ router.patch(
         return res
           .status(503)
           .json({ error: 'Service temporarily unavailable' });
+      }
+
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+);
+
+// POST /api/v1/settings/farms - Create a new farm/barn
+router.post(
+  '/farms',
+  validateSchema(createFarmSchema),
+  requireRole([UserRole.SUPER_ADMIN]),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { name, location, timezone, metadata } = req.body;
+
+      const newFarm = await farmRepository.create({
+        name,
+        owner_id: req.user.userId, // Use the authenticated user as owner
+        location,
+        timezone,
+        metadata,
+      });
+
+      logger.info('Farm created', {
+        userId: req.user.userId,
+        farmId: newFarm.id,
+        farmName: newFarm.name,
+      });
+
+      return res.status(201).json(newFarm);
+    } catch (error: any) {
+      logger.error('Create farm error', { error: error.message });
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+);
+
+// PUT /api/v1/settings/farms/:farmId - Update a farm/barn
+router.put(
+  '/farms/:farmId',
+  validateSchema(farmParamsSchema, 'params'),
+  validateSchema(updateFarmSchema),
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN]),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { farmId } = req.params;
+
+      // Farm admins can only update their own farm
+      if (req.user.role === UserRole.FARM_ADMIN && req.user.farmId !== farmId) {
+        return res.status(403).json({ error: 'Access denied to this farm' });
+      }
+
+      const updatedFarm = await farmRepository.update(farmId, req.body);
+
+      if (!updatedFarm) {
+        return res.status(404).json({ error: 'Farm not found' });
+      }
+
+      logger.info('Farm updated', {
+        userId: req.user.userId,
+        farmId,
+        updates: Object.keys(req.body),
+      });
+
+      return res.json(updatedFarm);
+    } catch (error: any) {
+      logger.error('Update farm error', { error: error.message });
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+);
+
+// DELETE /api/v1/settings/farms/:farmId - Delete a farm/barn
+router.delete(
+  '/farms/:farmId',
+  validateSchema(farmParamsSchema, 'params'),
+  requireRole([UserRole.SUPER_ADMIN]),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { farmId } = req.params;
+
+      // Check if farm exists first
+      const farm = await farmRepository.findById(farmId);
+      if (!farm) {
+        return res.status(404).json({ error: 'Farm not found' });
+      }
+
+      // TODO: Add check for related streams and horses before deletion
+      // For now, this will fail at DB level if there are foreign key constraints
+
+      const deleted = await farmRepository.delete(farmId);
+
+      if (!deleted) {
+        return res.status(404).json({ error: 'Farm not found' });
+      }
+
+      logger.info('Farm deleted', {
+        userId: req.user.userId,
+        farmId,
+        farmName: farm.name,
+      });
+
+      return res.json({ success: true, message: 'Farm deleted successfully' });
+    } catch (error: any) {
+      logger.error('Delete farm error', { error: error.message });
+
+      // Handle foreign key constraint violations
+      if (error.message?.includes('foreign key') || error.code === '23503') {
+        return res.status(400).json({
+          error: 'Cannot delete farm with associated streams or horses. Please reassign or delete them first.',
+        });
       }
 
       return res.status(500).json({ error: 'Internal server error' });
