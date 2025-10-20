@@ -268,6 +268,28 @@ export class HorseRepository {
   }
 
   async delete(id: string): Promise<boolean> {
+    // Soft delete: Set status to 'deleted' instead of removing the row
+    // This preserves historical data and prevents re-identification
+    const result = await query(
+      "UPDATE horses SET status = 'deleted', updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND status != 'deleted'",
+      [id]
+    );
+    return result.rowCount > 0;
+  }
+
+  async getTrackingInfo(id: string): Promise<{ tracking_id: string | null; stream_id: string | null } | null> {
+    // Get tracking_id and stream_id for Redis cleanup
+    const result = await query(
+      'SELECT tracking_id, stream_id FROM horses WHERE id = $1',
+      [id]
+    );
+    return result.rows.length > 0
+      ? { tracking_id: result.rows[0].tracking_id, stream_id: result.rows[0].stream_id }
+      : null;
+  }
+
+  async hardDelete(id: string): Promise<boolean> {
+    // Hard delete for complete removal (use sparingly)
     const result = await query('DELETE FROM horses WHERE id = $1', [id]);
     return result.rowCount > 0;
   }
