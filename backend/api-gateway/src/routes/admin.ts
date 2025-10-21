@@ -52,22 +52,27 @@ router.delete(
           logger.warn('Failed to clear Redis queue (non-fatal)', { error: redisError.message });
         }
 
-        // CRITICAL: Restart stream-service to force it to reload inactive streams
+        // CRITICAL: Call stream-service admin endpoint to stop all processing
         try {
-          logger.info('Restarting stream-service to stop processing...');
-          const { exec } = require('child_process');
-          const util = require('util');
-          const execPromise = util.promisify(exec);
+          logger.info('Calling stream-service to stop all processing...');
+          const fetch = (await import('node-fetch')).default;
 
-          // Restart stream-service container
-          await execPromise('docker restart barnhand-stream-service-1');
+          const response = await fetch('http://stream-service:8001/api/admin/stop-all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
 
-          // Wait for service to restart
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          if (response.ok) {
+            const result = await response.json();
+            logger.info('Stream service stopped successfully', { result });
+          } else {
+            logger.warn('Stream service stop returned non-OK status', { status: response.status });
+          }
 
-          logger.info('Stream service restarted successfully');
-        } catch (restartError: any) {
-          logger.warn('Failed to restart stream service (non-fatal)', { error: restartError.message });
+          // Wait for streams to fully stop
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } catch (stopError: any) {
+          logger.warn('Failed to stop stream service (non-fatal)', { error: stopError.message });
         }
 
         logger.info('Stream processing stopped');
@@ -182,22 +187,27 @@ router.delete(
         // Set all streams to inactive to stop new chunk generation
         await query("UPDATE streams SET status = 'inactive'");
 
-        // CRITICAL: Restart stream-service to force it to reload inactive streams
+        // CRITICAL: Call stream-service admin endpoint to stop all processing
         try {
-          logger.info('Restarting stream-service to stop processing...');
-          const { exec } = require('child_process');
-          const util = require('util');
-          const execPromise = util.promisify(exec);
+          logger.info('Calling stream-service to stop all processing...');
+          const fetch = (await import('node-fetch')).default;
 
-          // Restart stream-service container
-          await execPromise('docker restart barnhand-stream-service-1');
+          const response = await fetch('http://stream-service:8001/api/admin/stop-all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
 
-          // Wait for service to restart
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          if (response.ok) {
+            const result = await response.json();
+            logger.info('Stream service stopped successfully', { result });
+          } else {
+            logger.warn('Stream service stop returned non-OK status', { status: response.status });
+          }
 
-          logger.info('Stream service restarted successfully');
-        } catch (restartError: any) {
-          logger.warn('Failed to restart stream service (non-fatal)', { error: restartError.message });
+          // Wait for streams to fully stop
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } catch (stopError: any) {
+          logger.warn('Failed to stop stream service (non-fatal)', { error: stopError.message });
         }
 
         logger.info('Stream processing stopped');
