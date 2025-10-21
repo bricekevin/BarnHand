@@ -3,9 +3,10 @@ import type { Horse, CreateHorseRequest } from '../types';
 
 export class HorseRepository {
   async findAll(farmId?: string): Promise<Horse[]> {
+    // Filter out soft-deleted horses (status='deleted')
     const sql = farmId
-      ? 'SELECT * FROM horses WHERE farm_id = $1 ORDER BY last_seen DESC'
-      : 'SELECT * FROM horses ORDER BY last_seen DESC';
+      ? "SELECT * FROM horses WHERE farm_id = $1 AND status != 'deleted' ORDER BY last_seen DESC"
+      : "SELECT * FROM horses WHERE status != 'deleted' ORDER BY last_seen DESC";
 
     const params = farmId ? [farmId] : [];
     const result = await query(sql, params);
@@ -14,13 +15,15 @@ export class HorseRepository {
   }
 
   async findById(id: string): Promise<Horse | null> {
-    const result = await query('SELECT * FROM horses WHERE id = $1', [id]);
+    // Filter out soft-deleted horses
+    const result = await query("SELECT * FROM horses WHERE id = $1 AND status != 'deleted'", [id]);
 
     return result.rows.length > 0 ? this.mapRowToHorse(result.rows[0]) : null;
   }
 
   async findByTrackingId(trackingId: string): Promise<Horse | null> {
-    const result = await query('SELECT * FROM horses WHERE tracking_id = $1', [
+    // Filter out soft-deleted horses
+    const result = await query("SELECT * FROM horses WHERE tracking_id = $1 AND status != 'deleted'", [
       trackingId,
     ]);
 
@@ -201,9 +204,10 @@ export class HorseRepository {
   }
 
   async getActiveHorses(farmId?: string): Promise<Horse[]> {
+    // Filter out soft-deleted horses
     const sql = farmId
-      ? "SELECT * FROM horses WHERE activity_status = 'active' AND farm_id = $1"
-      : "SELECT * FROM horses WHERE activity_status = 'active'";
+      ? "SELECT * FROM horses WHERE activity_status = 'active' AND status != 'deleted' AND farm_id = $1"
+      : "SELECT * FROM horses WHERE activity_status = 'active' AND status != 'deleted'";
 
     const params = farmId ? [farmId] : [];
     const result = await query(sql, params);
@@ -212,8 +216,9 @@ export class HorseRepository {
   }
 
   async countOfficialHorses(farmId: string): Promise<number> {
+    // Filter out soft-deleted horses
     const result = await query(
-      'SELECT COUNT(*) FROM horses WHERE farm_id = $1 AND is_official = TRUE',
+      "SELECT COUNT(*) FROM horses WHERE farm_id = $1 AND is_official = TRUE AND status != 'deleted'",
       [farmId]
     );
 
