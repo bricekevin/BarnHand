@@ -245,15 +245,18 @@ router.delete(
         const horsesResult = await query('DELETE FROM horses RETURNING id');
         const horsesDeleted = horsesResult.rowCount || 0;
 
+        // Commit transaction BEFORE refreshing continuous aggregates
+        // (TimescaleDB refresh cannot run inside a transaction)
+        await query('COMMIT');
+
         // 6. Refresh continuous aggregate views to clear cached data
+        // Note: These must run OUTSIDE the transaction
         await query('CALL refresh_continuous_aggregate(\'hourly_horse_activity\', NULL, NULL)').catch(() => {
           logger.warn('Could not refresh hourly_horse_activity view');
         });
         await query('CALL refresh_continuous_aggregate(\'daily_stream_summary\', NULL, NULL)').catch(() => {
           logger.warn('Could not refresh daily_stream_summary view');
         });
-
-        await query('COMMIT');
 
         // 7. Clear Redis cache (horse state, tracking data)
         // Pattern: horse:{stream_id}:{horse_id}:state
@@ -401,7 +404,12 @@ router.delete(
         await query('UPDATE streams SET farm_id = NULL');
         logger.info('All streams unassigned from barns');
 
+        // Commit transaction BEFORE refreshing continuous aggregates
+        // (TimescaleDB refresh cannot run inside a transaction)
+        await query('COMMIT');
+
         // Refresh continuous aggregate views
+        // Note: These must run OUTSIDE the transaction
         await query(
           'CALL refresh_continuous_aggregate(\'hourly_horse_activity\', NULL, NULL)'
         ).catch(() => {
@@ -412,8 +420,6 @@ router.delete(
         ).catch(() => {
           logger.warn('Could not refresh daily_stream_summary view');
         });
-
-        await query('COMMIT');
 
         // Step 3: Clear ALL Redis cache (comprehensive cleanup)
         let redisKeysCleared = 0;
