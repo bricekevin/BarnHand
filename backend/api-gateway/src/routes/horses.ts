@@ -434,13 +434,14 @@ router.delete(
       // Clear horse from Redis cache to prevent re-loading
       if (trackingInfo && trackingInfo.tracking_id && trackingInfo.stream_id) {
         try {
-          const Redis = require('ioredis');
-          const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+          const { createClient } = require('redis');
+          const redis = createClient({ url: process.env.REDIS_URL || 'redis://redis:6379' });
+          await redis.connect();
 
           // Clear horse state from Redis (barn-level registry)
           const redisKey = `horse:${trackingInfo.stream_id}:${trackingInfo.tracking_id}:state`;
           await redis.del(redisKey);
-          await redis.quit();
+          await redis.disconnect();
 
           logger.info('Horse cleared from Redis cache', {
             userId: req.user.userId,
