@@ -43,6 +43,43 @@ export async function createApp(): Promise<express.Application> {
   app.use('/api/processing', createProcessingRoutes(streamProcessor));
   app.use('/health', createHealthRoutes(streamProcessor));
 
+  // Admin endpoint to stop all processing (for cleanup operations)
+  app.post('/api/admin/stop-all', async (req, res) => {
+    try {
+      logger.warn('Admin: Stop all processing requested');
+
+      // Get current state before stopping
+      const beforeActive = streamProcessor.getActiveStreams().length;
+      const beforeQueue = streamProcessor.getMetrics().queueDepth;
+
+      // Stop all active streams
+      const streamIds = streamProcessor.getActiveStreams();
+      for (const streamId of streamIds) {
+        await streamProcessor.stopStreamProcessing(streamId);
+      }
+
+      // Clear queue by shutdown and reinit
+      await streamProcessor.shutdown();
+      await streamProcessor.initialize();
+
+      logger.info('Admin: All stream processing stopped and queue cleared');
+      res.json({
+        message: 'All stream processing stopped successfully',
+        before: {
+          activeStreams: beforeActive,
+          queueDepth: beforeQueue
+        },
+        after: {
+          activeStreams: streamProcessor.getActiveStreams().length,
+          queueDepth: streamProcessor.getMetrics().queueDepth
+        }
+      });
+    } catch (error: any) {
+      logger.error('Admin: Failed to stop processing', { error: error.message });
+      res.status(500).json({ error: 'Failed to stop processing', details: error.message });
+    }
+  });
+
   // Root endpoint with service info
   app.get('/', (_req: express.Request, res: express.Response) => {
     res.json({
