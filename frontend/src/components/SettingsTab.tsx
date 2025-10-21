@@ -1,9 +1,21 @@
 import React, { useState } from 'react';
 
+interface CleanupStats {
+  horsesDeleted?: number;
+  chunksDeleted?: number;
+  detectionsDeleted?: number;
+  featuresDeleted?: number;
+  streamHorsesDeleted?: number;
+  alertsDeleted?: number;
+  redisKeysCleared?: number;
+  errorCount?: number;
+}
+
 export const SettingsTab: React.FC = () => {
   const [loading, setLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<CleanupStats | null>(null);
 
   const getAuthToken = () => localStorage.getItem('authToken');
 
@@ -15,6 +27,7 @@ export const SettingsTab: React.FC = () => {
     setLoading('chunks');
     setMessage(null);
     setError(null);
+    setStats(null);
 
     try {
       const token = getAuthToken();
@@ -31,11 +44,8 @@ export const SettingsTab: React.FC = () => {
       if (!response.ok) throw new Error('Failed to delete chunks');
 
       const data = await response.json();
-      const parts = [
-        `${data.chunksDeleted} chunks`,
-        `${data.detectionsDeleted} detections`
-      ];
-      setMessage(`Deleted: ${parts.join(', ')}`);
+      setStats(data);
+      setMessage(`✅ Chunk cleanup successful!`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -51,6 +61,7 @@ export const SettingsTab: React.FC = () => {
     setLoading('horses');
     setMessage(null);
     setError(null);
+    setStats(null);
 
     try {
       const token = getAuthToken();
@@ -67,13 +78,8 @@ export const SettingsTab: React.FC = () => {
       if (!response.ok) throw new Error('Failed to delete horses');
 
       const data = await response.json();
-      const parts = [
-        `${data.horsesDeleted} horses`,
-        `${data.detectionsDeleted} detections`,
-        `${data.featuresDeleted} features`,
-        `${data.streamHorsesDeleted} associations`,
-      ];
-      setMessage(`Deleted: ${parts.join(', ')}`);
+      setStats(data);
+      setMessage(`✅ Horse cleanup successful!`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -81,45 +87,124 @@ export const SettingsTab: React.FC = () => {
     }
   };
 
-  const handleResetAll = async () => {
-    if (!confirm('COMPLETE SYSTEM RESET: Delete ALL horses, chunks, detections, features, and related data? This is a FULL WIPE and cannot be undone!\n\nThis will give you a completely clean slate for testing.')) {
+  const handleDeleteAll = async () => {
+    if (!confirm('DELETE EVERYTHING: Remove ALL chunks AND horses?\n\nThis will:\n• Delete all video chunks (files + DB)\n• Delete all horses (DB + cache)\n• Delete all detections\n• Delete all features\n• Clear all Redis cache\n\nThis is a COMPLETE WIPE and cannot be undone!')) {
       return;
     }
 
-    setLoading('reset');
+    setLoading('all');
     setMessage(null);
     setError(null);
+    setStats(null);
+
+    const combinedStats: CleanupStats = {};
 
     try {
       const token = getAuthToken();
       if (!token) throw new Error('Not authenticated');
 
-      const response = await fetch(
-        'http://localhost:8000/api/v1/admin/reset-all',
+      // Step 1: Delete all chunks
+      setMessage('🗑️ Step 1/2: Deleting all chunks...');
+      const chunksResponse = await fetch(
+        'http://localhost:8000/api/v1/admin/chunks',
         {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to reset system');
-      }
+      if (!chunksResponse.ok) throw new Error('Failed to delete chunks');
+      const chunksData = await chunksResponse.json();
+      combinedStats.chunksDeleted = chunksData.chunksDeleted;
+      combinedStats.errorCount = chunksData.errorCount || 0;
 
-      const data = await response.json();
-      const parts = [
-        `${data.horsesDeleted} horses`,
-        `${data.chunksDeleted} chunks`,
-        `${data.detectionsDeleted} detections`,
-        `${data.featuresDeleted} features`,
-      ];
-      setMessage(`✅ Complete reset successful! Deleted: ${parts.join(', ')}`);
+      // Step 2: Delete all horses
+      setMessage('🗑️ Step 2/2: Deleting all horses...');
+      const horsesResponse = await fetch(
+        'http://localhost:8000/api/v1/admin/horses',
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!horsesResponse.ok) throw new Error('Failed to delete horses');
+      const horsesData = await horsesResponse.json();
+      combinedStats.horsesDeleted = horsesData.horsesDeleted;
+      combinedStats.detectionsDeleted = horsesData.detectionsDeleted;
+      combinedStats.featuresDeleted = horsesData.featuresDeleted;
+      combinedStats.streamHorsesDeleted = horsesData.streamHorsesDeleted;
+      combinedStats.alertsDeleted = horsesData.alertsDeleted;
+      combinedStats.redisKeysCleared =
+        (chunksData.redisKeysCleared || 0) + (horsesData.redisKeysCleared || 0);
+
+      setStats(combinedStats);
+      setMessage('✅ Complete cleanup successful! All data removed.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(null);
     }
+  };
+
+  const renderStats = () => {
+    if (!stats) return null;
+
+    return (
+      <div className="bg-slate-800/50 border border-slate-600/50 rounded-lg p-4 space-y-2">
+        <h5 className="text-sm font-semibold text-slate-300 mb-3">Cleanup Summary:</h5>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          {stats.chunksDeleted !== undefined && (
+            <div className="flex justify-between">
+              <span className="text-slate-400">Chunks:</span>
+              <span className="text-cyan-400 font-mono">{stats.chunksDeleted}</span>
+            </div>
+          )}
+          {stats.horsesDeleted !== undefined && (
+            <div className="flex justify-between">
+              <span className="text-slate-400">Horses:</span>
+              <span className="text-cyan-400 font-mono">{stats.horsesDeleted}</span>
+            </div>
+          )}
+          {stats.detectionsDeleted !== undefined && (
+            <div className="flex justify-between">
+              <span className="text-slate-400">Detections:</span>
+              <span className="text-cyan-400 font-mono">{stats.detectionsDeleted}</span>
+            </div>
+          )}
+          {stats.featuresDeleted !== undefined && (
+            <div className="flex justify-between">
+              <span className="text-slate-400">Features:</span>
+              <span className="text-cyan-400 font-mono">{stats.featuresDeleted}</span>
+            </div>
+          )}
+          {stats.streamHorsesDeleted !== undefined && (
+            <div className="flex justify-between">
+              <span className="text-slate-400">Stream Horses:</span>
+              <span className="text-cyan-400 font-mono">{stats.streamHorsesDeleted}</span>
+            </div>
+          )}
+          {stats.alertsDeleted !== undefined && (
+            <div className="flex justify-between">
+              <span className="text-slate-400">Alerts:</span>
+              <span className="text-cyan-400 font-mono">{stats.alertsDeleted}</span>
+            </div>
+          )}
+          {stats.redisKeysCleared !== undefined && (
+            <div className="flex justify-between">
+              <span className="text-slate-400">Redis Keys:</span>
+              <span className="text-green-400 font-mono">{stats.redisKeysCleared}</span>
+            </div>
+          )}
+          {stats.errorCount !== undefined && stats.errorCount > 0 && (
+            <div className="flex justify-between">
+              <span className="text-slate-400">Errors:</span>
+              <span className="text-red-400 font-mono">{stats.errorCount}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -129,77 +214,109 @@ export const SettingsTab: React.FC = () => {
           Developer Utilities
         </h3>
         <p className="text-sm text-slate-400 mb-6">
-          Cleanup tools for testing. Use with caution.
+          Cleanup tools for testing. All deletions include PostgreSQL + Redis cache cleanup.
         </p>
       </div>
 
       {message && (
         <div className="bg-green-900/30 border border-green-700/50 rounded-lg p-4">
-          <p className="text-green-400 text-sm">{message}</p>
+          <p className="text-green-400 text-sm font-medium">{message}</p>
         </div>
       )}
 
       {error && (
         <div className="bg-red-900/30 border border-red-700/50 rounded-lg p-4">
-          <p className="text-red-400 text-sm">{error}</p>
+          <p className="text-red-400 text-sm font-medium">{error}</p>
         </div>
       )}
 
+      {renderStats()}
+
       <div className="space-y-4">
-        {/* Reset All - Most comprehensive option */}
+        {/* Delete All - Calls both endpoints sequentially */}
         <div className="bg-gradient-to-br from-red-900/40 to-red-800/40 border-2 border-red-600/50 rounded-lg p-6">
           <div className="flex items-center gap-2 mb-2">
             <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <h4 className="text-base font-semibold text-red-200">
-              Complete System Reset
+              Delete All Data
             </h4>
           </div>
           <p className="text-sm text-red-300 mb-4">
-            ⚠️ <strong>Full wipe:</strong> Removes ALL horses, chunks, detections, features, and related data. Use this for a completely clean slate to restart testing.
+            ⚠️ <strong>Complete wipe:</strong> Sequentially calls DELETE chunks + DELETE horses.
+            Removes all chunks, horses, detections, features, and clears all Redis cache.
+            Use this for a completely clean slate.
           </p>
           <button
-            onClick={handleResetAll}
-            disabled={loading === 'reset'}
+            onClick={handleDeleteAll}
+            disabled={loading === 'all'}
             className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white rounded-lg text-sm font-bold transition-colors shadow-lg"
           >
-            {loading === 'reset' ? 'Resetting System...' : '🔥 Reset Everything'}
+            {loading === 'all' ? '🗑️ Deleting All Data...' : '🔥 Delete All (Chunks + Horses)'}
           </button>
         </div>
 
         {/* Individual cleanup options */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-6">
-            <h4 className="text-base font-semibold text-slate-200 mb-2">
-              Delete All Chunks
-            </h4>
+            <div className="flex items-center gap-2 mb-2">
+              <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+              </svg>
+              <h4 className="text-base font-semibold text-slate-200">
+                Delete All Chunks
+              </h4>
+            </div>
             <p className="text-sm text-slate-400 mb-4">
-              Removes all recorded video chunks (files + database records + related detections)
+              Removes all recorded video chunks (files + DB records + detections + Redis cache)
             </p>
             <button
               onClick={handleDeleteChunks}
               disabled={loading === 'chunks'}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+              className="w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-800 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
             >
-              {loading === 'chunks' ? 'Deleting...' : 'Delete All Chunks'}
+              {loading === 'chunks' ? '🗑️ Deleting Chunks...' : 'Delete Chunks Only'}
             </button>
           </div>
 
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-6">
-            <h4 className="text-base font-semibold text-slate-200 mb-2">
-              Delete All Horses
-            </h4>
+            <div className="flex items-center gap-2 mb-2">
+              <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <h4 className="text-base font-semibold text-slate-200">
+                Delete All Horses
+              </h4>
+            </div>
             <p className="text-sm text-slate-400 mb-4">
-              Removes all detected horses, detections, features, and associations from database
+              Removes all detected horses (DB records + detections + features + Redis cache)
             </p>
             <button
               onClick={handleDeleteHorses}
               disabled={loading === 'horses'}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+              className="w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-800 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
             >
-              {loading === 'horses' ? 'Deleting...' : 'Delete All Horses'}
+              {loading === 'horses' ? '🗑️ Deleting Horses...' : 'Delete Horses Only'}
             </button>
+          </div>
+        </div>
+
+        {/* Info box */}
+        <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="text-sm text-blue-300">
+              <p className="font-medium mb-1">All deletions are comprehensive:</p>
+              <ul className="list-disc list-inside space-y-1 text-blue-400">
+                <li>PostgreSQL database records removed</li>
+                <li>Redis cache keys cleared</li>
+                <li>File system chunks deleted (for chunk cleanup)</li>
+                <li>All related data cascade-deleted</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
