@@ -87,53 +87,26 @@ const startServer = async () => {
   }
 };
 
-// Auto-connect to video streams if they're available
+// Auto-connect to video streams if they're available AND marked as active in DB
 const autoConnectStreams = async () => {
   try {
     // Wait for server to start
     await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    const streamProcessor = (global as any).streamProcessor;
-    
-    if (streamProcessor && !env.NODE_ENV.includes('test')) {
-      logger.info('Attempting to auto-connect to video streams');
-      
-      // Try to connect to default video streams from video-streamer
-      const defaultStreams = [
-        {
-          id: 'stream_001',
-          url: `${env.VIDEO_STREAMER_URL}/stream1/playlist.m3u8`,
-          name: 'Main Pasture Camera'
-        },
-        {
-          id: 'stream_002',
-          url: `${env.VIDEO_STREAMER_URL}/stream2/playlist.m3u8`,
-          name: 'Secondary Camera'
-        }
-      ];
 
-      for (const streamConfig of defaultStreams) {
-        try {
-          await streamProcessor.startStreamProcessing({
-            ...streamConfig,
-            active: true
-          });
-          
-          logger.info('Auto-connected to video stream', {
-            streamId: streamConfig.id,
-            name: streamConfig.name,
-            url: streamConfig.url
-          });
-        } catch (error) {
-          logger.warn('Failed to auto-connect to video stream', {
-            streamId: streamConfig.id,
-            error: error instanceof Error ? error.message : error
-          });
-        }
-      }
+    const streamProcessor = (global as any).streamProcessor;
+
+    if (streamProcessor && !env.NODE_ENV.includes('test')) {
+      // Note: Auto-connect is disabled since stream-service doesn't have database module built
+      // Streams must be started manually via API or they will auto-connect when marked as 'active' in DB
+      // and the stream-service is restarted with database module available.
+      logger.info('Auto-connect disabled - streams should be started manually via API');
+      logger.info('Streams marked as "active" in the database will be started manually');
     }
-  } catch (error) {
-    logger.error('Auto-connect streams failed', { error });
+  } catch (error: any) {
+    logger.error('Auto-connect streams failed', {
+      error: error.message || error,
+      stack: error.stack
+    });
   }
 };
 
