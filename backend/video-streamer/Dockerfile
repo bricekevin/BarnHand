@@ -1,6 +1,26 @@
 # Multi-stage build for Video Streamer service
 FROM node:18-alpine as base
 
+# Build shared package
+FROM base as shared-builder
+WORKDIR /shared
+COPY shared/package*.json ./
+RUN npm install
+COPY shared/ ./
+RUN npm run build || true
+
+# Build database package
+FROM base as database-builder
+# Copy root tsconfig that database extends
+COPY tsconfig.json /tsconfig.json
+# Copy shared package that database depends on
+COPY shared /shared
+WORKDIR /database
+COPY backend/database/package*.json ./
+RUN npm install
+COPY backend/database/ ./
+RUN npm run build
+
 # Install FFmpeg and system dependencies
 FROM base as deps
 RUN apk add --no-cache \
@@ -12,7 +32,7 @@ RUN apk add --no-cache \
 WORKDIR /app
 
 # Copy package files
-COPY package.json package-lock.json* ./
+COPY backend/video-streamer/package.json backend/video-streamer/package-lock.json* ./
 RUN npm install
 
 # Development image
@@ -25,8 +45,12 @@ RUN apk add --no-cache \
     curl \
     bash
 
+# Copy built packages with their dependencies
+COPY --from=shared-builder /shared /shared
+COPY --from=database-builder /database /database
+
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY backend/video-streamer/ .
 
 # Create media directory
 RUN mkdir -p /media
@@ -58,7 +82,7 @@ RUN apk add --no-cache \
     curl \
     bash
 
-COPY package.json package-lock.json* ./
+COPY backend/video-streamer/package.json backend/video-streamer/package-lock.json* ./
 RUN npm install --only=production && npm cache clean --force
 
 # Build stage
@@ -69,7 +93,7 @@ WORKDIR /app
 RUN apk add --no-cache ffmpeg
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY backend/video-streamer/ .
 
 # Build TypeScript
 RUN npm run build

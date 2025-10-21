@@ -13,11 +13,20 @@ let StreamRepository: any;
 let databaseAvailable = false;
 
 try {
+  // Try @barnhand/database first (local development with npm link)
   const db = require('@barnhand/database');
   StreamRepository = db.StreamRepository;
   databaseAvailable = true;
 } catch (error) {
-  logger.warn('Database not available for stream names - using generic names');
+  // Fallback to absolute path (Docker container)
+  try {
+    const db = require('/database');
+    StreamRepository = db.StreamRepository;
+    databaseAvailable = true;
+    logger.info('Using database module from /database path');
+  } catch (fallbackError) {
+    logger.warn('Database not available for stream names - using generic names');
+  }
 }
 
 export interface StreamInfo {

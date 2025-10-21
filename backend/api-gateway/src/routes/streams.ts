@@ -88,37 +88,34 @@ router.get(
           ? req.query.farm_id
           : req.user.farmId;
 
-      // TODO: Replace with StreamRepository integration
-      const mockStreams = [
-        {
-          id: '123e4567-e89b-12d3-a456-426614174100',
-          farm_id: '123e4567-e89b-12d3-a456-426614174010',
-          name: 'Main Pasture Camera',
-          source_type: 'local',
-          source_url: 'http://localhost:8003/stream1',
-          status: 'active',
-          processing_delay: 20,
-          chunk_duration: 10,
-          config: {},
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      ];
+      // Fetch streams from database
+      try {
+        const streamRepository = new (require('@barnhand/database').StreamRepository)();
 
-      const filteredStreams = farmId
-        ? mockStreams.filter(s => s.farm_id === farmId)
-        : mockStreams;
+        let streams;
+        if (farmId) {
+          streams = await streamRepository.findByFarmId(farmId as string);
+        } else {
+          streams = await streamRepository.findAll();
+        }
 
-      logger.info('Streams listed', {
-        userId: req.user.userId,
-        farmId,
-        count: filteredStreams.length,
-      });
+        logger.info('Streams listed from database', {
+          userId: req.user.userId,
+          farmId,
+          count: streams.length,
+        });
 
-      return res.json({
-        streams: filteredStreams,
-        total: filteredStreams.length,
-      });
+        return res.json({
+          streams,
+          total: streams.length,
+        });
+      } catch (dbError) {
+        logger.error('Database error listing streams', {
+          error: dbError,
+          farmId,
+        });
+        return res.status(500).json({ error: 'Failed to fetch streams from database' });
+      }
     } catch (error) {
       logger.error('List streams error', { error });
       return res.status(500).json({ error: 'Internal server error' });
@@ -222,14 +219,43 @@ router.put(
       const { id } = req.params;
       const updateData = req.body;
 
-      // TODO: Replace with StreamRepository.update()
-      logger.info('Stream updated', {
-        userId: req.user.userId,
-        streamId: id,
-        changes: Object.keys(updateData),
-      });
+      // Update stream in database
+      try {
+        const streamRepository = new (require('@barnhand/database').StreamRepository)();
 
-      return res.json({ message: 'Stream updated successfully' });
+        // Build update object with only provided fields
+        const updates: any = {};
+        if (updateData.name !== undefined) updates.name = updateData.name;
+        if (updateData.source_url !== undefined) updates.source_url = updateData.source_url;
+        if (updateData.source_type !== undefined) updates.source_type = updateData.source_type;
+        if (updateData.status !== undefined) updates.status = updateData.status;
+        if (updateData.processing_delay !== undefined) updates.processing_delay = updateData.processing_delay;
+        if (updateData.chunk_duration !== undefined) updates.chunk_duration = updateData.chunk_duration;
+        if (updateData.config !== undefined) updates.config = updateData.config;
+
+        const updatedStream = await streamRepository.update(id, updates);
+
+        if (!updatedStream) {
+          return res.status(404).json({ error: 'Stream not found' });
+        }
+
+        logger.info('Stream updated successfully', {
+          userId: req.user.userId,
+          streamId: id,
+          changes: Object.keys(updates),
+        });
+
+        return res.json({
+          message: 'Stream updated successfully',
+          stream: updatedStream,
+        });
+      } catch (dbError) {
+        logger.error('Database error updating stream', {
+          error: dbError,
+          streamId: id,
+        });
+        return res.status(500).json({ error: 'Failed to update stream in database' });
+      }
     } catch (error) {
       logger.error('Update stream error', { error });
       return res.status(500).json({ error: 'Internal server error' });
@@ -384,8 +410,28 @@ router.post(
           .json({ error: 'Farm ID required for chunk recording' });
       }
 
-      // Get stream source URL - in production this would come from database
-      const streamSourceUrl = `http://localhost:8003/stream${streamId.slice(-1)}/playlist.m3u8`;
+      // Get stream source URL from database
+      let streamSourceUrl: string;
+      try {
+        const streamRepository = new (require('@barnhand/database').StreamRepository)();
+        const stream = await streamRepository.findById(streamId);
+
+        if (!stream) {
+          return res.status(404).json({ error: 'Stream not found' });
+        }
+
+        streamSourceUrl = stream.source_url;
+        logger.info('Retrieved stream source URL from database', {
+          streamId,
+          sourceUrl: streamSourceUrl,
+        });
+      } catch (dbError) {
+        logger.error('Failed to fetch stream from database', {
+          error: dbError,
+          streamId,
+        });
+        return res.status(500).json({ error: 'Failed to retrieve stream information' });
+      }
 
       // Record video chunk
       const chunk = await videoChunkService.recordChunk(

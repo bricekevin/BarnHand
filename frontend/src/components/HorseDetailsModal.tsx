@@ -42,6 +42,11 @@ export const HorseDetailsModal: React.FC<HorseDetailsModalProps> = ({
   const [isOfficial, setIsOfficial] = useState(horse.is_official || false);
   const [updatingOfficial, setUpdatingOfficial] = useState(false);
 
+  // Sync isOfficial state when horse prop changes
+  useEffect(() => {
+    setIsOfficial(horse.is_official || false);
+  }, [horse.is_official]);
+
   // Streams state
   const [streams, setStreams] = useState<StreamAppearance[]>([]);
   const [loadingStreams, setLoadingStreams] = useState(true);

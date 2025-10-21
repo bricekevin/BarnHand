@@ -134,8 +134,8 @@ services:
   # Local Video Streaming Service
   video-streamer:
     build:
-      context: ./backend/video-streamer
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/video-streamer/Dockerfile
       target: development
     ports:
       - "${VIDEO_STREAMER_PORT:-8003}:8003"
@@ -143,6 +143,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8003
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-barnhand}
       - MEDIA_PATH=/media
       - VIDEO_FOLDER=/media
       - STREAM_COUNT=${STREAM_COUNT:-5}
@@ -151,9 +152,15 @@ services:
       - ENABLE_AUTO_STREAMS=true
     volumes:
       - ./backend/video-streamer/src:/app/src
+      - ./backend/database/src:/database/src
+      - ./shared/src:/shared/src
       - ./media:/media:ro
       - ./chunks:/app/storage/chunks
       - /app/node_modules
+      - /database/node_modules
+      - /database/dist
+    depends_on:
+      - postgres
     networks:
       - barnhand-network
 

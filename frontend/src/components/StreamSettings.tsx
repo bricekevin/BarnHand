@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import { useAppStore, useStreams } from '../stores/useAppStore';
 
@@ -15,9 +15,10 @@ interface StreamFormData {
 
 export const StreamSettings: React.FC = () => {
   const streams = useStreams();
-  const { addStream, updateStream, removeStream } = useAppStore();
+  const { addStream, updateStream, removeStream, setStreams } = useAppStore();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingStream, setEditingStream] = useState<string | null>(null);
+  const [loadingStreams, setLoadingStreams] = useState(true);
   const [formData, setFormData] = useState<StreamFormData>({
     name: '',
     url: '',
@@ -28,6 +29,53 @@ export const StreamSettings: React.FC = () => {
       useAuth: false,
     },
   });
+
+  // Load streams from database on mount
+  useEffect(() => {
+    const loadStreamsFromDatabase = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          console.warn('No auth token - skipping stream load');
+          setLoadingStreams(false);
+          return;
+        }
+
+        const response = await fetch('http://localhost:8000/api/v1/streams', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ Loaded streams from database:', data.streams);
+
+          // Map database streams to Zustand format
+          const mappedStreams = data.streams.map((dbStream: any) => ({
+            id: dbStream.id,
+            name: dbStream.name,
+            url: dbStream.source_url,
+            type: dbStream.source_type,
+            status: dbStream.status,
+            config: dbStream.config || {},
+          }));
+
+          // Replace Zustand streams with database streams
+          setStreams(mappedStreams);
+        } else {
+          console.error('❌ Failed to load streams:', response.status);
+        }
+      } catch (error) {
+        console.error('❌ Error loading streams:', error);
+      } finally {
+        setLoadingStreams(false);
+      }
+    };
+
+    loadStreamsFromDatabase();
+  }, []); // Run once on mount
 
   const resetForm = () => {
     setFormData({
@@ -55,7 +103,40 @@ export const StreamSettings: React.FC = () => {
     };
 
     if (editingStream) {
-      updateStream(editingStream, streamData);
+      // Update existing stream - persist to database via API
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          alert('Authentication required - please log in');
+          return;
+        }
+
+        console.log('🔄 Updating stream via API:', editingStream, streamData);
+        const response = await fetch(`http://localhost:8000/api/v1/streams/${editingStream}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(streamData),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ Stream updated successfully:', result);
+          // Update Zustand store after successful API call
+          updateStream(editingStream, streamData);
+        } else {
+          console.error('❌ Failed to update stream:', response.status);
+          const errorData = await response.json().catch(() => ({ error: response.statusText }));
+          alert(`Failed to update stream: ${errorData.error || response.statusText}`);
+          return; // Don't reset form on error
+        }
+      } catch (error) {
+        console.error('❌ Network error updating stream:', error);
+        alert('Network error - could not update stream');
+        return; // Don't reset form on error
+      }
     } else {
       // Add stream as active for immediate testing
       const newStream = {

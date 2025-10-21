@@ -188,6 +188,9 @@ export const useAppStore = create<AppStore>()(
             ),
           })),
 
+        setStreams: streams =>
+          set({ streams }),
+
         toggleStream: id =>
           set(state => ({
             streams: state.streams.map(stream =>

@@ -46,6 +46,12 @@ export const SettingsTab: React.FC = () => {
       const data = await response.json();
       setStats(data);
       setMessage(`✅ Chunk cleanup successful!`);
+
+      // Trigger a small delay to allow backend to fully clear Redis
+      setTimeout(() => {
+        // Reload the page to refresh all state
+        window.location.reload();
+      }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -80,6 +86,12 @@ export const SettingsTab: React.FC = () => {
       const data = await response.json();
       setStats(data);
       setMessage(`✅ Horse cleanup successful!`);
+
+      // Trigger a small delay to allow backend to fully clear Redis
+      setTimeout(() => {
+        // Reload the page to refresh all state
+        window.location.reload();
+      }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -140,6 +152,12 @@ export const SettingsTab: React.FC = () => {
 
       setStats(combinedStats);
       setMessage('✅ Complete cleanup successful! All data removed.');
+
+      // Trigger a small delay to allow backend to fully clear Redis
+      setTimeout(() => {
+        // Reload the page to refresh all state
+        window.location.reload();
+      }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
