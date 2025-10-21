@@ -52,8 +52,23 @@ router.delete(
           logger.warn('Failed to clear Redis queue (non-fatal)', { error: redisError.message });
         }
 
-        // Give processing 2 seconds to wind down
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // CRITICAL: Restart stream-service to force it to reload inactive streams
+        try {
+          logger.info('Restarting stream-service to stop processing...');
+          const { exec } = require('child_process');
+          const util = require('util');
+          const execPromise = util.promisify(exec);
+
+          // Restart stream-service container
+          await execPromise('docker restart barnhand-stream-service-1');
+
+          // Wait for service to restart
+          await new Promise(resolve => setTimeout(resolve, 3000));
+
+          logger.info('Stream service restarted successfully');
+        } catch (restartError: any) {
+          logger.warn('Failed to restart stream service (non-fatal)', { error: restartError.message });
+        }
 
         logger.info('Stream processing stopped');
       } catch (stopError: any) {
@@ -167,8 +182,23 @@ router.delete(
         // Set all streams to inactive to stop new chunk generation
         await query("UPDATE streams SET status = 'inactive'");
 
-        // Give processing 2 seconds to wind down
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // CRITICAL: Restart stream-service to force it to reload inactive streams
+        try {
+          logger.info('Restarting stream-service to stop processing...');
+          const { exec } = require('child_process');
+          const util = require('util');
+          const execPromise = util.promisify(exec);
+
+          // Restart stream-service container
+          await execPromise('docker restart barnhand-stream-service-1');
+
+          // Wait for service to restart
+          await new Promise(resolve => setTimeout(resolve, 3000));
+
+          logger.info('Stream service restarted successfully');
+        } catch (restartError: any) {
+          logger.warn('Failed to restart stream service (non-fatal)', { error: restartError.message });
+        }
 
         logger.info('Stream processing stopped');
       } catch (stopError: any) {
