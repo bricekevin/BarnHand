@@ -410,6 +410,20 @@ router.delete(
       const horse = await horseRepo.findById(id);
 
       if (!horse) {
+        // Horse not found - either doesn't exist or already deleted
+        // Make delete idempotent: return success if already deleted
+        // Check if horse exists with any status (including 'deleted')
+        const anyStatusResult = await horseRepo.findByIdAnyStatus(id);
+
+        if (anyStatusResult && anyStatusResult.status === 'deleted') {
+          // Already deleted - return success (idempotent operation)
+          return res.status(200).json({
+            message: 'Horse already deleted',
+            id
+          });
+        }
+
+        // Horse truly doesn't exist
         return res.status(404).json({ error: 'Horse not found' });
       }
 

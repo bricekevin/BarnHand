@@ -21,6 +21,14 @@ export class HorseRepository {
     return result.rows.length > 0 ? this.mapRowToHorse(result.rows[0]) : null;
   }
 
+  async findByIdAnyStatus(id: string): Promise<Horse | null> {
+    // Find horse regardless of status (including 'deleted')
+    // Used for checking if a horse was already deleted
+    const result = await query('SELECT * FROM horses WHERE id = $1', [id]);
+
+    return result.rows.length > 0 ? this.mapRowToHorse(result.rows[0]) : null;
+  }
+
   async findByTrackingId(trackingId: string): Promise<Horse | null> {
     // Filter out soft-deleted horses
     const result = await query("SELECT * FROM horses WHERE tracking_id = $1 AND status != 'deleted'", [
