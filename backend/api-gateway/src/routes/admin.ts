@@ -256,14 +256,15 @@ router.delete(
         await query('COMMIT');
 
         // 7. Clear Redis cache (horse state, tracking data)
+        // Pattern: horse:{stream_id}:{horse_id}:state
         let redisKeysCleared = 0;
         try {
           const { createClient } = require('redis');
           const redis = createClient({ url: process.env.REDIS_URL || 'redis://redis:6379' });
           await redis.connect();
 
-          // Clear all horse-related keys
-          const horseKeys = await redis.keys('horse:*:state');
+          // Clear all horse-related keys (use wildcard to match all patterns)
+          const horseKeys = await redis.keys('horse:*');
           if (horseKeys.length > 0) {
             await redis.del(...horseKeys);
             redisKeysCleared = horseKeys.length;

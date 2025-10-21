@@ -432,29 +432,44 @@ router.delete(
       }
 
       // Clear horse from Redis cache to prevent re-loading
-      if (trackingInfo && trackingInfo.tracking_id && trackingInfo.stream_id) {
-        try {
-          const { createClient } = require('redis');
-          const redis = createClient({ url: process.env.REDIS_URL || 'redis://redis:6379' });
-          await redis.connect();
+      // Note: Redis keys use horse.id (UUID), not tracking_id
+      try {
+        const { createClient } = require('redis');
+        const redis = createClient({ url: process.env.REDIS_URL || 'redis://redis:6379' });
+        await redis.connect();
 
-          // Clear horse state from Redis (barn-level registry)
-          const redisKey = `horse:${trackingInfo.stream_id}:${trackingInfo.tracking_id}:state`;
-          await redis.del(redisKey);
-          await redis.disconnect();
-
+        // Clear horse state from Redis using actual horse.id (not tracking_id)
+        // Pattern: horse:{stream_id}:{horse_id}:state
+        if (trackingInfo && trackingInfo.stream_id) {
+          const redisKey = `horse:${trackingInfo.stream_id}:${id}:state`;
+          const deleted = await redis.del(redisKey);
           logger.info('Horse cleared from Redis cache', {
             userId: req.user.userId,
             horseId: id,
-            trackingId: trackingInfo.tracking_id,
             streamId: trackingInfo.stream_id,
+            redisKey,
+            deleted: deleted > 0,
           });
-        } catch (redisError: any) {
-          logger.warn('Failed to clear horse from Redis (non-fatal)', {
-            error: redisError.message,
-            horseId: id,
-          });
+        } else {
+          // If stream_id not found, do a wildcard search and delete
+          const pattern = `horse:*:${id}:state`;
+          const keys = await redis.keys(pattern);
+          if (keys.length > 0) {
+            await redis.del(...keys);
+            logger.info('Horse cleared from Redis cache (wildcard)', {
+              userId: req.user.userId,
+              horseId: id,
+              keysDeleted: keys.length,
+            });
+          }
         }
+
+        await redis.disconnect();
+      } catch (redisError: any) {
+        logger.warn('Failed to clear horse from Redis (non-fatal)', {
+          error: redisError.message,
+          horseId: id,
+        });
       }
 
       logger.info('Horse deleted (soft delete + Redis cleanup)', {

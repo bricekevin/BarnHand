@@ -25,6 +25,7 @@
   "author": "Kevin Brice",
   "license": "MIT",
   "dependencies": {
+    "@barnhand/database": "file:../database",
     "@barnhand/shared": "file:../../shared",
     "chokidar": "^3.5.3",
     "cors": "^2.8.5",

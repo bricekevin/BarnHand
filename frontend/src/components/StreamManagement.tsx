@@ -70,9 +70,32 @@ export const StreamManagement: React.FC = () => {
   }, []);
 
   // Combine local streams and custom streams
+  // Use URL-based deduplication since video-streamer IDs (stream_001) don't match database UUIDs
   const combinedStreams: StreamData[] = [
-    ...localStreams,
-    ...customStreams.filter(stream => !localStreams.find(local => local.id === stream.id)).map(stream => ({
+    ...localStreams.map(local => {
+      // Try to find matching database stream by URL to get the correct name
+      const dbStream = customStreams.find(custom => {
+        // Match by comparing the stream number in the URL (e.g., stream1, stream2)
+        const localStreamNum = local.url.match(/stream(\d+)/)?.[1];
+        const customStreamNum = custom.url.match(/stream(\d+)/)?.[1];
+        return localStreamNum && customStreamNum && localStreamNum === customStreamNum;
+      });
+
+      // Prefer database name if found, otherwise use video-streamer name
+      return {
+        ...local,
+        name: dbStream?.name || local.name,
+        id: dbStream?.id || local.id, // Use database ID if available
+      };
+    }),
+    // Add any custom streams that don't have a corresponding local stream
+    ...customStreams.filter(stream => {
+      const streamNum = stream.url.match(/stream(\d+)/)?.[1];
+      return !localStreams.find(local => {
+        const localNum = local.url.match(/stream(\d+)/)?.[1];
+        return streamNum && localNum && streamNum === localNum;
+      });
+    }).map(stream => ({
       id: stream.id,
       name: stream.name,
       url: stream.url,
