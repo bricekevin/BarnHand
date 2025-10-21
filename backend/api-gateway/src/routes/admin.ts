@@ -40,14 +40,15 @@ router.delete(
 
         // Clear Redis processing queue
         try {
-          const Redis = require('ioredis');
-          const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+          const { createClient } = require('redis');
+          const redis = createClient({ url: process.env.REDIS_URL || 'redis://redis:6379' });
+          await redis.connect();
           const queueKeys = await redis.keys('queue:*');
           if (queueKeys.length > 0) {
             await redis.del(...queueKeys);
             logger.info(`Cleared ${queueKeys.length} processing queue keys`);
           }
-          await redis.quit();
+          await redis.disconnect();
         } catch (redisError: any) {
           logger.warn('Failed to clear Redis queue (non-fatal)', { error: redisError.message });
         }
@@ -257,8 +258,9 @@ router.delete(
         // 7. Clear Redis cache (horse state, tracking data)
         let redisKeysCleared = 0;
         try {
-          const Redis = require('ioredis');
-          const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+          const { createClient } = require('redis');
+          const redis = createClient({ url: process.env.REDIS_URL || 'redis://redis:6379' });
+          await redis.connect();
 
           // Clear all horse-related keys
           const horseKeys = await redis.keys('horse:*:state');
@@ -267,7 +269,7 @@ router.delete(
             redisKeysCleared = horseKeys.length;
           }
 
-          await redis.quit();
+          await redis.disconnect();
           logger.info('Admin cleanup: Redis cache cleared', { keysCleared: redisKeysCleared });
         } catch (redisError: any) {
           logger.warn('Failed to clear Redis cache (non-fatal)', { error: redisError.message });
@@ -415,8 +417,9 @@ router.delete(
         // Step 3: Clear ALL Redis cache (comprehensive cleanup)
         let redisKeysCleared = 0;
         try {
-          const Redis = require('ioredis');
-          const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+          const { createClient } = require('redis');
+          const redis = createClient({ url: process.env.REDIS_URL || 'redis://redis:6379' });
+          await redis.connect();
 
           // Clear all horse-related keys
           const horseKeys = await redis.keys('horse:*');
@@ -431,7 +434,7 @@ router.delete(
             redisKeysCleared = allKeys.length;
           }
 
-          await redis.quit();
+          await redis.disconnect();
           logger.info('Admin cleanup: All Redis cache cleared', {
             keysCleared: redisKeysCleared,
             horseKeys: horseKeys.length,
