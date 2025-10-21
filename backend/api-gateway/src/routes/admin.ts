@@ -29,6 +29,37 @@ router.delete(
         userEmail: req.user.email,
       });
 
+      // CRITICAL: Stop all stream processing to prevent new chunks from being created
+      try {
+        logger.info('Stopping all stream processing before chunk cleanup...');
+        const db = require('@barnhand/database');
+        const { query } = db;
+
+        // Set all streams to inactive to stop new chunk generation
+        await query("UPDATE streams SET status = 'inactive'");
+
+        // Clear Redis processing queue
+        try {
+          const Redis = require('ioredis');
+          const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+          const queueKeys = await redis.keys('queue:*');
+          if (queueKeys.length > 0) {
+            await redis.del(...queueKeys);
+            logger.info(`Cleared ${queueKeys.length} processing queue keys`);
+          }
+          await redis.quit();
+        } catch (redisError: any) {
+          logger.warn('Failed to clear Redis queue (non-fatal)', { error: redisError.message });
+        }
+
+        // Give processing 2 seconds to wind down
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        logger.info('Stream processing stopped');
+      } catch (stopError: any) {
+        logger.warn('Failed to stop stream processing (non-fatal)', { error: stopError.message });
+      }
+
       // Get all chunks
       const chunks = await videoChunkService.getAllChunks();
 
@@ -126,6 +157,23 @@ router.delete(
         userId: req.user.userId,
         userEmail: req.user.email,
       });
+
+      // CRITICAL: Stop all stream processing to prevent new horses from being created
+      try {
+        logger.info('Stopping all stream processing before horse cleanup...');
+        const db = require('@barnhand/database');
+        const { query } = db;
+
+        // Set all streams to inactive to stop new chunk generation
+        await query("UPDATE streams SET status = 'inactive'");
+
+        // Give processing 2 seconds to wind down
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        logger.info('Stream processing stopped');
+      } catch (stopError: any) {
+        logger.warn('Failed to stop stream processing (non-fatal)', { error: stopError.message });
+      }
 
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
