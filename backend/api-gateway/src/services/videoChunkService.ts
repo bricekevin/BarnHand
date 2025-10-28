@@ -772,6 +772,67 @@ export class VideoChunkService {
     }
   }
 
+  async getChunkFrame(
+    chunkId: string,
+    framePath: string,
+    farmId: string
+  ): Promise<Buffer | null> {
+    const chunk = await this.getChunkById(chunkId, farmId);
+    if (!chunk) {
+      return null;
+    }
+
+    // Build path to frame image file
+    // framePath is relative like "frame_0015.jpg"
+    const frameFilePath = path.join(
+      this.chunkStoragePath,
+      farmId,
+      chunk.stream_id,
+      'detections',
+      path.basename(chunk.filename, '.mp4') + '_detections',
+      'frames',
+      framePath
+    );
+
+    try {
+      // Read frame image file as buffer
+      const frameBuffer = await fs.readFile(frameFilePath);
+
+      logger.debug('Chunk frame retrieved', {
+        chunkId,
+        farmId,
+        framePath,
+        frameFilePath,
+      });
+
+      return frameBuffer;
+    } catch (error) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      ) {
+        // File doesn't exist
+        logger.debug('Frame file not found', {
+          chunkId,
+          framePath,
+          frameFilePath,
+        });
+        return null;
+      }
+
+      // Other error
+      logger.error('Failed to read chunk frame', {
+        error,
+        chunkId,
+        framePath,
+        frameFilePath,
+      });
+      throw error;
+    }
+  }
+
   async getChunkStatus(
     chunkId: string,
     farmId: string
