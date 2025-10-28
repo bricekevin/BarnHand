@@ -411,6 +411,7 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
           streamId={streamId}
           chunkId={chunkId}
           frames={detectionData.frames}
+          horses={detectionData.horses}
           videoMetadata={detectionData.video_metadata}
         />
       </div>

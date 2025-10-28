@@ -69,10 +69,23 @@ interface FrameData {
   reid_details?: ReidDetails;
 }
 
+interface ChunkHorse {
+  id: string;
+  name?: string;
+  color: [number, number, number];
+  first_detected_frame: number;
+  last_detected_frame: number;
+  total_detections: number;
+  avg_confidence: number;
+  horse_type?: string;
+  is_official?: boolean;
+}
+
 interface FrameInspectorProps {
   streamId: string;
   chunkId: string | null;
   frames: FrameData[];
+  horses: ChunkHorse[];  // Top-level horses array with names
   videoMetadata: {
     fps: number;
     total_frames: number;
@@ -84,6 +97,7 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
   streamId,
   chunkId,
   frames,
+  horses,
   videoMetadata,
 }) => {
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
@@ -92,6 +106,22 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
   const [frameImageUrl, setFrameImageUrl] = useState<string | null>(null);
 
   const currentFrame = frames[currentFrameIndex];
+
+  // Create lookup map for horse names by ID
+  const horseNameMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    horses.forEach(horse => {
+      if (horse.name) {
+        map.set(horse.id, horse.name);
+      }
+    });
+    return map;
+  }, [horses]);
+
+  // Helper to get horse name by ID
+  const getHorseName = (horseId: string): string => {
+    return horseNameMap.get(horseId) || 'Unnamed Horse';
+  };
 
   // Load frame image with authentication
   useEffect(() => {
@@ -377,7 +407,7 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
                       style={{ backgroundColor: rgbToString(horse.color) }}
                     ></div>
                     <span className="text-slate-100 font-semibold text-sm">
-                      {horse.name || `Unnamed Horse`}
+                      {getHorseName(horse.id)}
                     </span>
                   </div>
                   {horse.is_official && (
@@ -503,7 +533,7 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-slate-100 text-sm font-semibold">
-                      {horse?.name || `Horse ${pose.horse_id}`}
+                      {getHorseName(pose.horse_id)}
                     </span>
                     <span className="text-xs text-slate-400">
                       Confidence: <span className="text-slate-300">{(pose.confidence * 100).toFixed(1)}%</span>
