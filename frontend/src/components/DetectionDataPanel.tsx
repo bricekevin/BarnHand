@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { FrameInspector } from './FrameInspector';
 
 interface Horse {
-  id: string; // This IS the tracking_id from ML service (e.g., "horse_001")
+  id: string; // Global tracking ID (e.g., "1_horse_001")
+  name?: string; // Optional horse name from registry
   color: [number, number, number];
   first_detected_frame: number;
   last_detected_frame: number;
   total_detections: number;
   avg_confidence: number;
-  name?: string; // Optional horse name from registry (enriched by backend)
+  horse_type?: string; // "official" or "guest"
+  is_official?: boolean;
 }
 
 interface DetectionFrame {
@@ -310,13 +313,18 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
                           {horse.name}
                         </span>
                         <span className="text-xs text-cyan-400 font-mono">
-                          {horse.id}
+                          ID: {horse.id}
                         </span>
                       </>
                     ) : (
-                      <span className="font-mono font-semibold text-slate-100">
-                        {horse.id}
-                      </span>
+                      <>
+                        <span className="font-semibold text-slate-100">
+                          Unnamed Horse
+                        </span>
+                        <span className="text-xs text-cyan-400 font-mono">
+                          ID: {horse.id}
+                        </span>
+                      </>
                     )}
                   </div>
                 </div>
@@ -395,6 +403,16 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
           frames with detections • {detectionData.frames.length} processed •{' '}
           {detectionData.video_metadata?.total_frames || 0} total
         </div>
+      </div>
+
+      {/* Frame-by-Frame Inspector Section */}
+      <div className="frame-inspector-section mb-4">
+        <FrameInspector
+          streamId={streamId}
+          chunkId={chunkId}
+          frames={detectionData.frames}
+          videoMetadata={detectionData.video_metadata}
+        />
       </div>
 
       {/* Raw JSON Section */}
