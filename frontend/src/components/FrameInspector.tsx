@@ -89,8 +89,56 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [jumpToFrame, setJumpToFrame] = useState('');
+  const [frameImageUrl, setFrameImageUrl] = useState<string | null>(null);
 
   const currentFrame = frames[currentFrameIndex];
+
+  // Load frame image with authentication
+  useEffect(() => {
+    if (!currentFrame?.frame_path) {
+      setFrameImageUrl(null);
+      return;
+    }
+
+    const loadFrameImage = async () => {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        setFrameImageUrl(null);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `http://localhost:8000/api/v1/streams/${streamId}/chunks/${chunkId}/frames/${currentFrame.frame_path}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          setFrameImageUrl(url);
+        } else {
+          setFrameImageUrl(null);
+        }
+      } catch (error) {
+        console.error('Failed to load frame image:', error);
+        setFrameImageUrl(null);
+      }
+    };
+
+    loadFrameImage();
+
+    // Cleanup object URL when component unmounts or frame changes
+    return () => {
+      if (frameImageUrl) {
+        URL.revokeObjectURL(frameImageUrl);
+      }
+    };
+  }, [currentFrame?.frame_path, streamId, chunkId]);
 
   // Auto-play functionality
   useEffect(() => {
@@ -279,6 +327,34 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
           </span>
         )}
       </div>
+
+      {/* Frame Image Display */}
+      {currentFrame.frame_path && (
+        <div className="mb-4 bg-slate-800/50 rounded-lg p-4">
+          <h4 className="text-xs font-semibold text-cyan-400 uppercase mb-3">
+            Processed Frame with Overlays
+          </h4>
+          <div className="relative">
+            {frameImageUrl ? (
+              <img
+                src={frameImageUrl}
+                alt={`Frame ${currentFrame.frame_index}`}
+                className="w-full h-auto rounded border border-slate-700"
+              />
+            ) : (
+              <div className="w-full aspect-video bg-slate-900 rounded border border-slate-700 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400 mb-3"></div>
+                  <p className="text-slate-400 text-sm">Loading frame...</p>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="text-xs text-slate-400 mt-2 text-center">
+            Frame {currentFrame.frame_index} • {videoMetadata.resolution} • {(currentFrame.timestamp).toFixed(2)}s
+          </div>
+        </div>
+      )}
 
       {/* Frame Analysis Grid */}
       <div className="grid grid-cols-2 gap-4">
