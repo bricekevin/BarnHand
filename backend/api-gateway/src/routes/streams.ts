@@ -602,6 +602,47 @@ router.get(
   })
 );
 
+// GET /api/v1/streams/:id/chunks/:chunkId/frames/:framePath - Get processed frame image
+router.get(
+  '/:id/chunks/:chunkId/frames/*',
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      if (!req.user.farmId) {
+        return res.status(403).json({ error: 'Farm ID required' });
+      }
+
+      const { chunkId } = req.params;
+      const framePath = req.params[0]; // Get the wildcard path (e.g., "frame_0015.jpg")
+
+      const frameImage = await videoChunkService.getChunkFrame(
+        chunkId,
+        framePath,
+        req.user.farmId
+      );
+
+      if (!frameImage) {
+        return res.status(404).json({
+          error: 'Frame not found',
+          message: 'Frame image may not exist or chunk is not processed yet',
+        });
+      }
+
+      // Set appropriate content type for image
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+      return res.send(frameImage);
+    } catch (error) {
+      logger.error('Get chunk frame error', { error });
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+);
+
 // GET /api/v1/streams/:id/chunks/:chunkId/status - Get chunk processing status
 router.get(
   '/:id/chunks/:chunkId/status',

@@ -847,10 +847,15 @@ class ChunkProcessor:
             Path(output_video_path).parent.mkdir(parents=True, exist_ok=True)
             Path(output_json_path).parent.mkdir(parents=True, exist_ok=True)
 
-            # Create temporary directory for frames (FFmpeg workaround for Docker codec issues)
+            # Create frames directory for frame inspector (persistent storage)
+            frames_output_dir = Path(output_video_path).parent / "frames"
+            frames_output_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Saving processed frames to: {frames_output_dir}")
+
+            # Create temporary directory for FFmpeg video assembly
             temp_frames_dir = Path(f"/tmp/chunk_processing_{chunk_id}")
             temp_frames_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Saving frames to temporary directory: {temp_frames_dir}")
+            logger.info(f"Temporary frames for video assembly: {temp_frames_dir}")
 
             # Process frames
             frame_idx = 0
@@ -999,6 +1004,10 @@ class ChunkProcessor:
 
                 # Save frame results ONLY for processed frames (to reduce data size)
                 if should_process:
+                    # Save processed frame to persistent storage for frame inspector
+                    persistent_frame_path = frames_output_dir / f"frame_{frame_idx:04d}.jpg"
+                    cv2.imwrite(str(persistent_frame_path), processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+
                     # Enhanced frame metadata for frame-by-frame inspector
                     frame_result = {
                         "frame_index": frame_idx,
@@ -1007,6 +1016,7 @@ class ChunkProcessor:
                         "tracked_horses": tracked_horses,
                         "poses": frame_poses,
                         "processed": True,
+                        "frame_path": f"frames/frame_{frame_idx:04d}.jpg",  # Relative path for API
                         "ml_settings": {
                             "model": "YOLO11",  # Primary model
                             "confidence_threshold": 0.5,
