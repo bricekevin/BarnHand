@@ -70,7 +70,440 @@ class ChunkProcessor:
         except Exception as error:
             logger.error(f"Failed to initialize enhanced ML models: {error}")
             raise
-            
+
+    # ============================================================================
+    # OFFICIAL HORSES WORKFLOW - Helper Methods
+    # ============================================================================
+
+    def _calculate_quality_score(self, confidence: float, bbox: Dict[str, float], crop: np.ndarray) -> float:
+        """
+        Calculate composite quality score for a detection.
+
+        Factors:
+        - Detection confidence (40%): YOLO confidence score
+        - Sharpness (30%): Laplacian variance
+        - Size (20%): Bbox area normalized by image size
+        - Aspect ratio (10%): Closeness to ideal horse aspect ratio
+
+        Args:
+            confidence: YOLO detection confidence (0.0-1.0)
+            bbox: Bounding box {x, y, width, height}
+            crop: Cropped horse image (numpy array)
+
+        Returns:
+            Quality score (0.0-1.0)
+        """
+        try:
+            import cv2
+
+            # 1. Detection confidence (0-1)
+            conf_score = confidence
+
+            # 2. Bbox size (normalize by typical image size)
+            bbox_area = bbox.get("width", 0) * bbox.get("height", 0)
+            # Assume typical image size of 1920x1080
+            size_score = min(bbox_area / (1920 * 1080) * 100, 1.0)
+
+            # 3. Image sharpness (Laplacian variance)
+            gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+            laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+            # 500 is considered good sharpness
+            sharpness_score = min(laplacian_var / 500.0, 1.0)
+
+            # 4. Aspect ratio (horses typically 1.3-1.7 width/height)
+            width = bbox.get("width", 1)
+            height = bbox.get("height", 1)
+            aspect = width / max(height, 1)
+            ideal_aspect = 1.5
+            aspect_diff = abs(aspect - ideal_aspect) / ideal_aspect
+            aspect_score = max(0.0, 1.0 - aspect_diff)
+
+            # Weighted combination
+            quality = (
+                conf_score * 0.4 +
+                sharpness_score * 0.3 +
+                size_score * 0.2 +
+                aspect_score * 0.1
+            )
+
+            return max(0.0, min(1.0, quality))
+
+        except Exception as error:
+            logger.error(f"Failed to calculate quality score: {error}")
+            return confidence  # Fallback to just confidence
+
+    def _calculate_iou(self, bbox1: Dict[str, float], bbox2: Dict[str, float]) -> float:
+        """
+        Calculate Intersection over Union (IoU) between two bounding boxes.
+
+        Args:
+            bbox1, bbox2: Bounding boxes {x, y, width, height}
+
+        Returns:
+            IoU score (0.0-1.0)
+        """
+        try:
+            # Extract coordinates
+            x1, y1, w1, h1 = bbox1["x"], bbox1["y"], bbox1["width"], bbox1["height"]
+            x2, y2, w2, h2 = bbox2["x"], bbox2["y"], bbox2["width"], bbox2["height"]
+
+            # Calculate intersection
+            x_left = max(x1, x2)
+            y_top = max(y1, y2)
+            x_right = min(x1 + w1, x2 + w2)
+            y_bottom = min(y1 + h1, y2 + h2)
+
+            if x_right < x_left or y_bottom < y_top:
+                return 0.0
+
+            intersection = (x_right - x_left) * (y_bottom - y_top)
+
+            # Calculate union
+            area1 = w1 * h1
+            area2 = w2 * h2
+            union = area1 + area2 - intersection
+
+            if union == 0:
+                return 0.0
+
+            return intersection / union
+
+        except Exception as error:
+            logger.error(f"Failed to calculate IoU: {error}")
+            return 0.0
+
+    def _match_to_chunk_tracks(
+        self,
+        bbox: Dict[str, float],
+        chunk_tracks: Dict[int, Dict[str, Any]],
+        iou_threshold: float = 0.3
+    ) -> Optional[int]:
+        """
+        Match a detection to existing tracks in the chunk using IoU.
+
+        Args:
+            bbox: Detection bounding box
+            chunk_tracks: Current tracks in this chunk
+            iou_threshold: Minimum IoU to consider a match
+
+        Returns:
+            Matched track_id or None
+        """
+        best_iou = 0.0
+        best_track_id = None
+
+        for track_id, track_data in chunk_tracks.items():
+            # Get last bbox from this track
+            if not track_data["frames"]:
+                continue
+
+            last_frame = track_data["frames"][-1]
+            last_bbox = last_frame["bbox"]
+
+            iou = self._calculate_iou(bbox, last_bbox)
+
+            if iou >= iou_threshold and iou > best_iou:
+                best_iou = iou
+                best_track_id = track_id
+
+        return best_track_id
+
+    def _aggregate_track_features(self, track_data: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Get best quality frame from track for ReID matching and thumbnail.
+
+        Args:
+            track_data: Track data with frames list
+
+        Returns:
+            (features, crop_image) tuple
+        """
+        frames = track_data["frames"]
+
+        if not frames:
+            raise ValueError("Track has no frames")
+
+        # Find frame with highest quality score
+        best_frame = max(frames, key=lambda f: f["quality_score"])
+        track_data["best_quality_frame_idx"] = best_frame["frame_idx"]
+
+        logger.debug(
+            f"Track {track_data['track_id']}: Using frame {best_frame['frame_idx']} "
+            f"(quality: {best_frame['quality_score']:.2f}) out of {len(frames)} frames"
+        )
+
+        # Return features and crop for thumbnail
+        return best_frame["features"], best_frame["crop"]
+
+    def _match_to_official_horses(
+        self,
+        features: np.ndarray,
+        official_horses: Dict[str, Dict[str, Any]],
+        noise_threshold: float = 0.3
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Match aggregated features to official horses using closest-match strategy.
+
+        Strategy:
+        - Find CLOSEST official horse (highest cosine similarity)
+        - Only reject if ALL similarities below noise_threshold (likely YOLO error)
+
+        Args:
+            features: Feature vector from detection
+            official_horses: Dict of official horses
+            noise_threshold: Minimum similarity to filter noise (default: 0.3)
+
+        Returns:
+            Best match dict {official_id, tracking_id, similarity} or None
+        """
+        best_match = None
+        best_similarity = 0.0
+
+        for official_id, official_data in official_horses.items():
+            official_features = official_data.get("feature_vector")
+            if official_features is None or len(official_features) == 0:
+                continue
+
+            # Ensure both are numpy arrays
+            if not isinstance(official_features, np.ndarray):
+                official_features = np.array(official_features)
+
+            # Cosine similarity
+            try:
+                similarity = np.dot(features, official_features) / (
+                    np.linalg.norm(features) * np.linalg.norm(official_features)
+                )
+            except Exception as e:
+                logger.error(f"Failed to calculate similarity: {e}")
+                continue
+
+            if similarity > best_similarity:
+                best_match = {
+                    "official_id": official_id,
+                    "tracking_id": official_data["tracking_id"],
+                    "similarity": float(similarity)
+                }
+                best_similarity = similarity
+
+        # Only reject if best match is below noise threshold
+        if best_match and best_similarity >= noise_threshold:
+            return best_match
+        else:
+            logger.debug(f"⚠️ Detection rejected as noise (best sim: {best_similarity:.2f} < {noise_threshold})")
+            return None
+
+    # ============================================================================
+    # END OFFICIAL HORSES WORKFLOW - Helper Methods
+    # ============================================================================
+
+    async def process_chunk_with_official_tracking(
+        self,
+        chunk_path: str,
+        chunk_metadata: Dict[str, Any],
+        official_horses: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Process chunk with official-only tracking (no guest horses).
+
+        This method:
+        1. Processes all frames, accumulating detections into tracks
+        2. Calculates quality scores for each detection
+        3. At end of chunk: aggregates best features from each track
+        4. Matches tracks to official horses (closest match wins)
+        5. Saves thumbnails for matched horses
+        6. Ignores unmatched detections (noise/false positives)
+
+        Args:
+            chunk_path: Path to video chunk
+            chunk_metadata: Chunk metadata (stream_id, start_time, etc.)
+            official_horses: Dict of official horses for this barn
+
+        Returns:
+            Processing results with matched horses only
+        """
+        import cv2
+
+        start_time = time.time()
+        chunk_id = chunk_metadata.get("chunk_id", str(uuid.uuid4()))
+        stream_id = chunk_metadata.get("stream_id", "default")
+
+        logger.info(f"🐴 Processing chunk with official-only tracking: {chunk_id}")
+        logger.info(f"🐴 Tracking against {len(official_horses)} official horses")
+
+        try:
+            # Open video
+            cap = cv2.VideoCapture(chunk_path)
+            if not cap.isOpened():
+                raise ValueError(f"Failed to open video: {chunk_path}")
+
+            fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+            # Initialize chunk-level tracking
+            chunk_tracks = {}  # {track_id: TrackData}
+            next_track_id = 1
+            frame_idx = 0
+
+            logger.info(f"📹 Video: {width}x{height} @ {fps}fps, {total_frames} frames")
+
+            # Process frames
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                timestamp = chunk_metadata.get("start_time", 0) + (frame_idx / fps)
+
+                # YOLO detection
+                detections, _ = self.detection_model.detect_horses(frame)
+
+                # Process each detection
+                for det in detections:
+                    bbox = det["bbox"]
+                    confidence = det["confidence"]
+
+                    # Extract crop and features
+                    x, y, w, h = int(bbox["x"]), int(bbox["y"]), int(bbox["width"]), int(bbox["height"])
+                    crop = frame[y:y+h, x:x+w]
+
+                    if crop.size == 0:
+                        continue
+
+                    # Keep copy for thumbnail
+                    crop_copy = crop.copy()
+
+                    # Extract ReID features
+                    from .horse_reid import HorseReIDModel
+                    if not hasattr(self, 'reid_model'):
+                        self.reid_model = HorseReIDModel()
+                        self.reid_model.load_model()
+
+                    features = self.reid_model.extract_features(crop)
+
+                    # Calculate quality score
+                    quality_score = self._calculate_quality_score(confidence, bbox, crop)
+
+                    # Match to existing tracks in chunk (IoU-based)
+                    matched_track_id = self._match_to_chunk_tracks(bbox, chunk_tracks, iou_threshold=0.3)
+
+                    if matched_track_id:
+                        # Add to existing track
+                        chunk_tracks[matched_track_id]["frames"].append({
+                            "frame_idx": frame_idx,
+                            "timestamp": timestamp,
+                            "bbox": bbox,
+                            "confidence": confidence,
+                            "features": features,
+                            "quality_score": quality_score,
+                            "crop": crop_copy
+                        })
+                    else:
+                        # Create new track for this chunk
+                        chunk_tracks[next_track_id] = {
+                            "track_id": next_track_id,
+                            "frames": [{
+                                "frame_idx": frame_idx,
+                                "timestamp": timestamp,
+                                "bbox": bbox,
+                                "confidence": confidence,
+                                "features": features,
+                                "quality_score": quality_score,
+                                "crop": crop_copy
+                            }],
+                            "official_horse_id": None,
+                            "best_quality_frame_idx": None
+                        }
+                        next_track_id += 1
+
+                frame_idx += 1
+
+            cap.release()
+
+            logger.info(f"✅ Processed {frame_idx} frames, found {len(chunk_tracks)} tracks")
+
+            # END OF CHUNK: Aggregate features and match to official horses
+            matched_results = []
+            ignored_tracks = 0
+
+            for track_id, track_data in chunk_tracks.items():
+                try:
+                    # Get best quality features and thumbnail from this track
+                    aggregated_features, thumbnail_crop = self._aggregate_track_features(track_data)
+
+                    # Match against official horses (closest match wins)
+                    best_match = self._match_to_official_horses(
+                        aggregated_features,
+                        official_horses,
+                        noise_threshold=0.3
+                    )
+
+                    if best_match:
+                        # Found official horse match
+                        official_id = best_match["official_id"]
+                        tracking_id = best_match["tracking_id"]
+                        similarity = best_match["similarity"]
+
+                        logger.info(f"✓ Track {track_id} → {tracking_id} (sim: {similarity:.2f})")
+
+                        track_data["official_horse_id"] = official_id
+                        track_data["tracking_id"] = tracking_id
+                        track_data["similarity"] = similarity
+                        track_data["thumbnail"] = thumbnail_crop
+                        matched_results.append(track_data)
+
+                        # Save thumbnail for this chunk
+                        best_frame = track_data["frames"][track_data["best_quality_frame_idx"]]
+                        await self.horse_db.save_chunk_thumbnail(
+                            official_id,
+                            chunk_id,
+                            thumbnail_crop,
+                            best_frame["quality_score"],
+                            best_frame["timestamp"]
+                        )
+
+                    else:
+                        # No match - ignore this track (likely noise)
+                        ignored_tracks += 1
+                        logger.debug(f"✗ Track {track_id} ignored (noise/no match)")
+
+                except Exception as e:
+                    logger.error(f"Failed to process track {track_id}: {e}")
+                    ignored_tracks += 1
+                    continue
+
+            # Build response
+            processing_time = time.time() - start_time
+
+            logger.info(f"🎯 Chunk {chunk_id} complete: {len(matched_results)} horses matched, {ignored_tracks} tracks ignored")
+            logger.info(f"⏱️ Processing time: {processing_time:.2f}s ({total_frames/processing_time:.1f} fps)")
+
+            return {
+                "chunk_id": chunk_id,
+                "stream_id": stream_id,
+                "matched_horses": len(matched_results),
+                "ignored_tracks": ignored_tracks,
+                "total_frames": frame_idx,
+                "processing_time": processing_time,
+                "horses": [
+                    {
+                        "tracking_id": r["tracking_id"],
+                        "official_horse_id": r["official_horse_id"],
+                        "similarity": r["similarity"],
+                        "detections": len(r["frames"]),
+                        "best_quality": r["frames"][r["best_quality_frame_idx"]]["quality_score"]
+                    }
+                    for r in matched_results
+                ]
+            }
+
+        except Exception as error:
+            logger.error(f"Failed to process chunk with official tracking: {error}")
+            import traceback
+            traceback.print_exc()
+            raise
+
     async def process_chunk(self, chunk_path: str, chunk_metadata: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process a video chunk for horse detection, tracking, and pose analysis.
@@ -93,6 +526,41 @@ class ChunkProcessor:
                    chunk_id=chunk_id,
                    stream_id=self.current_stream_id,
                    start_time=chunk_metadata.get("start_time"))
+
+        # ============================================================================
+        # OFFICIAL HORSES WORKFLOW - Mode Detection and Routing
+        # ============================================================================
+
+        # Check if barn has official horses configured
+        try:
+            # Get farm_id for this stream
+            farm_id = await self.horse_db._get_farm_id_from_stream(self.current_stream_id)
+
+            if farm_id:
+                # Check if official horses exist for this barn
+                chunk_timestamp = chunk_metadata.get("start_time", time.time())
+                official_horses = await self.horse_db.load_official_horses_at_time(farm_id, chunk_timestamp)
+
+                if official_horses:
+                    # OFFICIAL TRACKING MODE: Use official-only tracking
+                    logger.info(f"🔵 Mode: OFFICIAL TRACKING ({len(official_horses)} official horses)")
+                    return await self.process_chunk_with_official_tracking(
+                        chunk_path,
+                        chunk_metadata,
+                        official_horses
+                    )
+                else:
+                    # DISCOVERY MODE: No official horses yet, use existing workflow
+                    logger.info(f"🟢 Mode: DISCOVERY (no official horses configured)")
+            else:
+                logger.info(f"🟢 Mode: DISCOVERY (no farm_id)")
+
+        except Exception as e:
+            logger.warning(f"Failed to check official horses, falling back to discovery mode: {e}")
+
+        # ============================================================================
+        # DISCOVERY MODE - Existing Workflow
+        # ============================================================================
 
         try:
             # Load video chunk
@@ -290,14 +758,71 @@ class ChunkProcessor:
                     stream_sources[source_stream] = stream_sources.get(source_stream, 0) + 1
                 logger.info(f"🐴 Horse sources by stream: {stream_sources}")
 
+            # ============================================================================
+            # OFFICIAL HORSES WORKFLOW - Mode Detection
+            # ============================================================================
+
+            # Check if barn has reached capacity with official horses
+            try:
+                farm_id = await self.horse_db._get_farm_id_from_stream(stream_id)
+
+                if farm_id and known_horses:
+                    # Get expected horse count for this barn
+                    conn = self.horse_db.pool.getconn()
+                    try:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT expected_horse_count FROM farms WHERE id = %s", (farm_id,))
+                        result = cursor.fetchone()
+                        expected_horse_count = result[0] if result else 0
+                    finally:
+                        self.horse_db.pool.putconn(conn)
+
+                    # Count official horses
+                    official_horses = {
+                        h_id: h for h_id, h in known_horses.items()
+                        if h.get("is_official") == True
+                    }
+                    official_count = len(official_horses)
+
+                    # Determine mode
+                    if expected_horse_count > 0 and official_count >= expected_horse_count:
+                        # OFFICIAL TRACKING MODE: Capacity reached, only track official horses
+                        logger.info(f"🔵 Mode: OFFICIAL TRACKING ({official_count}/{expected_horse_count} official horses)")
+                        logger.info(f"🔵 Filtering known horses to {official_count} official horses only")
+                        known_horses = official_horses
+                    elif expected_horse_count > 0 and official_count > 0:
+                        # DISCOVERY MODE: Still filling capacity
+                        logger.info(f"🟢 Mode: DISCOVERY ({official_count}/{expected_horse_count} official horses - still accepting new horses)")
+                    else:
+                        # UNRESTRICTED MODE: No capacity set
+                        logger.info(f"🟢 Mode: UNRESTRICTED (no capacity limit)")
+
+            except Exception as e:
+                logger.warning(f"Failed to check barn capacity, using unrestricted mode: {e}")
+
+            # ============================================================================
+            # END OFFICIAL HORSES WORKFLOW - Mode Detection
+            # ============================================================================
+
             # Initialize tracker with stream_id and barn-level known horses
-            # Re-ID will match against horses from ALL streams in this barn
+            # Re-ID will match against horses from ALL streams in this barn (or just official if capacity reached)
             tracker_start = time.time()
+
+            # Determine if we should allow new horse creation
+            allow_new_horses = True
+            if expected_horse_count > 0 and official_count >= expected_horse_count:
+                # Official tracking mode: Do NOT create new horses
+                allow_new_horses = False
+                logger.info(f"🔵 New horse creation DISABLED (capacity reached)")
+            else:
+                logger.info(f"🟢 New horse creation ENABLED (discovery mode)")
+
             self.horse_tracker = HorseTracker(
                 similarity_threshold=0.7,
                 max_lost_frames=30,
                 stream_id=stream_id,
-                known_horses=known_horses
+                known_horses=known_horses,
+                allow_new_horses=allow_new_horses
             )
             await self.horse_tracker.initialize()
             timings["tracker_init"] = (time.time() - tracker_start) * 1000
@@ -390,7 +915,8 @@ class ChunkProcessor:
                     valid_tracks = []
                     valid_bboxes = []
                     for track_info in tracked_horses:
-                        horse_id = str(track_info.get("tracking_id", "unknown"))
+                        # Use global ID, not numeric counter
+                        horse_id = str(track_info.get("id", "unknown"))
                         bbox = track_info.get("bbox", {})
 
                         if bbox and bbox.get("width", 0) > 0 and bbox.get("height", 0) > 0:
@@ -406,7 +932,8 @@ class ChunkProcessor:
 
                             # Process batch results
                             for track_info, (pose_result, pose_time) in zip(valid_tracks, batch_pose_results):
-                                horse_id = str(track_info.get("tracking_id", "unknown"))
+                                # Use global ID, not numeric counter
+                                horse_id = str(track_info.get("id", "unknown"))
                                 bbox = track_info.get("bbox", {})
 
                                 if pose_result:
@@ -421,7 +948,8 @@ class ChunkProcessor:
                             logger.warning(f"Batch pose processing failed, falling back to sequential: {batch_error}")
                             # Fallback to sequential processing
                             for track_info in valid_tracks:
-                                horse_id = str(track_info.get("tracking_id", "unknown"))
+                                # Use global ID, not numeric counter
+                                horse_id = str(track_info.get("id", "unknown"))
                                 bbox = track_info.get("bbox", {})
 
                                 try:
@@ -471,13 +999,25 @@ class ChunkProcessor:
 
                 # Save frame results ONLY for processed frames (to reduce data size)
                 if should_process:
+                    # Enhanced frame metadata for frame-by-frame inspector
                     frame_result = {
                         "frame_index": frame_idx,
                         "timestamp": frame_timestamp,
                         "detections": detections,
                         "tracked_horses": tracked_horses,
                         "poses": frame_poses,
-                        "processed": True
+                        "processed": True,
+                        "ml_settings": {
+                            "model": "YOLO11",  # Primary model
+                            "confidence_threshold": 0.5,
+                            "frame_interval": frame_interval,
+                            "allow_new_horses": allow_new_horses,
+                            "mode": "official" if not allow_new_horses else "discovery"
+                        },
+                        "reid_details": {
+                            "similarity_threshold": 0.7,
+                            "known_horses_count": len(known_horses) if known_horses else 0
+                        }
                     }
                     frame_results.append(frame_result)
 
@@ -684,7 +1224,9 @@ class ChunkProcessor:
 
         # Draw each tracked horse
         for track in tracked_horses:
-            horse_id = str(track.get("tracking_id", "unknown"))
+            # Use global ID, not numeric counter
+            horse_id = str(track.get("id", "unknown"))
+            horse_name = track.get("horse_name")
             bbox = track.get("bbox", {})
             color = track.get("color", [255, 255, 255])
 
@@ -709,8 +1251,9 @@ class ChunkProcessor:
                 # Draw bbox rectangle
                 cv2.rectangle(frame, (x, y), (x + w, y + h), color, 3)
 
-                # Draw horse ID
-                cv2.putText(frame, f"#{horse_id}", (x, y - 10),
+                # Draw horse label (name if available, otherwise ID)
+                label = horse_name if horse_name else f"#{horse_id}"
+                cv2.putText(frame, label, (x, y - 10),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
             # Draw pose skeleton and keypoints if available
@@ -750,25 +1293,32 @@ class ChunkProcessor:
         return frame
 
     def _generate_horse_summary(self, frame_results: List[Dict]) -> List[Dict]:
-        """Generate per-horse summary across all frames."""
+        """Generate per-horse summary across all frames using global IDs."""
         horse_data = {}
 
         for frame_idx, frame_result in enumerate(frame_results):
             for track in frame_result["tracked_horses"]:
-                horse_id = str(track.get("tracking_id"))
+                # Use the global tracking ID (e.g., "1_horse_001"), not the numeric counter
+                horse_id = str(track.get("id"))
+                horse_name = track.get("horse_name")  # From ReID matching
 
                 if horse_id not in horse_data:
                     horse_data[horse_id] = {
                         "id": horse_id,
+                        "name": horse_name,  # Include horse name if available
                         "color": track.get("color", [255, 255, 255]),
                         "total_detections": 0,
                         "confidences": [],
                         "first_frame": frame_idx,
-                        "last_frame": frame_idx
+                        "last_frame": frame_idx,
+                        "horse_type": track.get("horse_type", "guest"),
+                        "is_official": track.get("is_official", False)
                     }
                 else:
-                    # Update last frame
+                    # Update last frame and name (in case it was updated mid-chunk)
                     horse_data[horse_id]["last_frame"] = frame_idx
+                    if horse_name:
+                        horse_data[horse_id]["name"] = horse_name
 
                 horse_data[horse_id]["total_detections"] += 1
                 horse_data[horse_id]["confidences"].append(track.get("confidence", 0.0))
@@ -780,11 +1330,14 @@ class ChunkProcessor:
 
             horse_summaries.append({
                 "id": horse_id,
+                "name": data.get("name"),  # Include horse name
                 "color": data["color"],
                 "first_detected_frame": data["first_frame"],
                 "last_detected_frame": data["last_frame"],
                 "total_detections": data["total_detections"],
-                "avg_confidence": round(avg_confidence, 3)
+                "avg_confidence": round(avg_confidence, 3),
+                "horse_type": data.get("horse_type", "guest"),
+                "is_official": data.get("is_official", False)
             })
 
         return horse_summaries
