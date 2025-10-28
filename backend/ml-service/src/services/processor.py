@@ -1016,7 +1016,7 @@ class ChunkProcessor:
                         "tracked_horses": tracked_horses,
                         "poses": frame_poses,
                         "processed": True,
-                        "frame_path": f"frames/frame_{frame_idx:04d}.jpg",  # Relative path for API
+                        "frame_path": f"frame_{frame_idx:04d}.jpg",  # Just filename, API route includes /frames/
                         "ml_settings": {
                             "model": "YOLO11",  # Primary model
                             "confidence_threshold": 0.5,
