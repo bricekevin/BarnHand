@@ -784,18 +784,17 @@ class ChunkProcessor:
                     }
                     official_count = len(official_horses)
 
-                    # Determine mode
-                    if expected_horse_count > 0 and official_count >= expected_horse_count:
-                        # OFFICIAL TRACKING MODE: Capacity reached, only track official horses
-                        logger.info(f"🔵 Mode: OFFICIAL TRACKING ({official_count}/{expected_horse_count} official horses)")
+                    # Determine mode: If we have ANY official horses, use official-only mode
+                    if official_count > 0:
+                        # OFFICIAL TRACKING MODE: We have official horses, only match to them
+                        logger.info(f"🔵 Mode: OFFICIAL TRACKING ({official_count} official horses defined)")
+                        if expected_horse_count > 0:
+                            logger.info(f"🔵 Expected capacity: {expected_horse_count} horses")
                         logger.info(f"🔵 Filtering known horses to {official_count} official horses only")
                         known_horses = official_horses
-                    elif expected_horse_count > 0 and official_count > 0:
-                        # DISCOVERY MODE: Still filling capacity
-                        logger.info(f"🟢 Mode: DISCOVERY ({official_count}/{expected_horse_count} official horses - still accepting new horses)")
                     else:
-                        # UNRESTRICTED MODE: No capacity set
-                        logger.info(f"🟢 Mode: UNRESTRICTED (no capacity limit)")
+                        # DISCOVERY MODE: No official horses defined yet
+                        logger.info(f"🟢 Mode: DISCOVERY (no official horses defined - accepting new horses)")
 
             except Exception as e:
                 logger.warning(f"Failed to check barn capacity, using unrestricted mode: {e}")
@@ -809,12 +808,12 @@ class ChunkProcessor:
             tracker_start = time.time()
 
             # Determine if we should allow new horse creation
-            allow_new_horses = True
-            if expected_horse_count > 0 and official_count >= expected_horse_count:
-                # Official tracking mode: Do NOT create new horses
+            # If we have ANY official horses, force-match to them (no new guests)
+            if official_count > 0:
                 allow_new_horses = False
-                logger.info(f"🔵 New horse creation DISABLED (capacity reached)")
+                logger.info(f"🔵 New horse creation DISABLED (official tracking mode)")
             else:
+                allow_new_horses = True
                 logger.info(f"🟢 New horse creation ENABLED (discovery mode)")
 
             self.horse_tracker = HorseTracker(
