@@ -848,7 +848,10 @@ class ChunkProcessor:
             Path(output_json_path).parent.mkdir(parents=True, exist_ok=True)
 
             # Create frames directory for frame inspector (persistent storage)
-            frames_output_dir = Path(output_video_path).parent / "frames"
+            # Save frames next to the detections JSON file (in detections directory)
+            detections_dir = Path(output_json_path).parent
+            chunk_detections_dir = detections_dir / Path(output_json_path).stem  # e.g., chunk_xxx_detections
+            frames_output_dir = chunk_detections_dir / "frames"
             frames_output_dir.mkdir(parents=True, exist_ok=True)
             logger.info(f"Saving processed frames to: {frames_output_dir}")
 
