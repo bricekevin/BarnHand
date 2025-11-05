@@ -98,6 +98,7 @@ export const getReprocessingStatus = async (
 export const getCorrectionHistory = async (
   streamId: string,
   chunkId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any[]> => {
   const token = getAuthToken();
   if (!token) {
@@ -154,6 +155,42 @@ export const cancelPendingCorrections = async (
     const errorData = await response.json().catch(() => ({}));
     throw new Error(
       errorData.error || `Failed to cancel corrections: ${response.status}`
+    );
+  }
+
+  return response.json();
+};
+
+/**
+ * Reload chunk data after re-processing
+ *
+ * @param streamId - Stream ID
+ * @param chunkId - Chunk ID
+ * @returns Promise with fresh chunk data
+ */
+export const reloadChunk = async (
+  streamId: string,
+  chunkId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<any> => {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(
+    `${API_BASE}/streams/${streamId}/chunks/${chunkId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.error || `Failed to reload chunk: ${response.status}`
     );
   }
 
