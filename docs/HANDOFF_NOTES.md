@@ -153,16 +153,25 @@
 
 ---
 
-## 📦 Commits (7 total)
+## 📦 Commits (10 total)
 
+**Phase 4 Detection Correction**:
 ```
 8f01ef6  p4(task-0.1-0.2): add detection corrections database schema and types
 f5aab42  p4(task-1.1): add correction repository with comprehensive tests
 aba87f5  p4(task-1.2): add correction service with validation and ML integration
+174d2cb  p4(task-1.3): add correction API endpoints to streams router
 fbbe010  p4(task-1.3): add correction API endpoint integration tests
 66ff030  p4(task-1.4-1.5): add ML re-processing service and API endpoints
-d996f1d  docs: update Phase 4 progress - Task 1.4-1.5 complete
 772f974  p4(integration): refactor processor.py to use shared FrameRenderer ⭐
+```
+
+**Documentation & Official Horses Workflow**:
+```
+d996f1d  docs: update Phase 4 progress - Task 1.4-1.5 complete
+3715b21  docs: add integration review section to Phase 4 handoff notes
+9f9de31  feat: implement official horses workflow with time-aware tracking
+ab1ee6a  docs: add official horses workflow and Phase 4 documentation
 ```
 
 ---
@@ -228,16 +237,20 @@ During integration review, discovered that Phase 4 implementation created **Fram
 - ✅ Changes to overlay format automatically apply to both original and re-processing
 - ✅ Reduces maintenance burden and prevents drift
 
-### Uncommitted Work (Separate from Phase 4)
+### Official Horses Workflow (Included ✅)
 
-**Note**: There are uncommitted changes in the working directory related to an **Official Horses Workflow** feature (separate from Phase 4):
+**Commits**: `9f9de31`, `ab1ee6a`
 
-- `horse_database.py`: New methods `load_official_horses()`, `load_official_horses_at_time()`
-- `videoChunkService.ts`: RTSP stream support
-- `video-streamer`: Multiple streaming improvements
-- `StreamSettings.tsx`: Frontend component updates
+Previously uncommitted changes for the **Official Horses Workflow** feature have been integrated:
 
-These changes are **NOT part of Phase 4** and should be committed separately when the official horses feature is complete.
+- ✅ `horse_database.py`: New methods `load_official_horses()`, `load_official_horses_at_time()`
+- ✅ `videoChunkService.ts`: RTSP stream support with TCP transport
+- ✅ `video-streamer`: Improved stream management and error handling
+- ✅ `StreamSettings.tsx`: Enhanced frontend component
+- ✅ Complete documentation suite (7 docs files)
+- ✅ Utility script: `fix-frame-paths.js`
+
+**Note**: These features were working before the integration review and are now properly committed alongside Phase 4.
 
 ---
 
