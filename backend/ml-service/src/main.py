@@ -10,6 +10,7 @@ from loguru import logger
 from .config.settings import settings
 from .config.logging import setup_logging
 from .services.processor import ChunkProcessor
+from .services.reprocessor import ReprocessorService
 
 
 # Request/Response models
@@ -65,6 +66,31 @@ class HorseSplitRequest(BaseModel):
     split_timestamp: float
 
 
+class CorrectionPayload(BaseModel):
+    """Manual correction payload."""
+    detection_index: int
+    frame_index: int
+    correction_type: str  # 'reassign', 'new_guest', 'mark_incorrect'
+    original_horse_id: str
+    corrected_horse_id: Optional[str] = None
+    corrected_horse_name: Optional[str] = None
+
+
+class ReprocessRequest(BaseModel):
+    """Re-processing request."""
+    chunk_id: str
+    corrections: List[CorrectionPayload]
+
+
+class ReprocessingStatus(BaseModel):
+    """Re-processing status response."""
+    chunk_id: str
+    status: str  # 'pending', 'running', 'completed', 'failed'
+    progress: int  # 0-100
+    step: str
+    error: Optional[str] = None
+
+
 class HealthResponse(BaseModel):
     status: str
     service: str
@@ -78,20 +104,25 @@ class HealthResponse(BaseModel):
 
 # Global processor instance
 processor: Optional[ChunkProcessor] = None
+reprocessor: Optional[ReprocessorService] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
-    global processor
-    
+    global processor, reprocessor
+
     # Startup
     setup_logging()
     logger.info("Starting BarnHand ML service")
-    
+
     try:
         processor = ChunkProcessor()
         await processor.initialize()
+
+        reprocessor = ReprocessorService()
+        await reprocessor.initialize()
+
         logger.info("ML service startup completed")
         yield
     except Exception as error:
@@ -478,11 +509,11 @@ async def get_tracking_statistics(stream_id: Optional[str] = None):
     """Get horse tracking statistics."""
     if not processor:
         raise HTTPException(status_code=503, detail="ML service not initialized")
-        
+
     try:
         db_stats = await processor.horse_db.get_horse_statistics(stream_id)
         tracker_stats = processor.horse_tracker.get_tracking_stats()
-        
+
         return {
             "database_stats": db_stats,
             "tracker_stats": tracker_stats,
@@ -496,6 +527,169 @@ async def get_tracking_statistics(stream_id: Optional[str] = None):
     except Exception as error:
         logger.error(f"Get tracking statistics error: {error}")
         raise HTTPException(status_code=500, detail=str(error))
+
+
+# Re-processing API endpoints (Phase 4)
+@app.post("/api/v1/reprocess/chunk/{chunk_id}")
+async def trigger_reprocessing(chunk_id: str, request: ReprocessRequest, background_tasks: BackgroundTasks):
+    """
+    Trigger re-processing of a chunk with manual corrections.
+
+    Returns 202 Accepted immediately and processes asynchronously in background.
+    """
+    if not reprocessor:
+        raise HTTPException(status_code=503, detail="Reprocessor service not initialized")
+
+    try:
+        # Validate request
+        if request.chunk_id != chunk_id:
+            raise HTTPException(status_code=400, detail="Chunk ID mismatch in URL and body")
+
+        if not request.corrections:
+            raise HTTPException(status_code=400, detail="No corrections provided")
+
+        # Convert Pydantic models to dicts
+        corrections_data = [correction.model_dump() for correction in request.corrections]
+
+        # Queue re-processing task in background
+        background_tasks.add_task(
+            _run_reprocessing,
+            chunk_id,
+            corrections_data
+        )
+
+        # Store initial status in Redis
+        if reprocessor.horse_db.redis_client:
+            import json
+            status_key = f"reprocessing:{chunk_id}:status"
+            status_data = {
+                "status": "pending",
+                "progress": 0,
+                "step": "Queued for processing",
+                "updated_at": time.time()
+            }
+            reprocessor.horse_db.redis_client.setex(
+                status_key,
+                3600,
+                json.dumps(status_data)
+            )
+
+        logger.info(f"Queued re-processing for chunk {chunk_id} with {len(corrections_data)} corrections")
+
+        # Return 202 Accepted
+        return {
+            "message": "Re-processing queued",
+            "chunk_id": chunk_id,
+            "corrections_count": len(corrections_data),
+            "status_url": f"/api/v1/reprocess/chunk/{chunk_id}/status"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error(f"Failed to trigger re-processing: {error}")
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+@app.get("/api/v1/reprocess/chunk/{chunk_id}/status", response_model=ReprocessingStatus)
+async def get_reprocessing_status(chunk_id: str):
+    """
+    Get re-processing status for a chunk.
+
+    Returns real-time progress from Redis or database fallback.
+    """
+    if not reprocessor:
+        raise HTTPException(status_code=503, detail="Reprocessor service not initialized")
+
+    try:
+        # Check Redis for real-time status
+        if reprocessor.horse_db.redis_client:
+            import json
+            status_key = f"reprocessing:{chunk_id}:status"
+            status_json = reprocessor.horse_db.redis_client.get(status_key)
+
+            if status_json:
+                status_data = json.loads(status_json)
+                return ReprocessingStatus(
+                    chunk_id=chunk_id,
+                    status=status_data.get("status", "unknown"),
+                    progress=status_data.get("progress", 0),
+                    step=status_data.get("step", ""),
+                    error=status_data.get("error")
+                )
+
+        # Fallback: Check database for correction status
+        if reprocessor.horse_db.pool:
+            conn = reprocessor.horse_db.pool.getconn()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT COUNT(*) as total,
+                           COUNT(CASE WHEN status = 'applied' THEN 1 END) as applied,
+                           COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed
+                    FROM detection_corrections
+                    WHERE chunk_id = %s
+                """, (chunk_id,))
+
+                row = cursor.fetchone()
+                if row and row[0] > 0:
+                    total, applied, failed = row
+
+                    if failed > 0:
+                        return ReprocessingStatus(
+                            chunk_id=chunk_id,
+                            status="failed",
+                            progress=0,
+                            step="Re-processing failed",
+                            error="Some corrections failed to apply"
+                        )
+                    elif applied == total:
+                        return ReprocessingStatus(
+                            chunk_id=chunk_id,
+                            status="completed",
+                            progress=100,
+                            step="Complete"
+                        )
+                    else:
+                        progress = int((applied / total) * 100)
+                        return ReprocessingStatus(
+                            chunk_id=chunk_id,
+                            status="running",
+                            progress=progress,
+                            step=f"Applied {applied}/{total} corrections"
+                        )
+            finally:
+                reprocessor.horse_db.pool.putconn(conn)
+
+        # No status found
+        return ReprocessingStatus(
+            chunk_id=chunk_id,
+            status="unknown",
+            progress=0,
+            step="No re-processing found for this chunk"
+        )
+
+    except Exception as error:
+        logger.error(f"Failed to get re-processing status: {error}")
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+async def _run_reprocessing(chunk_id: str, corrections: List[Dict[str, Any]]):
+    """
+    Background task for running re-processing.
+
+    Args:
+        chunk_id: Chunk ID
+        corrections: List of correction dicts
+    """
+    try:
+        logger.info(f"Starting background re-processing for chunk {chunk_id}")
+        result = await reprocessor.reprocess_chunk(chunk_id, corrections)
+        logger.info(f"Background re-processing completed: {result.to_dict()}")
+    except Exception as error:
+        logger.error(f"Background re-processing failed: {error}")
+        import traceback
+        traceback.print_exc()
 
 
 # Store startup time for uptime calculation
