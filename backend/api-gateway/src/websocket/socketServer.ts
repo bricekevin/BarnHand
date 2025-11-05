@@ -201,6 +201,49 @@ export class WebSocketServer {
         });
       });
 
+      // Handle chunk subscription (for re-processing events)
+      socket.on('subscribe:chunk', async (data: { chunkId: string }) => {
+        try {
+          const { chunkId } = data;
+          const roomName = `chunk:${chunkId}`;
+          await socket.join(roomName);
+
+          socket.emit('subscribed:chunk', {
+            chunkId,
+            timestamp: new Date().toISOString(),
+          });
+
+          logger.debug('Client subscribed to chunk', {
+            socketId: socket.id,
+            chunkId,
+            userId,
+          });
+        } catch (error) {
+          logger.error('Chunk subscription failed', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            socketId: socket.id,
+          });
+        }
+      });
+
+      // Handle chunk unsubscription
+      socket.on('unsubscribe:chunk', async (data: { chunkId: string }) => {
+        const { chunkId } = data;
+        const roomName = `chunk:${chunkId}`;
+        await socket.leave(roomName);
+
+        socket.emit('unsubscribed:chunk', {
+          chunkId,
+          timestamp: new Date().toISOString(),
+        });
+
+        logger.debug('Client unsubscribed from chunk', {
+          socketId: socket.id,
+          chunkId,
+          userId,
+        });
+      });
+
       // Handle ping for keeping connection alive
       socket.on('ping', () => {
         socket.emit('pong', { timestamp: new Date().toISOString() });
@@ -340,6 +383,19 @@ export class WebSocketServer {
       horseId: horse.id,
       horseName: horse.name,
       roomSize: this.streamRooms.get(roomName)?.size || 0,
+    });
+  }
+
+  // Generic method for emitting to a specific room
+  public emitToRoom(roomName: string, event: string, data: unknown) {
+    this.io.to(roomName).emit(event, {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+
+    logger.debug('Event emitted to room', {
+      roomName,
+      event,
     });
   }
 
