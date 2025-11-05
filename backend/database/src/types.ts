@@ -149,6 +149,37 @@ export interface CreateDetectionRequest {
   metadata?: Record<string, any>;
 }
 
+// Phase 4: Detection Correction Types
+export interface DetectionCorrection {
+  id: string;
+  chunk_id: string;
+  detection_index: number;
+  frame_index: number;
+  correction_type: 'reassign' | 'new_guest' | 'mark_incorrect';
+  original_horse_id?: string;
+  corrected_horse_id?: string;
+  corrected_horse_name?: string;
+  user_id?: string;
+  created_at: Date;
+  applied_at?: Date;
+  status: 'pending' | 'applied' | 'failed';
+  error_message?: string;
+}
+
+export interface CreateCorrectionRequest {
+  chunk_id: string;
+  detection_index: number;
+  frame_index: number;
+  correction_type: 'reassign' | 'new_guest' | 'mark_incorrect';
+  original_horse_id?: string;
+  corrected_horse_id?: string;
+  corrected_horse_name?: string;
+  user_id?: string;
+}
+
+export type CorrectionType = 'reassign' | 'new_guest' | 'mark_incorrect';
+export type CorrectionStatus = 'pending' | 'applied' | 'failed';
+
 // Generate UUID v4 (simplified version)
 export function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
