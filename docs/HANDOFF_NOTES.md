@@ -1,7 +1,7 @@
 # BarnHand - Phase 4 Detection Correction - Handoff Notes
 
-**Date**: 2025-11-05 (Updated: Phase 2 Complete)
-**Session Duration**: ~10 hours
+**Date**: 2025-11-05 (Updated: Task 3.1 Complete)
+**Session Duration**: ~11 hours
 **Branch**: `feature/documentation`
 
 ## 🎯 Session Objectives
@@ -13,6 +13,7 @@
 5. ✅ **Integrate Phase 4 with existing codebase** (COMPLETE)
 6. ✅ **Build frontend UI components** (Phase 2 - COMPLETE)
 7. ✅ **Implement correction submission workflow** (COMPLETE)
+8. ✅ **Add WebSocket events for real-time progress** (Task 3.1 - COMPLETE)
 
 ---
 
@@ -177,6 +178,11 @@ b78afee  p4(task-2.2): add edit buttons to frame inspector
 2fdf510  p4(task-2.5): add correction submission API client and hook
 ```
 
+**Phase 4 Integration (Task 3.1)**:
+```
+f8dc64d  p4(task-3.1): add WebSocket events for re-processing progress
+```
+
 **Documentation & Official Horses Workflow**:
 ```
 d996f1d  docs: update Phase 4 progress - Task 1.4-1.5 complete
@@ -222,9 +228,15 @@ ab1ee6a  docs: add official horses workflow and Phase 4 documentation
   - useCorrections hook with polling
   - 12 unit tests
 
+**Completed - Phase 3 Integration (Partial)** ✅:
+- ✅ Task 3.1: WebSocket events for re-processing progress
+  - Webhook endpoint for ML service events
+  - Real-time progress updates via WebSocket
+  - Frontend integration with reprocessingStore
+  - Chunk room subscription pattern
+
 **Pending Work** - **Phase 3: Integration & Polish** (NEXT PRIORITY):
-- Task 3.1: Add WebSocket events for re-processing progress
-- Task 3.2: Implement auto-reload after re-processing
+- Task 3.2: Implement auto-reload after re-processing (CRITICAL)
 - Task 3.3: Add correction count badge to chunk cards
 - Task 3.4: Write E2E tests for correction workflow
 - Task 3.5: Update documentation and user guide
@@ -347,49 +359,33 @@ Previously uncommitted changes for the **Official Horses Workflow** feature have
 
 ## 📋 Next Steps
 
-### ✅ Completed: Task 1.3 - Correction API Endpoints
+### ✅ Completed: Task 3.1 - WebSocket Events for Re-Processing
 
-All endpoints implemented in `streams.ts:1053-1260`:
-- ✅ POST /api/v1/streams/:id/chunks/:chunkId/corrections
-- ✅ GET /api/v1/streams/:id/chunks/:chunkId/corrections/status
-- ✅ GET /api/v1/streams/:id/chunks/:chunkId/corrections
-- ✅ DELETE /api/v1/streams/:id/chunks/:chunkId/corrections
-- ✅ Integration tests created (40+ test cases)
-- ✅ Authentication and validation in place
+All WebSocket functionality implemented:
+- ✅ Webhook endpoint: `/api/internal/webhooks/reprocessing-event`
+- ✅ Event emitters: `emitReprocessingProgress()`, `emitChunkUpdated()`, `emitReprocessingError()`
+- ✅ Room subscription: `subscribe:chunk`, `unsubscribe:chunk`
+- ✅ Frontend integration: Real-time progress updates via reprocessingStore
+- ✅ Event flow: ML Service → API Gateway → WebSocket → Frontend
 
-### Immediate Priority (Task 1.4)
+### Immediate Priority (Task 3.2 - CRITICAL)
 
-**ML Re-Processing Service** (Python):
-1. Create `backend/ml-service/src/services/reprocessor.py`
-2. Extract frame rendering from `processor.py`
-3. Implement re-processing workflow:
-   - Load chunk data
-   - Apply corrections
-   - Update ReID features
-   - Regenerate frames
-   - Rebuild video
-   - Update database
-4. Emit WebSocket progress events
+**Auto-Reload After Re-Processing** (Task 3.2):
+1. Update `handleChunkUpdated()` in websocketService.ts:
+   - Trigger chunk data reload from API
+   - Update video player to show corrected chunk
+   - Display toast notification: "Chunk updated with corrections"
+2. Add `reloadChunk()` method to useChunks hook or chunk API client
+3. Clear re-processing progress state after reload
+4. Add loading indicator during reload
 
-**ML API Endpoints**:
-1. `POST /api/v1/reprocess/chunk/{chunk_id}`
-2. `GET /api/v1/reprocess/chunk/{chunk_id}/status`
-3. Store progress in Redis
-4. Return 202 Accepted immediately
+**Why Critical**: Users need to see the corrected results immediately after re-processing completes. Without this, they'll have to manually refresh the page.
 
-**Horse Database Service Updates**:
-1. Add `update_horse_features()` method
-2. Weighted averaging: 70% user corrections, 30% ML
-3. Update feature vectors in PostgreSQL + Redis
+### Medium Term (Phase 3 Remaining)
 
-### Medium Term (Phase 2)
-
-**Frontend Implementation**:
-1. Create `DetectionCorrectionModal.tsx`
-2. Add edit buttons to Frame Inspector
-3. Create `CorrectionBatchPanel.tsx`
-4. Add `ReprocessingProgress.tsx` component
-5. Implement correction submission logic
+**Task 3.3**: Add correction count badge to chunk cards
+**Task 3.4**: Write E2E tests for correction workflow (Playwright)
+**Task 3.5**: Update documentation and user guide
 
 ---
 
