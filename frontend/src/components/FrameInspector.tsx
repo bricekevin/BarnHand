@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { DetectionCorrectionModal } from './DetectionCorrectionModal';
+import type { CorrectionPayload } from '@barnhand/shared';
 
 interface MLSettings {
   model: string;
@@ -104,6 +106,10 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [jumpToFrame, setJumpToFrame] = useState('');
   const [frameImageUrl, setFrameImageUrl] = useState<string | null>(null);
+
+  // Correction modal state
+  const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
+  const [selectedDetection, setSelectedDetection] = useState<TrackedHorse | null>(null);
 
   const currentFrame = frames[currentFrameIndex];
 
@@ -214,6 +220,19 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
 
   const rgbToString = (color: [number, number, number]): string => {
     return `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+  };
+
+  const handleEditDetection = (horse: TrackedHorse) => {
+    setSelectedDetection(horse);
+    setCorrectionModalOpen(true);
+  };
+
+  const handleSubmitCorrection = (correction: CorrectionPayload) => {
+    // TODO: This will be implemented in Task 2.3/2.5 to add to correction batch
+    console.log('Correction queued:', correction);
+
+    // For now, just log the correction
+    // In Task 2.3, this will call correctionStore.addCorrection()
   };
 
   if (!currentFrame) {
@@ -401,7 +420,7 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
                 style={{ borderColor: rgbToString(horse.color) }}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-1">
                     <div
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: rgbToString(horse.color) }}
@@ -410,11 +429,32 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
                       {getHorseName(horse.id)}
                     </span>
                   </div>
-                  {horse.is_official && (
-                    <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">
-                      Official
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {horse.is_official && (
+                      <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">
+                        Official
+                      </span>
+                    )}
+                    <button
+                      onClick={() => handleEditDetection(horse)}
+                      className="p-1 hover:bg-slate-700 rounded transition-colors group"
+                      title="Edit this detection"
+                    >
+                      <svg
+                        className="w-4 h-4 text-slate-400 group-hover:text-cyan-400 transition-colors"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div className="text-xs text-slate-400 space-y-0.5">
                   <div>ID: <span className="text-cyan-400 font-mono">{horse.id}</span></div>
@@ -553,6 +593,21 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Correction Modal */}
+      {selectedDetection && (
+        <DetectionCorrectionModal
+          isOpen={correctionModalOpen}
+          onClose={() => {
+            setCorrectionModalOpen(false);
+            setSelectedDetection(null);
+          }}
+          detection={selectedDetection}
+          frameIndex={currentFrame.frame_index}
+          allHorses={horses}
+          onSubmit={handleSubmitCorrection}
+        />
+      )}
     </div>
   );
 };
