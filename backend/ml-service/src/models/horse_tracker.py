@@ -66,11 +66,13 @@ class HorseTracker:
     ]
     
     def __init__(self, similarity_threshold: float = 0.7, max_lost_frames: int = 30,
-                 stream_id: Optional[str] = None, known_horses: Optional[Dict[str, Dict[str, Any]]] = None):
+                 stream_id: Optional[str] = None, known_horses: Optional[Dict[str, Dict[str, Any]]] = None,
+                 allow_new_horses: bool = True):
         self.reid_model = HorseReIDModel()
         self.similarity_threshold = similarity_threshold
         self.max_lost_frames = max_lost_frames
         self.stream_id = stream_id or "default"
+        self.allow_new_horses = allow_new_horses  # Control new horse creation
 
         # Active tracks
         self.tracks: Dict[str, HorseTrack] = {}
@@ -146,6 +148,9 @@ class HorseTracker:
                 detections, timestamp
             )
 
+            # Track which official horses have already been matched this frame (prevent duplicates)
+            matched_official_horses: Set[str] = set()
+
             # Update matched tracks
             updated_tracks = []
             for det_idx, track_id in matched_pairs:
@@ -163,19 +168,28 @@ class HorseTracker:
                 )
                 updated_tracks.append(self._track_to_output(track))
 
+                # Mark official horse as matched if applicable
+                if track.matched_official_id:
+                    matched_official_horses.add(track.matched_official_id)
+
             # Handle unmatched detections - NOW extract features for ReID
             for det_idx in unmatched_detections:
                 detection = detections[det_idx]
                 features = self._extract_single_detection_features(detection, frame)
 
                 # Try hierarchical reidentification (official → guest → new)
-                reid_result = self._try_reidentification(features, detection, timestamp)
+                # Pass already-matched horses to avoid duplicates
+                reid_result = self._try_reidentification(features, detection, timestamp, matched_official_horses)
 
                 if reid_result:
                     # Reactivate matched track
                     reidentified_track, similarity, match_type = reid_result
                     track = self._reactivate_track(reidentified_track, detection, features, timestamp, frame, similarity)
                     updated_tracks.append(self._track_to_output(track))
+
+                    # Mark official horse as matched to prevent duplicate assignments
+                    if track.matched_official_id:
+                        matched_official_horses.add(track.matched_official_id)
 
                     # Update stats
                     self.tracking_stats["successful_reidentifications"] += 1
@@ -184,9 +198,29 @@ class HorseTracker:
                     elif match_type == "guest":
                         self.tracking_stats["guest_horse_matches"] += 1
                 else:
-                    # PHASE 3: Create new GUEST horse (no match found)
-                    new_track = self._create_new_track(detection, features, timestamp, frame)
-                    updated_tracks.append(self._track_to_output(new_track))
+                    # No match found via ReID
+                    if self.allow_new_horses:
+                        # DISCOVERY MODE: Create new GUEST horse
+                        new_track = self._create_new_track(detection, features, timestamp, frame)
+                        updated_tracks.append(self._track_to_output(new_track))
+                    else:
+                        # OFFICIAL TRACKING MODE: Assign to closest official horse (forced match)
+                        # Even if similarity is low, we know there are only N official horses
+                        # Pass already-matched horses to avoid duplicates
+                        closest_official = self._force_match_to_closest_official(features, detection, matched_official_horses)
+                        if closest_official:
+                            # Reactivate the closest official horse track
+                            # Note: similarity is already logged in _force_match_to_closest_official
+                            track = self._reactivate_track(closest_official, detection, features, timestamp, frame, reid_confidence=0.5)
+                            updated_tracks.append(self._track_to_output(track))
+
+                            # Mark as matched
+                            if track.matched_official_id:
+                                matched_official_horses.add(track.matched_official_id)
+
+                            logger.debug(f"🔵 Forced match to official horse {closest_official.id} (official tracking mode)")
+                        else:
+                            logger.warning(f"⚠️ No official horses available to match (this shouldn't happen)")
 
             # Handle unmatched tracks (mark as lost)
             for track_id in unmatched_tracks:
@@ -479,9 +513,16 @@ class HorseTracker:
 
         return track
         
-    def _try_reidentification(self, features: np.ndarray, detection: Dict[str, Any], timestamp: float) -> Optional[Tuple[HorseTrack, float, str]]:
+    def _try_reidentification(self, features: np.ndarray, detection: Dict[str, Any], timestamp: float,
+                              matched_official_horses: Set[str]) -> Optional[Tuple[HorseTrack, float, str]]:
         """
         Hierarchical re-identification: Try official horses first, then guests, then create new.
+
+        Args:
+            features: ReID feature vector for the detection
+            detection: Detection dictionary
+            timestamp: Current timestamp
+            matched_official_horses: Set of official horse IDs already matched in this frame
 
         Returns:
             Tuple of (matched_track, similarity_score, match_type) or None
@@ -494,9 +535,14 @@ class HorseTracker:
         # PHASE 1: Try to match with OFFICIAL horses (highest priority)
         # Official horses never expire - they're always in the barn
         if self.official_horses:
-            logger.debug(f"Phase 1: Checking {len(self.official_horses)} official horses")
+            logger.debug(f"Phase 1: Checking {len(self.official_horses)} official horses (excluding {len(matched_official_horses)} already matched)")
 
             for track_id, track in self.official_horses.items():
+                # Skip if this official horse is already matched in this frame
+                if track.matched_official_id and track.matched_official_id in matched_official_horses:
+                    logger.debug(f"⏭️ Skipping {track.horse_name} - already matched this frame")
+                    continue
+
                 # Calculate feature similarity
                 similarity = self._cosine_similarity(features, track.feature_vector)
 
@@ -543,7 +589,48 @@ class HorseTracker:
         else:
             logger.debug("No re-ID match found - will create new guest horse")
             return None
-        
+
+    def _force_match_to_closest_official(self, features: np.ndarray, detection: Dict[str, Any],
+                                        matched_official_horses: Set[str]) -> Optional[HorseTrack]:
+        """
+        Force match to the closest official horse, regardless of similarity threshold.
+        Used in official tracking mode when we MUST assign every detection to one of the known horses.
+
+        Args:
+            features: ReID feature vector for the detection
+            detection: Detection dictionary
+            matched_official_horses: Set of official horse IDs already matched in this frame
+
+        Returns: Closest official horse track (or None if no official horses exist/available)
+        """
+        if not self.official_horses:
+            return None
+
+        best_match = None
+        best_similarity = -1.0  # Start with impossible value
+
+        for horse_id, track in self.official_horses.items():
+            # Skip if this official horse is already matched in this frame
+            if track.matched_official_id and track.matched_official_id in matched_official_horses:
+                logger.debug(f"⏭️ Skipping {track.horse_name} - already matched this frame (forced match)")
+                continue
+
+            if not hasattr(track, 'feature_vector') or track.feature_vector is None:
+                continue
+
+            similarity = self._cosine_similarity(features, track.feature_vector)
+
+            if similarity > best_similarity:
+                best_match = track
+                best_similarity = similarity
+
+        if best_match:
+            logger.info(f"🎯 Forced match to official horse {best_match.id} (similarity: {best_similarity:.3f})")
+        else:
+            logger.warning(f"⚠️ All official horses already matched - detection will be dropped")
+
+        return best_match
+
     def _create_new_track(self, detection: Dict[str, Any], features: np.ndarray, timestamp: float,
                           frame: Optional[np.ndarray] = None) -> HorseTrack:
         """Create a new horse track with globally unique ID."""

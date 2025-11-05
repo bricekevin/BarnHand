@@ -13,6 +13,19 @@ interface StreamFormData {
   };
 }
 
+// Helper to decode JWT and extract farmId
+const decodeJWT = (token: string): { farmId?: string } | null => {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const decoded = JSON.parse(atob(payload));
+    return decoded;
+  } catch (error) {
+    console.error('Failed to decode JWT:', error);
+    return null;
+  }
+};
+
 export const StreamSettings: React.FC = () => {
   const streams = useStreams();
   const { addStream, updateStream, removeStream, setStreams } = useAppStore();
@@ -95,21 +108,21 @@ export const StreamSettings: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const streamData = {
-      name: formData.name,
-      url: formData.url,
-      type: formData.type,
-      config: formData.config,
-    };
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      alert('Authentication required - please log in');
+      return;
+    }
 
     if (editingStream) {
       // Update existing stream - persist to database via API
       try {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          alert('Authentication required - please log in');
-          return;
-        }
+        const streamData = {
+          name: formData.name,
+          source_url: formData.url,
+          source_type: formData.type,
+          config: formData.config,
+        };
 
         console.log('🔄 Updating stream via API:', editingStream, streamData);
         const response = await fetch(`http://localhost:8000/api/v1/streams/${editingStream}`, {
@@ -124,8 +137,13 @@ export const StreamSettings: React.FC = () => {
         if (response.ok) {
           const result = await response.json();
           console.log('✅ Stream updated successfully:', result);
-          // Update Zustand store after successful API call
-          updateStream(editingStream, streamData);
+          // Update Zustand store with mapped field names
+          updateStream(editingStream, {
+            name: formData.name,
+            url: formData.url,
+            type: formData.type,
+            config: formData.config,
+          });
         } else {
           console.error('❌ Failed to update stream:', response.status);
           const errorData = await response.json().catch(() => ({ error: response.statusText }));
@@ -138,19 +156,62 @@ export const StreamSettings: React.FC = () => {
         return; // Don't reset form on error
       }
     } else {
-      // Add stream as active for immediate testing
-      const newStream = {
-        ...streamData,
-        status: 'active' as const, // Set as active so it shows in dashboard
-      };
+      // Create new stream - persist to database via API
+      try {
+        // Decode JWT to get farmId
+        const decoded = decodeJWT(token);
+        if (!decoded || !decoded.farmId) {
+          alert('Invalid authentication token - please log in again');
+          return;
+        }
 
-      console.log('Adding new stream:', newStream);
-      addStream(newStream);
+        const streamData = {
+          farm_id: decoded.farmId,
+          name: formData.name,
+          source_url: formData.url,
+          source_type: formData.type,
+          processing_delay: 20,
+          chunk_duration: 10,
+          config: formData.config,
+        };
 
-      // Log current streams after adding
-      setTimeout(() => {
-        console.log('Current streams after adding:', useAppStore.getState().streams);
-      }, 100);
+        console.log('➕ Creating new stream via API:', streamData);
+        const response = await fetch('http://localhost:8000/api/v1/streams', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(streamData),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ Stream created successfully:', result);
+
+          // Add to Zustand store with the server-generated ID
+          const newStream = {
+            id: result.id,
+            name: formData.name,
+            url: formData.url,
+            type: formData.type,
+            status: result.status || 'inactive',
+            config: formData.config,
+          };
+
+          // Use addStreamWithId to add with the server ID
+          useAppStore.getState().addStreamWithId(result.id, newStream);
+        } else {
+          console.error('❌ Failed to create stream:', response.status);
+          const errorData = await response.json().catch(() => ({ error: response.statusText }));
+          alert(`Failed to create stream: ${errorData.error || response.statusText}`);
+          return; // Don't reset form on error
+        }
+      } catch (error) {
+        console.error('❌ Network error creating stream:', error);
+        alert('Network error - could not create stream');
+        return; // Don't reset form on error
+      }
     }
 
     resetForm();
@@ -433,38 +494,47 @@ export const StreamSettings: React.FC = () => {
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={async () => {
-                      // If it's a local stream, control it via Stream Control API
-                      if (stream.type === 'local' && stream.id.startsWith('stream_')) {
-                        const isStarting = stream.status !== 'active';
-                        console.log(`🔄 ${isStarting ? 'Starting' : 'Stopping'} local stream ${stream.id} via Stream Control API`);
+                      const isStarting = stream.status !== 'active';
+                      console.log(`🔄 ${isStarting ? 'Starting' : 'Stopping'} stream ${stream.id} (${stream.type})`);
 
-                        try {
-                          const endpoint = isStarting
-                            ? `/api/streams/start/${stream.id}`
-                            : `/api/streams/stop/${stream.id}`;
+                      try {
+                        const endpoint = isStarting
+                          ? `/api/streams/start/${stream.id}`
+                          : `/api/streams/stop/${stream.id}`;
 
-                          const response = await fetch(`http://localhost:8003${endpoint}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(isStarting ? { videoFilename: 'horse1.mp4' } : {})
-                          });
-
-                          if (response.ok) {
-                            console.log(`✅ Local stream ${stream.id} ${isStarting ? 'started' : 'stopped'} successfully`);
-                            updateStream(stream.id, {
-                              status: isStarting ? 'active' : 'inactive'
-                            });
+                        // Prepare request body based on stream type
+                        let requestBody = {};
+                        if (isStarting) {
+                          if (stream.type === 'local') {
+                            requestBody = { videoFilename: 'horse1.mp4' };
                           } else {
-                            console.warn(`⚠️ Failed to ${isStarting ? 'start' : 'stop'} local stream ${stream.id}:`, response.status);
+                            // RTSP, RTMP, HTTP streams
+                            requestBody = {
+                              sourceUrl: stream.url,
+                              sourceType: stream.type
+                            };
                           }
-                        } catch (error) {
-                          console.warn(`⚠️ Network error ${isStarting ? 'starting' : 'stopping'} local stream ${stream.id}:`, error);
                         }
-                      } else {
-                        // For non-local streams, just update the status
-                        updateStream(stream.id, {
-                          status: stream.status === 'active' ? 'inactive' : 'active'
+
+                        const response = await fetch(`http://localhost:8003${endpoint}`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(requestBody)
                         });
+
+                        if (response.ok) {
+                          console.log(`✅ Stream ${stream.id} ${isStarting ? 'started' : 'stopped'} successfully`);
+                          updateStream(stream.id, {
+                            status: isStarting ? 'active' : 'inactive'
+                          });
+                        } else {
+                          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                          console.error(`❌ Failed to ${isStarting ? 'start' : 'stop'} stream ${stream.id}:`, errorData);
+                          alert(`Failed to ${isStarting ? 'start' : 'stop'} stream: ${errorData.error || response.statusText}`);
+                        }
+                      } catch (error) {
+                        console.error(`❌ Network error ${isStarting ? 'starting' : 'stopping'} stream ${stream.id}:`, error);
+                        alert(`Network error - could not ${isStarting ? 'start' : 'stop'} stream`);
                       }
                     }}
                     className={`text-sm py-2 px-3 rounded-lg transition-colors ${

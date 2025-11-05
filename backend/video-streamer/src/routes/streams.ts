@@ -30,13 +30,19 @@ export function createStreamRoutes(
           id: stream.id,
           name: stream.name,
           status: stream.status,
+          sourceType: stream.sourceType,
           playlistUrl: `http://localhost:${env.PORT}${stream.playlistUrl}`,
-          videoFile: {
-            filename: stream.videoFile.filename,
-            duration: stream.videoFile.duration,
-            resolution: stream.videoFile.resolution,
-            size: stream.videoFile.size,
-          },
+          ...(stream.videoFile && {
+            videoFile: {
+              filename: stream.videoFile.filename,
+              duration: stream.videoFile.duration,
+              resolution: stream.videoFile.resolution,
+              size: stream.videoFile.size,
+            },
+          }),
+          ...(stream.sourceUrl && {
+            sourceUrl: stream.sourceUrl,
+          }),
           startTime: stream.startTime,
           restartCount: stream.restartCount,
           lastError: stream.lastError,
@@ -62,12 +68,13 @@ export function createStreamRoutes(
           .status(400)
           .json({ error: 'streamId parameter is required' });
       }
-      const { videoFilename } = req.body;
+      const { videoFilename, sourceUrl, sourceType } = req.body;
 
-      if (!videoFilename) {
+      // Validate input - need either videoFilename (for local) or sourceUrl (for external)
+      if (!videoFilename && !sourceUrl) {
         return res
           .status(400)
-          .json({ error: 'videoFilename required in request body' });
+          .json({ error: 'Either videoFilename or sourceUrl required in request body' });
       }
 
       // Check if stream already exists
@@ -92,23 +99,44 @@ export function createStreamRoutes(
           streamInfo = restartedStream;
         }
       } else {
-        // Create new stream
-        const videos = await videoScanner.scanVideos();
-        const videoFile = videos.find(v => v.filename === videoFilename);
+        // Create new stream - either local or external
+        if (sourceUrl) {
+          // External stream (RTSP, RTMP, HTTP)
+          const validSourceTypes = ['rtsp', 'rtmp', 'http'];
+          const actualSourceType = (sourceType || 'rtsp').toLowerCase();
 
-        if (!videoFile) {
-          return res.status(404).json({
-            error: 'Video file not found',
-            availableVideos: videos.map(v => v.filename),
-          });
+          if (!validSourceTypes.includes(actualSourceType)) {
+            return res.status(400).json({
+              error: 'Invalid sourceType',
+              validTypes: validSourceTypes,
+            });
+          }
+
+          streamInfo = await streamManager.createExternalStream(
+            streamId,
+            sourceUrl,
+            actualSourceType as 'rtsp' | 'rtmp' | 'http'
+          );
+        } else {
+          // Local video file
+          const videos = await videoScanner.scanVideos();
+          const videoFile = videos.find(v => v.filename === videoFilename);
+
+          if (!videoFile) {
+            return res.status(404).json({
+              error: 'Video file not found',
+              availableVideos: videos.map(v => v.filename),
+            });
+          }
+
+          streamInfo = await streamManager.createStream(streamId, videoFile);
         }
-
-        streamInfo = await streamManager.createStream(streamId, videoFile);
       }
 
       logger.info('Stream started', {
         streamId,
-        videoFile: streamInfo.videoFile.filename,
+        sourceType: streamInfo.sourceType,
+        source: streamInfo.sourceType === 'local' ? streamInfo.videoFile?.filename : streamInfo.sourceUrl,
         status: streamInfo.status,
       });
 
@@ -118,8 +146,9 @@ export function createStreamRoutes(
           id: streamInfo.id,
           name: streamInfo.name,
           status: streamInfo.status,
+          sourceType: streamInfo.sourceType,
           playlistUrl: `http://localhost:${env.PORT}${streamInfo.playlistUrl}`,
-          videoFile: streamInfo.videoFile.filename,
+          source: streamInfo.sourceType === 'local' ? streamInfo.videoFile?.filename : streamInfo.sourceUrl,
           startTime: streamInfo.startTime,
         },
       });

@@ -32,7 +32,9 @@ try {
 export interface StreamInfo {
   id: string;
   name: string;
-  videoFile: VideoFile;
+  videoFile?: VideoFile; // Optional for RTSP streams
+  sourceUrl?: string; // For RTSP/external streams
+  sourceType: 'local' | 'rtsp' | 'rtmp' | 'http';
   status: 'starting' | 'active' | 'error' | 'stopped';
   process?: ChildProcess;
   startTime?: Date;
@@ -47,10 +49,12 @@ export class StreamManager {
   private streams = new Map<string, StreamInfo>();
   private outputPath: string;
   private cleanupJob?: cron.ScheduledTask;
+  private healthCheckJob?: cron.ScheduledTask;
 
   constructor() {
     this.outputPath = env.OUTPUT_PATH;
     this.initializeCleanup();
+    this.initializeHealthMonitoring();
   }
 
   async initializeOutputDirectory(): Promise<void> {
@@ -103,9 +107,12 @@ export class StreamManager {
       id: streamId,
       name: streamName,
       videoFile,
+      sourceType: 'local',
       status: 'starting',
       restartCount: 0,
-      playlistUrl: `/stream${streamId.slice(-1)}/playlist.m3u8`,
+      playlistUrl: streamId.startsWith('stream_')
+        ? `/stream${streamId.slice(-1)}/playlist.m3u8`  // Legacy format for stream_001, stream_002, etc
+        : `/streams/${streamId}/playlist.m3u8`,          // Dynamic format for UUID streams
       outputPath: streamOutputPath,
       manuallyStopped: false,
     };
@@ -131,52 +138,154 @@ export class StreamManager {
     return streamInfo;
   }
 
-  private async startFFmpegProcess(streamInfo: StreamInfo): Promise<void> {
-    const { id: streamId, videoFile, outputPath } = streamInfo;
+  async createExternalStream(
+    streamId: string,
+    sourceUrl: string,
+    sourceType: 'rtsp' | 'rtmp' | 'http'
+  ): Promise<StreamInfo> {
+    if (this.streams.has(streamId)) {
+      throw new Error(`Stream ${streamId} already exists`);
+    }
 
-    // Simplified FFmpeg command for reliable HLS streaming
-    const ffmpegArgs = [
-      '-re', // Read input at native frame rate
-      '-stream_loop',
-      '-1', // Loop input infinitely
-      '-i',
-      videoFile.fullPath, // Input video file
-      '-c:v',
-      'libx264', // Video codec
-      '-preset',
-      'veryfast', // Faster encoding for real-time
-      '-crf',
-      '23', // Good quality setting
-      '-maxrate',
-      env.BITRATE, // Max bitrate
-      '-bufsize',
-      '2M', // Buffer size
-      '-c:a',
-      'aac', // Audio codec
-      '-b:a',
-      '128k', // Audio bitrate
-      '-f',
-      'hls', // Output format
-      '-hls_time',
-      env.SEGMENT_DURATION.toString(), // Segment duration
-      '-hls_list_size',
-      env.PLAYLIST_SIZE.toString(), // Keep segments in playlist
-      '-hls_flags',
-      'delete_segments', // Clean up old segments
-      '-hls_segment_filename',
-      path.join(outputPath, 'segment_%03d.ts'),
-      path.join(outputPath, 'playlist.m3u8'),
-    ];
+    if (this.streams.size >= env.MAX_STREAMS) {
+      throw new Error(`Maximum streams limit reached (${env.MAX_STREAMS})`);
+    }
+
+    const streamOutputPath = path.join(this.outputPath, streamId);
+    await fs.mkdir(streamOutputPath, { recursive: true });
+
+    // Fetch stream name from database if available
+    let streamName = `Stream ${streamId}`; // Default fallback
+    if (databaseAvailable && StreamRepository) {
+      try {
+        const streamRepo = new StreamRepository();
+        const dbStream = await streamRepo.findById(streamId);
+        if (dbStream && dbStream.name) {
+          streamName = dbStream.name;
+          logger.debug('Using database stream name', { streamId, name: streamName });
+        }
+      } catch (error) {
+        logger.warn('Failed to fetch stream name from database, using default', {
+          streamId,
+          error: error instanceof Error ? error.message : error,
+        });
+      }
+    }
+
+    const streamInfo: StreamInfo = {
+      id: streamId,
+      name: streamName,
+      sourceUrl,
+      sourceType,
+      status: 'starting',
+      restartCount: 0,
+      playlistUrl: streamId.startsWith('stream_')
+        ? `/stream${streamId.slice(-1)}/playlist.m3u8`  // Legacy format for stream_001, stream_002, etc
+        : `/streams/${streamId}/playlist.m3u8`,          // Dynamic format for UUID streams
+      outputPath: streamOutputPath,
+      manuallyStopped: false,
+    };
+
+    this.streams.set(streamId, streamInfo);
+
+    try {
+      await this.startFFmpegProcess(streamInfo);
+      logger.info('External stream created successfully', {
+        streamId,
+        sourceUrl,
+        sourceType,
+        outputPath: streamOutputPath,
+      });
+    } catch (error) {
+      this.streams.delete(streamId);
+      logger.error('Failed to create external stream', {
+        streamId,
+        sourceUrl,
+        error: error instanceof Error ? error.message : error,
+      });
+      throw error;
+    }
+
+    return streamInfo;
+  }
+
+  private async startFFmpegProcess(streamInfo: StreamInfo): Promise<void> {
+    const { id: streamId, videoFile, sourceUrl, sourceType, outputPath } = streamInfo;
+
+    // Build FFmpeg args based on source type
+    const ffmpegArgs: string[] = [];
+
+    if (sourceType === 'local' && videoFile) {
+      // Local file streaming with looping
+      ffmpegArgs.push(
+        '-re', // Read input at native frame rate
+        '-stream_loop', '-1', // Loop input infinitely
+        '-i', videoFile.fullPath // Input video file
+      );
+    } else if (sourceType === 'rtsp' && sourceUrl) {
+      // RTSP stream - extract credentials if embedded in URL
+      const rtspUrl = new URL(sourceUrl);
+      const username = rtspUrl.username;
+      const password = rtspUrl.password;
+
+      // Build clean URL without credentials
+      const cleanUrl = sourceUrl.replace(/\/\/[^:]+:[^@]+@/, '//');
+
+      ffmpegArgs.push(
+        '-rtsp_transport', 'tcp', // Use TCP for RTSP (more reliable than UDP)
+        '-timeout', '10000000' // Timeout MUST come before -i
+      );
+
+      // Add authentication if provided
+      if (username && password) {
+        ffmpegArgs.push(
+          '-rtsp_user', username,
+          '-rtsp_password', password
+        );
+      }
+
+      ffmpegArgs.push(
+        '-i', cleanUrl // Input RTSP URL (without embedded credentials)
+      );
+    } else if ((sourceType === 'rtmp' || sourceType === 'http') && sourceUrl) {
+      // RTMP or HTTP stream
+      ffmpegArgs.push(
+        '-i', sourceUrl // Input URL
+      );
+    } else {
+      throw new Error(`Invalid stream configuration: sourceType=${sourceType}, hasVideoFile=${!!videoFile}, hasSourceUrl=${!!sourceUrl}`);
+    }
+
+    // Common encoding and HLS output settings
+    ffmpegArgs.push(
+      '-c:v', 'libx264', // Video codec
+      '-preset', 'veryfast', // Faster encoding for real-time
+      '-crf', '23', // Good quality setting
+      '-maxrate', env.BITRATE, // Max bitrate
+      '-bufsize', '2M', // Buffer size
+      '-c:a', 'aac', // Audio codec
+      '-b:a', '128k', // Audio bitrate
+      '-f', 'hls', // Output format
+      '-hls_time', env.SEGMENT_DURATION.toString(), // Segment duration
+      '-hls_list_size', env.PLAYLIST_SIZE.toString(), // Keep segments in playlist
+      '-hls_flags', 'delete_segments', // Clean up old segments
+      '-hls_segment_filename', path.join(outputPath, 'segment_%03d.ts'),
+      path.join(outputPath, 'playlist.m3u8')
+    );
 
     logger.info('Starting FFmpeg process', {
       streamId,
+      sourceType,
       command: `ffmpeg ${ffmpegArgs.join(' ')}`,
-      videoFile: videoFile.filename,
+      source: sourceType === 'local' ? videoFile?.filename : sourceUrl,
     });
 
     const ffmpegProcess = spawn(env.FFMPEG_BINARY, ffmpegArgs);
     streamInfo.process = ffmpegProcess;
     streamInfo.startTime = new Date();
+
+    // Buffer stderr for error reporting
+    let stderrBuffer = '';
 
     // Handle process events
     ffmpegProcess.stdout?.on('data', data => {
@@ -185,6 +294,7 @@ export class StreamManager {
 
     ffmpegProcess.stderr?.on('data', data => {
       const message = data.toString().trim();
+      stderrBuffer += message + '\n';
       // FFmpeg logs most output to stderr, filter out normal operational messages
       if (!message.includes('frame=') && !message.includes('time=')) {
         logger.debug('FFmpeg stderr', { streamId, message });
@@ -205,6 +315,7 @@ export class StreamManager {
       logger.error('FFmpeg process error', {
         streamId,
         error: error.message,
+        stderr: stderrBuffer.slice(-500), // Last 500 chars of stderr
         restartCount: streamInfo.restartCount,
       });
 
@@ -219,13 +330,21 @@ export class StreamManager {
       streamInfo.status = code === 0 ? 'stopped' : 'error';
       delete streamInfo.process;
 
-      logger.warn('FFmpeg process exited', {
+      const logData: any = {
         streamId,
         code,
         signal,
         wasActive,
         restartCount: streamInfo.restartCount,
-      });
+      };
+
+      // Include stderr if exit was an error
+      if (code !== 0) {
+        logData.stderr = stderrBuffer.slice(-1000); // Last 1000 chars
+        streamInfo.lastError = `FFmpeg exited with code ${code}`;
+      }
+
+      logger.warn('FFmpeg process exited', logData);
 
       // Auto-restart if it was running and exit was unexpected (but not manually stopped)
       if (
@@ -394,6 +513,83 @@ export class StreamManager {
     logger.info('Stream cleanup job initialized');
   }
 
+  private initializeHealthMonitoring(): void {
+    // Check stream health every 30 seconds
+    this.healthCheckJob = cron.schedule('*/30 * * * * *', async () => {
+      await this.performHealthChecks();
+    });
+
+    logger.info('Stream health monitoring initialized (30s interval)');
+  }
+
+  private async performHealthChecks(): Promise<void> {
+    try {
+      for (const [streamId, streamInfo] of this.streams.entries()) {
+        // Skip manually stopped streams
+        if (streamInfo.manuallyStopped) {
+          continue;
+        }
+
+        // Check if stream should be active (from database)
+        let shouldBeActive = false;
+        if (databaseAvailable && StreamRepository) {
+          try {
+            const streamRepo = new StreamRepository();
+            const dbStream = await streamRepo.findById(streamId);
+            shouldBeActive = dbStream && dbStream.status === 'active';
+          } catch (error) {
+            // Skip database check on error
+            continue;
+          }
+        }
+
+        // If stream should be active but is stopped/error, restart it
+        if (shouldBeActive && (streamInfo.status === 'stopped' || streamInfo.status === 'error')) {
+          logger.warn('Detected stopped stream that should be active, restarting', {
+            streamId,
+            name: streamInfo.name,
+            status: streamInfo.status,
+            restartCount: streamInfo.restartCount,
+          });
+
+          // Reset restart count for health-check-initiated restarts
+          // This allows unlimited restarts for persistent streams
+          if (streamInfo.restartCount >= 3) {
+            logger.info('Resetting restart count for health check restart', {
+              streamId,
+              oldCount: streamInfo.restartCount,
+            });
+            streamInfo.restartCount = 0;
+          }
+
+          // Attempt restart
+          await this.restartStream(streamId);
+        }
+
+        // Check if active stream is actually producing output
+        if (streamInfo.status === 'active') {
+          const health = await this.getStreamHealth(streamId);
+
+          if (!health.isHealthy) {
+            logger.warn('Active stream is unhealthy, restarting', {
+              streamId,
+              name: streamInfo.name,
+              health,
+              restartCount: streamInfo.restartCount,
+            });
+
+            // Force restart for unhealthy streams
+            await this.restartStream(streamId);
+          }
+        }
+      }
+    } catch (error) {
+      logger.error('Health check failed', {
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  }
+
   private async cleanupOldSegments(outputPath: string): Promise<void> {
     try {
       const files = await fs.readdir(outputPath);
@@ -435,6 +631,12 @@ export class StreamManager {
     // Stop cleanup job
     if (this.cleanupJob) {
       this.cleanupJob.stop();
+    }
+
+    // Stop health check job
+    if (this.healthCheckJob) {
+      this.healthCheckJob.stop();
+      logger.info('Health monitoring stopped');
     }
 
     // Stop all streams

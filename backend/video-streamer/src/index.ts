@@ -121,7 +121,7 @@ const startServer = async () => {
   }
 };
 
-// Auto-start default streams if videos available
+// Auto-start streams from database that are marked as active
 const autoStartStreams = async () => {
   try {
     // Wait for server to start
@@ -131,64 +131,154 @@ const autoStartStreams = async () => {
     const videoScanner = app?.videoScanner;
     const streamManager = app?.streamManager;
 
-    if (videoScanner && streamManager) {
-      const videos = await videoScanner.scanVideos();
+    if (!streamManager) {
+      logger.warn('Stream manager not available for auto-start');
+      return;
+    }
 
-      if (videos.length > 0) {
-        logger.info('Auto-starting default streams', {
-          availableVideos: videos.length,
-        });
+    // Try to load active streams from database
+    let activeStreams: any[] = [];
+    try {
+      const db = require('@barnhand/database');
+      const StreamRepository = db.StreamRepository;
+      const streamRepo = new StreamRepository();
 
-        // Start up to 4 streams with available videos
-        const streamsToStart = Math.min(4, videos.length);
+      // Find all streams with status 'active'
+      const allStreams = await streamRepo.findAll();
+      activeStreams = allStreams.filter((s: any) => s.status === 'active');
 
-        for (let i = 0; i < streamsToStart; i++) {
-          try {
-            const streamId = `stream_00${i + 1}`;
-            const video = videos[i % videos.length]; // Cycle through videos if fewer than 5
+      logger.info('Found active streams in database', {
+        total: allStreams.length,
+        active: activeStreams.length,
+      });
+    } catch (dbError) {
+      logger.warn('Database not available for auto-start - falling back to local videos', {
+        error: dbError instanceof Error ? dbError.message : dbError,
+      });
 
-            await streamManager.createStream(streamId, video);
-            logger.info('Auto-started stream', {
-              streamId,
-              videoFile: video.filename,
-              playlistUrl: `http://localhost:${env.PORT}/stream${i + 1}/playlist.m3u8`,
+      // Fallback: auto-start local videos if database is not available
+      if (videoScanner) {
+        const videos = await videoScanner.scanVideos();
+
+        if (videos.length > 0) {
+          logger.info('Auto-starting default streams from local videos', {
+            availableVideos: videos.length,
+          });
+
+          // Start up to 4 streams with available videos
+          const streamsToStart = Math.min(4, videos.length);
+
+          for (let i = 0; i < streamsToStart; i++) {
+            try {
+              const streamId = `stream_00${i + 1}`;
+              const video = videos[i % videos.length];
+
+              await streamManager.createStream(streamId, video);
+              logger.info('Auto-started local stream', {
+                streamId,
+                videoFile: video.filename,
+                playlistUrl: `http://localhost:${env.PORT}/stream${i + 1}/playlist.m3u8`,
+              });
+            } catch (error) {
+              logger.warn('Failed to auto-start local stream', {
+                streamIndex: i,
+                error: error instanceof Error ? error.message : error,
+              });
+            }
+          }
+        } else {
+          logger.warn('No video files found for auto-streaming', {
+            mediaPath: env.MEDIA_PATH,
+          });
+        }
+      }
+      return;
+    }
+
+    // Start each active stream from database
+    for (const dbStream of activeStreams) {
+      try {
+        const sourceType = dbStream.source_type || 'rtsp';
+
+        if (sourceType === 'local') {
+          // Local video file
+          if (!videoScanner) continue;
+
+          const videos = await videoScanner.scanVideos();
+          const videoFilename = dbStream.source_url.split('/').pop()?.replace('.m3u8', '.mp4') || '';
+          const videoFile = videos.find(v => v.filename === videoFilename);
+
+          if (videoFile) {
+            await streamManager.createStream(dbStream.id, videoFile);
+            logger.info('Auto-started local stream from database', {
+              streamId: dbStream.id,
+              name: dbStream.name,
+              videoFile: videoFile.filename,
             });
-          } catch (error) {
-            logger.warn('Failed to auto-start stream', {
-              streamIndex: i,
-              error: error instanceof Error ? error.message : error,
+          } else {
+            logger.warn('Video file not found for stream', {
+              streamId: dbStream.id,
+              name: dbStream.name,
+              videoFilename,
             });
           }
+        } else if (['rtsp', 'rtmp', 'http'].includes(sourceType)) {
+          // External stream (RTSP, RTMP, HTTP)
+          await streamManager.createExternalStream(
+            dbStream.id,
+            dbStream.source_url,
+            sourceType as 'rtsp' | 'rtmp' | 'http'
+          );
+          logger.info('Auto-started external stream from database', {
+            streamId: dbStream.id,
+            name: dbStream.name,
+            sourceType,
+            sourceUrl: dbStream.source_url,
+          });
+        } else {
+          logger.warn('Unsupported stream type', {
+            streamId: dbStream.id,
+            name: dbStream.name,
+            sourceType,
+          });
         }
-      } else {
-        logger.warn('No video files found for auto-streaming', {
-          mediaPath: env.MEDIA_PATH,
+      } catch (error) {
+        logger.error('Failed to auto-start stream from database', {
+          streamId: dbStream.id,
+          name: dbStream.name,
+          error: error instanceof Error ? error.message : error,
         });
       }
     }
+
+    if (activeStreams.length === 0) {
+      logger.info('No active streams found in database');
+    }
   } catch (error) {
-    logger.error('Auto-start streams failed', { error });
+    logger.error('Auto-start streams failed', {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
   }
 };
 
 // Start the server
 startServer().then(() => {
   // Auto-start streams after server is ready
-  // DISABLED in development to prevent FFmpeg process accumulation during hot-reload
-  // Enable with: ENABLE_AUTO_STREAMS=true (production default)
+  // Always enabled by default to load active streams from database
+  // Disable with: ENABLE_AUTO_STREAMS=false
   const shouldAutoStart =
     process.env.NODE_ENV !== 'test' &&
-    (process.env.NODE_ENV === 'production' ||
-      process.env.ENABLE_AUTO_STREAMS === 'true');
+    process.env.ENABLE_AUTO_STREAMS !== 'false';
 
   if (shouldAutoStart) {
     logger.info(
-      'Auto-starting streams (ENABLE_AUTO_STREAMS=true or production mode)'
+      'Auto-starting active streams from database (disable with ENABLE_AUTO_STREAMS=false)'
     );
     autoStartStreams();
   } else {
     logger.info(
-      'Auto-start disabled. Manually create streams via API or set ENABLE_AUTO_STREAMS=true'
+      'Auto-start disabled. Manually create streams via API or enable with ENABLE_AUTO_STREAMS=true'
     );
   }
 });
