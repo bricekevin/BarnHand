@@ -1,6 +1,8 @@
 import { io, Socket } from 'socket.io-client';
-import { useAppStore } from '../stores/useAppStore';
+
 import type { Horse } from '../../../shared/src/types/horse.types';
+import { useReprocessingStore } from '../stores/reprocessingStore';
+import { useAppStore } from '../stores/useAppStore';
 
 // WebSocket event types
 interface HorsesDetectedEvent {
@@ -133,6 +135,36 @@ class WebSocketService {
     this.socket.on('detection:update', (data: unknown) => {
       console.log('[WebSocket] detection:update event:', data);
     });
+
+    // Re-processing events
+    this.socket.on(
+      'reprocessing:progress',
+      (data: {
+        chunkId: string;
+        progress: number;
+        step: string;
+        timestamp: string;
+      }) => {
+        console.log('[WebSocket] reprocessing:progress event:', data);
+        this.handleReprocessingProgress(data);
+      }
+    );
+
+    this.socket.on(
+      'chunk:updated',
+      (data: { chunkId: string; timestamp: string }) => {
+        console.log('[WebSocket] chunk:updated event:', data);
+        this.handleChunkUpdated(data);
+      }
+    );
+
+    this.socket.on(
+      'reprocessing:error',
+      (data: { chunkId: string; error: string; timestamp: string }) => {
+        console.log('[WebSocket] reprocessing:error event:', data);
+        this.handleReprocessingError(data);
+      }
+    );
   }
 
   private handleHorsesDetected(event: HorsesDetectedEvent): void {
@@ -143,7 +175,10 @@ class WebSocketService {
     const lastUpdateTime = this.lastUpdate[streamId] || 0;
 
     if (now - lastUpdateTime < this.debounceDelay) {
-      console.log('[WebSocket] Debouncing horses:detected for stream', streamId);
+      console.log(
+        '[WebSocket] Debouncing horses:detected for stream',
+        streamId
+      );
       return;
     }
 
@@ -158,7 +193,12 @@ class WebSocketService {
       first_detected: h.first_detected || h.last_seen,
       last_seen: h.last_seen,
       total_detections: h.total_detections,
-      status: (h.status as 'unidentified' | 'identified' | 'confirmed' | 'disputed') || 'unidentified',
+      status:
+        (h.status as
+          | 'unidentified'
+          | 'identified'
+          | 'confirmed'
+          | 'disputed') || 'unidentified',
       created_at: h.created_at || new Date().toISOString(),
       updated_at: h.updated_at || new Date().toISOString(),
       ...(h.name && { name: h.name }),
@@ -180,7 +220,9 @@ class WebSocketService {
       store.addStreamHorse(streamId, horse);
     });
 
-    console.log(`[WebSocket] Updated ${fullHorses.length} horses for stream ${streamId}`);
+    console.log(
+      `[WebSocket] Updated ${fullHorses.length} horses for stream ${streamId}`
+    );
   }
 
   private handleHorseUpdated(event: HorseUpdatedEvent): void {
@@ -195,7 +237,12 @@ class WebSocketService {
       first_detected: horse.first_detected || horse.last_seen,
       last_seen: horse.last_seen,
       total_detections: horse.total_detections,
-      status: (horse.status as 'unidentified' | 'identified' | 'confirmed' | 'disputed') || 'unidentified',
+      status:
+        (horse.status as
+          | 'unidentified'
+          | 'identified'
+          | 'confirmed'
+          | 'disputed') || 'unidentified',
       created_at: horse.created_at || new Date().toISOString(),
       updated_at: horse.updated_at || new Date().toISOString(),
       ...(horse.name && { name: horse.name }),
@@ -204,7 +251,9 @@ class WebSocketService {
       ...(horse.color && { color: horse.color }),
       ...(horse.markings && { markings: horse.markings }),
       ...(horse.thumbnail_url && { thumbnail_url: horse.thumbnail_url }),
-      ...(horse.avatar_thumbnail && { avatar_thumbnail: horse.avatar_thumbnail }),
+      ...(horse.avatar_thumbnail && {
+        avatar_thumbnail: horse.avatar_thumbnail,
+      }),
       ...(horse.farm_id && { farm_id: horse.farm_id }),
       ...(horse.stream_id && { stream_id: horse.stream_id }),
       ...(horse.feature_vector && { feature_vector: horse.feature_vector }),
@@ -218,9 +267,57 @@ class WebSocketService {
     console.log(`[WebSocket] Updated horse ${horse.id} for stream ${streamId}`);
   }
 
+  private handleReprocessingProgress(data: {
+    chunkId: string;
+    progress: number;
+    step: string;
+  }): void {
+    const reprocessingStore = useReprocessingStore.getState();
+
+    // Only update if this is the chunk we're tracking
+    if (reprocessingStore.chunkId === data.chunkId) {
+      reprocessingStore.setProgress(data.progress, data.step);
+      console.log(
+        `[WebSocket] Re-processing progress: ${data.progress}% - ${data.step}`
+      );
+    }
+  }
+
+  private handleChunkUpdated(data: { chunkId: string }): void {
+    const reprocessingStore = useReprocessingStore.getState();
+
+    // Mark as completed if this is the chunk we're tracking
+    if (reprocessingStore.chunkId === data.chunkId) {
+      reprocessingStore.setStatus('completed');
+      console.log(`[WebSocket] Chunk ${data.chunkId} re-processing complete`);
+
+      // TODO: Trigger chunk data reload here
+      // This will be implemented in Task 3.2
+    }
+  }
+
+  private handleReprocessingError(data: {
+    chunkId: string;
+    error: string;
+  }): void {
+    const reprocessingStore = useReprocessingStore.getState();
+
+    // Set error if this is the chunk we're tracking
+    if (reprocessingStore.chunkId === data.chunkId) {
+      reprocessingStore.setError(data.error);
+      console.error(
+        `[WebSocket] Re-processing error for chunk ${data.chunkId}:`,
+        data.error
+      );
+    }
+  }
+
   subscribeToStream(streamId: string): void {
     if (!this.socket?.connected) {
-      console.warn('[WebSocket] Not connected, cannot subscribe to stream', streamId);
+      console.warn(
+        '[WebSocket] Not connected, cannot subscribe to stream',
+        streamId
+      );
       return;
     }
 
@@ -231,13 +328,42 @@ class WebSocketService {
 
   unsubscribeFromStream(streamId: string): void {
     if (!this.socket?.connected) {
-      console.warn('[WebSocket] Not connected, cannot unsubscribe from stream', streamId);
+      console.warn(
+        '[WebSocket] Not connected, cannot unsubscribe from stream',
+        streamId
+      );
       return;
     }
 
     console.log('[WebSocket] Unsubscribing from stream', streamId);
     this.socket.emit('unsubscribe:stream', { streamId });
     this.subscribedStreams.delete(streamId);
+  }
+
+  subscribeToChunk(chunkId: string): void {
+    if (!this.socket?.connected) {
+      console.warn(
+        '[WebSocket] Not connected, cannot subscribe to chunk',
+        chunkId
+      );
+      return;
+    }
+
+    console.log('[WebSocket] Subscribing to chunk', chunkId);
+    this.socket.emit('subscribe:chunk', { chunkId });
+  }
+
+  unsubscribeFromChunk(chunkId: string): void {
+    if (!this.socket?.connected) {
+      console.warn(
+        '[WebSocket] Not connected, cannot unsubscribe from chunk',
+        chunkId
+      );
+      return;
+    }
+
+    console.log('[WebSocket] Unsubscribing from chunk', chunkId);
+    this.socket.emit('unsubscribe:chunk', { chunkId });
   }
 
   disconnect(): void {

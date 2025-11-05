@@ -64,6 +64,12 @@ export interface HorseUpdatedEvent {
   };
 }
 
+// Re-processing event data
+export interface ReprocessingProgressData {
+  progress: number; // 0-100
+  step: string;
+}
+
 // Extend global interface for WebSocket server
 declare global {
   // eslint-disable-next-line no-var
@@ -139,5 +145,38 @@ export function emitHorseUpdatedEvent(
   const wsServer = getWSServer();
   if (wsServer) {
     wsServer.emitHorseUpdatedEvent(streamId, horse);
+  }
+}
+
+// Re-processing events
+export function emitReprocessingProgress(
+  chunkId: string,
+  progressData: ReprocessingProgressData
+) {
+  const wsServer = getWSServer();
+  if (wsServer) {
+    wsServer.emitToRoom(`chunk:${chunkId}`, 'reprocessing:progress', {
+      chunkId,
+      ...progressData,
+    });
+  }
+}
+
+export function emitChunkUpdated(chunkId: string) {
+  const wsServer = getWSServer();
+  if (wsServer) {
+    wsServer.emitToRoom(`chunk:${chunkId}`, 'chunk:updated', {
+      chunkId,
+    });
+  }
+}
+
+export function emitReprocessingError(chunkId: string, error: string) {
+  const wsServer = getWSServer();
+  if (wsServer) {
+    wsServer.emitToRoom(`chunk:${chunkId}`, 'reprocessing:error', {
+      chunkId,
+      error,
+    });
   }
 }
