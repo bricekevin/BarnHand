@@ -287,6 +287,273 @@ class HorseDatabaseService:
             # Fallback to stream-only registry
             return await self.load_stream_horse_registry(stream_id)
 
+    async def load_official_horses(self, farm_id: str) -> Dict[str, Dict[str, Any]]:
+        """
+        Load ONLY official horses for a barn/farm.
+        Used for official-only tracking mode (no guest horses).
+
+        Returns: Dict[horse_id] -> {tracking_id, feature_vector, color, name, ...}
+        """
+        try:
+            if not self.pool:
+                logger.warning("Database pool not initialized")
+                return {}
+
+            horses = {}
+            conn = self.pool.getconn()
+            try:
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                cursor.execute("""
+                    SELECT
+                        id, tracking_id, stream_id, farm_id, name, color_hex,
+                        feature_vector, metadata, last_seen, total_detections
+                    FROM horses
+                    WHERE farm_id = %s
+                      AND is_official = TRUE
+                      AND status = 'active'
+                    ORDER BY made_official_at ASC
+                """, (farm_id,))
+
+                rows = cursor.fetchall()
+                for row in rows:
+                    horse_id = str(row['id'])
+                    tracking_id = row['tracking_id']
+
+                    # Parse feature vector
+                    feature_vector = row['feature_vector'] if row['feature_vector'] else []
+                    if isinstance(feature_vector, str):
+                        feature_vector = json.loads(feature_vector)
+
+                    # Parse metadata
+                    metadata = row['metadata'] if row['metadata'] else {}
+                    if isinstance(metadata, str):
+                        metadata = json.loads(metadata)
+
+                    horses[horse_id] = {
+                        "id": horse_id,
+                        "tracking_id": tracking_id,
+                        "stream_id": row['stream_id'],
+                        "farm_id": row['farm_id'],
+                        "name": row['name'],
+                        "color": row['color_hex'],
+                        "feature_vector": np.array(feature_vector) if feature_vector else None,
+                        "metadata": metadata,
+                        "last_seen": row['last_seen'],
+                        "total_detections": row['total_detections'],
+                        "is_official": True
+                    }
+
+                logger.info(f"🐴 Loaded {len(horses)} official horses for farm {farm_id}")
+
+            except Exception as error:
+                logger.error(f"Failed to load official horses: {error}")
+            finally:
+                self.pool.putconn(conn)
+
+            return horses
+
+        except Exception as error:
+            logger.error(f"Failed to load official horses: {error}")
+            return {}
+
+    async def load_official_horses_at_time(self, farm_id: str, timestamp: float) -> Dict[str, Dict[str, Any]]:
+        """
+        Load official horses that were marked as official BEFORE a specific timestamp.
+        Used for time-aware chunk processing (handles out-of-order chunks).
+
+        Args:
+            farm_id: Farm/barn ID
+            timestamp: Unix timestamp (chunk timestamp)
+
+        Returns: Dict[horse_id] -> {tracking_id, feature_vector, ...}
+        """
+        try:
+            if not self.pool:
+                logger.warning("Database pool not initialized")
+                return {}
+
+            horses = {}
+            conn = self.pool.getconn()
+            try:
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+                # Convert Unix timestamp to PostgreSQL timestamptz
+                from datetime import datetime
+                dt = datetime.fromtimestamp(timestamp)
+
+                cursor.execute("""
+                    SELECT
+                        id, tracking_id, stream_id, farm_id, name, color_hex,
+                        feature_vector, metadata, last_seen, total_detections
+                    FROM horses
+                    WHERE farm_id = %s
+                      AND is_official = TRUE
+                      AND status = 'active'
+                      AND made_official_at <= %s
+                    ORDER BY made_official_at ASC
+                """, (farm_id, dt))
+
+                rows = cursor.fetchall()
+                for row in rows:
+                    horse_id = str(row['id'])
+                    tracking_id = row['tracking_id']
+
+                    # Parse feature vector
+                    feature_vector = row['feature_vector'] if row['feature_vector'] else []
+                    if isinstance(feature_vector, str):
+                        feature_vector = json.loads(feature_vector)
+
+                    # Parse metadata
+                    metadata = row['metadata'] if row['metadata'] else {}
+                    if isinstance(metadata, str):
+                        metadata = json.loads(metadata)
+
+                    horses[horse_id] = {
+                        "id": horse_id,
+                        "tracking_id": tracking_id,
+                        "stream_id": row['stream_id'],
+                        "farm_id": row['farm_id'],
+                        "name": row['name'],
+                        "color": row['color_hex'],
+                        "feature_vector": np.array(feature_vector) if feature_vector else None,
+                        "metadata": metadata,
+                        "last_seen": row['last_seen'],
+                        "total_detections": row['total_detections'],
+                        "is_official": True
+                    }
+
+                logger.info(f"🐴 Loaded {len(horses)} official horses at timestamp {dt.isoformat()}")
+
+            except Exception as error:
+                logger.error(f"Failed to load official horses at time: {error}")
+            finally:
+                self.pool.putconn(conn)
+
+            return horses
+
+        except Exception as error:
+            logger.error(f"Failed to load official horses at time: {error}")
+            return {}
+
+    async def get_horse_avatar_quality(self, horse_id: str) -> float:
+        """
+        Get current avatar quality score for a horse.
+
+        Returns: Quality score (0.0-1.0), or 0.0 if not set
+        """
+        try:
+            if not self.pool:
+                return 0.0
+
+            conn = self.pool.getconn()
+            try:
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                cursor.execute("""
+                    SELECT metadata
+                    FROM horses
+                    WHERE id = %s
+                """, (horse_id,))
+
+                row = cursor.fetchone()
+                if row and row['metadata']:
+                    metadata = row['metadata']
+                    if isinstance(metadata, str):
+                        metadata = json.loads(metadata)
+                    return metadata.get('avatar_quality', 0.0)
+
+                return 0.0
+
+            finally:
+                self.pool.putconn(conn)
+
+        except Exception as error:
+            logger.error(f"Failed to get horse avatar quality: {error}")
+            return 0.0
+
+    async def save_chunk_thumbnail(
+        self,
+        horse_id: str,
+        chunk_id: str,
+        thumbnail_crop: np.ndarray,
+        quality_score: float,
+        timestamp: float
+    ) -> bool:
+        """
+        Save best quality frame from this chunk as a thumbnail.
+
+        Args:
+            horse_id: Database UUID of horse
+            chunk_id: Chunk identifier
+            thumbnail_crop: Cropped horse image (numpy array)
+            quality_score: Composite quality score (0.0-1.0)
+            timestamp: Unix timestamp
+
+        Returns: True if successful
+        """
+        try:
+            import cv2
+            import base64
+            from pathlib import Path
+            from datetime import datetime
+
+            # Create thumbnail directory
+            thumbnail_dir = Path(f"/data/thumbnails/{horse_id}")
+            thumbnail_dir.mkdir(parents=True, exist_ok=True)
+
+            # Save as JPEG (compressed)
+            thumbnail_path = thumbnail_dir / f"{chunk_id}.jpg"
+            cv2.imwrite(str(thumbnail_path), thumbnail_crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
+
+            if not self.pool:
+                logger.warning("Database pool not initialized, thumbnail saved to disk only")
+                return True
+
+            # Update database with thumbnail reference
+            conn = self.pool.getconn()
+            try:
+                cursor = conn.cursor()
+                dt = datetime.fromtimestamp(timestamp)
+
+                cursor.execute("""
+                    INSERT INTO horse_thumbnails (horse_id, chunk_id, thumbnail_path, quality_score, timestamp)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (horse_id, chunk_id) DO UPDATE
+                    SET thumbnail_path = EXCLUDED.thumbnail_path,
+                        quality_score = EXCLUDED.quality_score,
+                        timestamp = EXCLUDED.timestamp
+                """, (horse_id, chunk_id, str(thumbnail_path), quality_score, dt))
+
+                conn.commit()
+
+                logger.debug(f"💾 Saved thumbnail: {horse_id}/{chunk_id}.jpg (quality: {quality_score:.2f})")
+
+                # Update horse's main avatar if this is better quality
+                current_quality = await self.get_horse_avatar_quality(horse_id)
+                if quality_score > current_quality:
+                    # Encode as base64 for avatar_thumbnail column
+                    _, buffer = cv2.imencode('.jpg', thumbnail_crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                    avatar_base64 = base64.b64encode(buffer).decode('utf-8')
+
+                    cursor.execute("""
+                        UPDATE horses
+                        SET avatar_thumbnail = %s,
+                            metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('avatar_quality', %s::float)
+                        WHERE id = %s
+                    """, (avatar_base64, quality_score, horse_id))
+
+                    conn.commit()
+
+                    logger.info(f"✨ Updated horse {horse_id} avatar (new quality: {quality_score:.2f})")
+
+                return True
+
+            finally:
+                self.pool.putconn(conn)
+
+        except Exception as error:
+            logger.error(f"Failed to save chunk thumbnail: {error}")
+            return False
+
     async def save_stream_horse_registry(self, stream_id: str, horses: Dict[str, Dict[str, Any]]) -> bool:
         """
         Save entire horse registry for a stream to Redis + PostgreSQL.
@@ -516,6 +783,7 @@ class HorseDatabaseService:
                     metadata = %s,
                     track_confidence = %s,
                     farm_id = EXCLUDED.farm_id
+                    -- Do NOT re-activate deleted horses (they were deleted for a reason)
             """, (
                 horse_id, stream_id, farm_id, timestamp, total_detections,
                 json.dumps(feature_vector), json.dumps(bbox), confidence, 'active',
@@ -569,6 +837,9 @@ class HorseDatabaseService:
             tracking_id = horse_state.get("tracking_id", 0)
             color = horse_state.get("color", "#ff6b6b")
             last_updated = horse_state.get("last_updated", time.time())
+            # Fix timestamp if invalid (0, None, or negative)
+            if not last_updated or last_updated <= 0:
+                last_updated = time.time()
             bbox = horse_state.get("bbox", {})
             confidence = horse_state.get("confidence", 0.0)
             features = horse_state.get("features", [])
@@ -613,6 +884,7 @@ class HorseDatabaseService:
                         track_confidence = EXCLUDED.track_confidence,
                         avatar_thumbnail = EXCLUDED.avatar_thumbnail,
                         farm_id = EXCLUDED.farm_id
+                        -- Do NOT re-activate deleted horses
                 """, (
                     horse_id, stream_id, farm_id, color, last_updated, total_detections,
                     json.dumps(feature_vector), json.dumps(metadata), track_confidence, 'active',
@@ -633,6 +905,7 @@ class HorseDatabaseService:
                         metadata = EXCLUDED.metadata,
                         track_confidence = EXCLUDED.track_confidence,
                         farm_id = EXCLUDED.farm_id
+                        -- Do NOT re-activate deleted horses
                 """, (
                     horse_id, stream_id, farm_id, color, last_updated, total_detections,
                     json.dumps(feature_vector), json.dumps(metadata), track_confidence, 'active',

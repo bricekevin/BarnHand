@@ -251,23 +251,31 @@ export class VideoChunkService {
     try {
       // FFmpeg command to record chunk from live stream
       // For HLS streams, we capture the live edge and record for specified duration
-      const ffmpegArgs = [
-        this.ffmpegPath,
-        '-y', // Overwrite output files without asking
-        '-i',
-        source_url,
-        '-t',
-        duration.toString(),
-        '-c',
-        'copy',
-        '-avoid_negative_ts',
-        'make_zero',
-        '-f',
-        'mp4',
-        '-movflags',
-        'faststart',
-        file_path,
-      ];
+      const ffmpegArgs = [this.ffmpegPath, '-y']; // Overwrite output files without asking
+
+      // Detect if source is RTSP and add required transport settings
+      const isRTSP = source_url.toLowerCase().startsWith('rtsp://');
+      if (isRTSP) {
+        // Add RTSP-specific flags BEFORE the input
+        ffmpegArgs.push(
+          '-rtsp_transport', 'tcp',     // Use TCP for RTSP
+          '-timeout', '10000000'         // 10 second timeout
+        );
+      }
+
+      // Add input source
+      ffmpegArgs.push('-i', source_url);
+
+      // Add duration and output settings
+      ffmpegArgs.push(
+        '-t', duration.toString(),
+        '-c:v', 'copy',          // Copy video stream without re-encoding
+        '-an',                   // Skip audio (ML processing only needs video)
+        '-avoid_negative_ts', 'make_zero',
+        '-f', 'mp4',
+        '-movflags', 'faststart',
+        file_path
+      );
 
       logger.info('Starting FFmpeg recording', {
         args: ffmpegArgs,
