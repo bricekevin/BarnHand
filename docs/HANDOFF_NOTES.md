@@ -1,7 +1,7 @@
 # BarnHand - Phase 4 Detection Correction - Handoff Notes
 
-**Date**: 2025-11-05
-**Session Duration**: ~6 hours
+**Date**: 2025-11-05 (Updated: Integration Review)
+**Session Duration**: ~7 hours
 **Branch**: `feature/documentation`
 
 ## 🎯 Session Objectives
@@ -10,6 +10,7 @@
 2. ✅ **Build backend data layer** (repository + service)
 3. ✅ **Create API endpoints** (complete - with comprehensive tests)
 4. ✅ **Build ML re-processing service** (COMPLETE)
+5. ✅ **Integrate Phase 4 with existing codebase** (COMPLETE)
 
 ---
 
@@ -152,7 +153,7 @@
 
 ---
 
-## 📦 Commits (5 total)
+## 📦 Commits (7 total)
 
 ```
 8f01ef6  p4(task-0.1-0.2): add detection corrections database schema and types
@@ -160,6 +161,8 @@ f5aab42  p4(task-1.1): add correction repository with comprehensive tests
 aba87f5  p4(task-1.2): add correction service with validation and ML integration
 fbbe010  p4(task-1.3): add correction API endpoint integration tests
 66ff030  p4(task-1.4-1.5): add ML re-processing service and API endpoints
+d996f1d  docs: update Phase 4 progress - Task 1.4-1.5 complete
+772f974  p4(integration): refactor processor.py to use shared FrameRenderer ⭐
 ```
 
 ---
@@ -174,6 +177,7 @@ fbbe010  p4(task-1.3): add correction API endpoint integration tests
 - ✅ API endpoints with comprehensive tests (Task 1.3)
 - ✅ ML re-processing service (Task 1.4)
 - ✅ ML API endpoints (Task 1.5)
+- ✅ **Integration**: processor.py refactored to use shared FrameRenderer
 
 **Pending Work**:
 - **Task 1.6**: Update horse database service for feature vector updates (OPTIONAL - already handled in reprocessor)
@@ -189,6 +193,51 @@ fbbe010  p4(task-1.3): add correction API endpoint integration tests
   - Task 3.3: Add correction count badge to chunk cards
   - Task 3.4: Write E2E tests for correction workflow
   - Task 3.5: Update documentation and user guide
+
+---
+
+## 🔗 Integration Review (Added: 2025-11-05)
+
+### Problem: Code Duplication Risk
+
+During integration review, discovered that Phase 4 implementation created **FrameRenderer** class but did **NOT refactor** the original `processor.py` to use it. This resulted in:
+
+- ❌ 90+ lines of **duplicated** frame overlay code
+- ❌ Duplicate `POSE_SKELETON` constant definition
+- ❌ Risk of overlay rendering **diverging** between original processing and re-processing
+- ❌ "Tacked on" implementation instead of proper integration
+
+### Solution: Shared FrameRenderer
+
+**Commit**: `772f974` - p4(integration): refactor processor.py to use shared FrameRenderer
+
+**Changes**:
+1. ✅ Import `FrameRenderer` in `processor.py`
+2. ✅ Initialize `self.frame_renderer = FrameRenderer()` in `__init__`
+3. ✅ Replace inline `_draw_overlays()` implementation with delegation:
+   ```python
+   def _draw_overlays(self, frame, tracked_horses, frame_poses):
+       return self.frame_renderer.draw_overlays(frame, tracked_horses, frame_poses)
+   ```
+4. ✅ Remove duplicate `POSE_SKELETON` constant (90 lines eliminated)
+5. ✅ **Bonus**: Fixed `UnboundLocalError` (initialize `official_count = 0`)
+
+**Impact**:
+- ✅ **Single source of truth** for frame rendering logic
+- ✅ Both `processor.py` and `reprocessor.py` use identical overlay rendering
+- ✅ Changes to overlay format automatically apply to both original and re-processing
+- ✅ Reduces maintenance burden and prevents drift
+
+### Uncommitted Work (Separate from Phase 4)
+
+**Note**: There are uncommitted changes in the working directory related to an **Official Horses Workflow** feature (separate from Phase 4):
+
+- `horse_database.py`: New methods `load_official_horses()`, `load_official_horses_at_time()`
+- `videoChunkService.ts`: RTSP stream support
+- `video-streamer`: Multiple streaming improvements
+- `StreamSettings.tsx`: Frontend component updates
+
+These changes are **NOT part of Phase 4** and should be committed separately when the official horses feature is complete.
 
 ---
 
