@@ -276,7 +276,7 @@ class CorrectionService {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({})) as { message?: string };
         throw new Error(
           `ML service error: ${errorData.message || response.statusText}`
         );
