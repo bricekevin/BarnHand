@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { BatchCorrectionRequestSchema } from '@barnhand/shared';
 
 import { logger } from '../config/logger';
 import {
@@ -11,6 +12,7 @@ import {
 import { validateSchema } from '../middleware/validation';
 import { streamHorseService } from '../services/streamHorseService';
 import { videoChunkService } from '../services/videoChunkService';
+import { correctionService } from '../services/correctionService';
 import { UserRole } from '../types/auth';
 import { emitHorseUpdatedEvent } from '../websocket/events';
 // AuthenticatedRequest is now handled by createAuthenticatedRoute wrapper
@@ -137,22 +139,25 @@ router.post(
 
       const streamData = req.body;
 
-      // TODO: Replace with StreamRepository.create()
-      const newStream = {
-        id: `stream_${Date.now()}`,
-        ...streamData,
-        status: 'inactive',
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
+      // Create stream in database using StreamRepository
+      try {
+        const streamRepository = new (require('@barnhand/database').StreamRepository)();
+        const newStream = await streamRepository.create(streamData);
 
-      logger.info('Stream created', {
-        userId: req.user.userId,
-        streamId: newStream.id,
-        farmId: streamData.farm_id,
-      });
+        logger.info('Stream created in database', {
+          userId: req.user.userId,
+          streamId: newStream.id,
+          farmId: streamData.farm_id,
+        });
 
-      return res.status(201).json(newStream);
+        return res.status(201).json(newStream);
+      } catch (dbError) {
+        logger.error('Database error creating stream', {
+          error: dbError,
+          streamData,
+        });
+        return res.status(500).json({ error: 'Failed to create stream in database' });
+      }
     } catch (error) {
       logger.error('Create stream error', { error });
       return res.status(500).json({ error: 'Internal server error' });
@@ -1041,6 +1046,215 @@ router.get(
       }
 
       return res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+);
+
+// ===== Phase 4: Detection Correction Endpoints =====
+
+/**
+ * POST /api/v1/streams/:id/chunks/:chunkId/corrections
+ * Submit batch of corrections for a video chunk
+ * Returns 202 Accepted - processing happens asynchronously
+ */
+router.post(
+  '/:id/chunks/:chunkId/corrections',
+  validateSchema(chunkParamsSchema, 'params'),
+  validateSchema(BatchCorrectionRequestSchema, 'body'),
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  createAuthenticatedRoute(async (req, res) => {
+    const { id: streamId, chunkId } = req.params;
+    const { corrections } = req.body;
+
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    logger.info('Received correction submission', {
+      streamId,
+      chunkId,
+      userId: req.user.userId,
+      correctionsCount: corrections.length,
+    });
+
+    try {
+      // Submit corrections to service
+      const result = await correctionService.submitCorrections(
+        streamId,
+        chunkId,
+        corrections,
+        req.user.userId
+      );
+
+      logger.info('Corrections submitted successfully', {
+        streamId,
+        chunkId,
+        correctionsCount: corrections.length,
+      });
+
+      // Return 202 Accepted (async processing)
+      return res.status(202).json(result);
+    } catch (error) {
+      if (error instanceof Error) {
+        logger.error('Failed to submit corrections', {
+          error: error.message,
+          stack: error.stack,
+          streamId,
+          chunkId,
+        });
+
+        // Check for validation errors
+        if (error.message.includes('Invalid correction')) {
+          return res.status(400).json({
+            error: 'Validation failed',
+            message: error.message,
+          });
+        }
+
+        // Check for ML service errors
+        if (error.message.includes('ML service')) {
+          return res.status(503).json({
+            error: 'Service temporarily unavailable',
+            message: 'ML processing service is currently unavailable. Please try again later.',
+          });
+        }
+
+        return res.status(500).json({
+          error: 'Failed to submit corrections',
+          message: error.message,
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Internal server error',
+        message: 'An unexpected error occurred',
+      });
+    }
+  })
+);
+
+/**
+ * GET /api/v1/streams/:id/chunks/:chunkId/corrections/status
+ * Get re-processing status for a chunk
+ */
+router.get(
+  '/:id/chunks/:chunkId/corrections/status',
+  validateSchema(chunkParamsSchema, 'params'),
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  createAuthenticatedRoute(async (req, res) => {
+    const { chunkId } = req.params;
+
+    try {
+      const status = await correctionService.getReprocessingStatus(chunkId);
+
+      return res.status(200).json(status);
+    } catch (error) {
+      if (error instanceof Error) {
+        logger.error('Failed to get reprocessing status', {
+          error: error.message,
+          chunkId,
+        });
+
+        return res.status(500).json({
+          error: 'Failed to get status',
+          message: error.message,
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Internal server error',
+      });
+    }
+  })
+);
+
+/**
+ * GET /api/v1/streams/:id/chunks/:chunkId/corrections
+ * Get correction history for a chunk
+ */
+router.get(
+  '/:id/chunks/:chunkId/corrections',
+  validateSchema(chunkParamsSchema, 'params'),
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  createAuthenticatedRoute(async (req, res) => {
+    const { chunkId } = req.params;
+
+    try {
+      const corrections = await correctionService.getChunkCorrections(chunkId);
+
+      return res.status(200).json({
+        chunk_id: chunkId,
+        corrections,
+        total: corrections.length,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        logger.error('Failed to get correction history', {
+          error: error.message,
+          chunkId,
+        });
+
+        return res.status(500).json({
+          error: 'Failed to get corrections',
+          message: error.message,
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Internal server error',
+      });
+    }
+  })
+);
+
+/**
+ * DELETE /api/v1/streams/:id/chunks/:chunkId/corrections
+ * Cancel all pending corrections for a chunk
+ */
+router.delete(
+  '/:id/chunks/:chunkId/corrections',
+  validateSchema(chunkParamsSchema, 'params'),
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  createAuthenticatedRoute(async (req, res) => {
+    const { chunkId } = req.params;
+
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    logger.info('Canceling pending corrections', {
+      chunkId,
+      userId: req.user.userId,
+    });
+
+    try {
+      const deletedCount = await correctionService.cancelPendingCorrections(chunkId);
+
+      logger.info('Pending corrections canceled', {
+        chunkId,
+        deletedCount,
+      });
+
+      return res.status(200).json({
+        message: 'Pending corrections canceled',
+        deleted_count: deletedCount,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        logger.error('Failed to cancel corrections', {
+          error: error.message,
+          chunkId,
+        });
+
+        return res.status(500).json({
+          error: 'Failed to cancel corrections',
+          message: error.message,
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Internal server error',
+      });
     }
   })
 );
