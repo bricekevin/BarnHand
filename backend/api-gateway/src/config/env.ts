@@ -3,8 +3,10 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
-// Load .env from project root
-dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
+// Load .env from project root (skip in test environment where env vars are already set)
+if (process.env.NODE_ENV !== 'test') {
+  dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
+}
 
 const envSchema = z.object({
   NODE_ENV: z
