@@ -1,7 +1,7 @@
 # BarnHand - Phase 4 Detection Correction - Handoff Notes
 
-**Date**: 2025-11-05 (Updated: Task 3.2 Complete)
-**Session Duration**: ~12 hours
+**Date**: 2025-11-05 (Updated: Task 3.3 Complete)
+**Session Duration**: ~13 hours
 **Branch**: `feature/documentation`
 
 ## 🎯 Session Objectives
@@ -14,6 +14,8 @@
 6. ✅ **Build frontend UI components** (Phase 2 - COMPLETE)
 7. ✅ **Implement correction submission workflow** (COMPLETE)
 8. ✅ **Add WebSocket events for real-time progress** (Task 3.1 - COMPLETE)
+9. ✅ **Add auto-reload after re-processing** (Task 3.2 - COMPLETE)
+10. ✅ **Add correction count badge to chunk cards** (Task 3.3 - COMPLETE)
 
 ---
 
@@ -156,7 +158,7 @@
 
 ---
 
-## 📦 Commits (16 total)
+## 📦 Commits (17 total)
 
 **Phase 4 Backend (Tasks 0.1-1.5)**:
 ```
@@ -178,10 +180,11 @@ b78afee  p4(task-2.2): add edit buttons to frame inspector
 2fdf510  p4(task-2.5): add correction submission API client and hook
 ```
 
-**Phase 4 Integration (Tasks 3.1-3.2)**:
+**Phase 4 Integration (Tasks 3.1-3.3)**:
 ```
 f8dc64d  p4(task-3.1): add WebSocket events for re-processing progress
 00f2439  p4(task-3.2): implement auto-reload after re-processing ⭐
+7195343  p4(task-3.3): add correction count badge to chunk cards ⭐
 ```
 
 **Documentation & Official Horses Workflow**:
@@ -240,9 +243,13 @@ ab1ee6a  docs: add official horses workflow and Phase 4 documentation
   - Browser custom event dispatch
   - PrimaryVideoPlayer event listener
   - Success notification toast
+- ✅ Task 3.3: Correction count badge on chunk cards
+  - Amber-colored badge with pencil icon
+  - Shows when correction_count > 0
+  - Database enrichment via batch query
+  - Tooltip: "This chunk has been manually corrected"
 
 **Pending Work** - **Phase 3: Integration & Polish** (NEXT PRIORITY):
-- Task 3.3: Add correction count badge to chunk cards
 - Task 3.4: Write E2E tests for correction workflow
 - Task 3.5: Update documentation and user guide
 
@@ -364,37 +371,47 @@ Previously uncommitted changes for the **Official Horses Workflow** feature have
 
 ## 📋 Next Steps
 
-### ✅ Completed: Task 3.2 - Auto-Reload After Re-Processing
+### ✅ Completed: Task 3.3 - Correction Count Badge
 
-All auto-reload functionality implemented:
-- ✅ API function: `reloadChunk()` in corrections.ts
-- ✅ Event dispatch: Browser custom event in websocketService
-- ✅ Event listener: PrimaryVideoPlayer useEffect hook
-- ✅ Success notification: Green toast (3 second display)
-- ✅ State refresh: Chunk list reload + detection data refresh
-- ✅ Event flow: ML Service → API Gateway → WebSocket → Browser Event → Component
+All correction count badge functionality implemented:
+- ✅ Schema update: Added `correction_count` and `last_corrected` to VideoChunkSchema
+- ✅ Backend enrichment: `enrichChunksWithCorrectionData()` method in videoChunkService
+- ✅ Database query: Batch query to video_chunks table using `ANY($1::uuid[])`
+- ✅ Frontend badge: Amber-colored badge with pencil icon in PrimaryVideoPlayer
+- ✅ Conditional display: Badge only shows when `correction_count > 0`
+- ✅ Tooltip: "This chunk has been manually corrected"
 
-**Workflow**:
-1. ML service completes re-processing
-2. Emits webhook to API Gateway
-3. API Gateway emits `chunk:updated` WebSocket event
-4. websocketService dispatches browser custom event
-5. PrimaryVideoPlayer listens and reloads chunk
-6. Success notification shown to user
+**Implementation Details**:
+1. **Shared Types**: Updated `VideoChunkSchema` in `stream.types.ts` to include correction fields
+2. **Frontend Interface**: Added `correction_count?: number` to VideoChunk interface
+3. **Database Query**: Implemented batch query for all chunks in one database call:
+   ```sql
+   SELECT id, correction_count, last_corrected
+   FROM video_chunks
+   WHERE id = ANY($1::uuid[])
+   ```
+4. **Badge UI**: Added amber badge with SVG pencil icon, positioned after resolution badge
+5. **Graceful Fallback**: If database unavailable, chunks default to `correction_count = 0`
 
-### Immediate Priority (Task 3.3)
+**Visual Design**:
+- Color: `bg-amber-500/20 text-amber-400` (matches design system)
+- Icon: Pencil SVG (16x16px)
+- Layout: Flex row with 4px gap between icon and count
+- Tooltip: "This chunk has been manually corrected"
 
-**Add Correction Count Badge to Chunk Cards** (Task 3.3):
-1. Update chunk data type to include `correction_count`
-2. Add badge to chunk card UI in DetectionDataPanel
-3. Style with amber color to indicate manual edits
-4. Add tooltip: "This chunk has been manually corrected"
+### Immediate Priority (Task 3.4)
 
-**Why Important**: Users need visual feedback showing which chunks have been corrected.
+**Write E2E Tests for Correction Workflow** (Task 3.4):
+1. Test 1: Reassign detection to existing horse
+2. Test 2: Create new guest horse
+3. Test 3: Mark detection as incorrect
+4. Test 4: Batch corrections (3+ corrections)
+5. Test 5: Error handling (invalid horse ID)
+
+**Why Important**: Comprehensive E2E tests ensure the entire correction workflow functions correctly from UI to database.
 
 ### Medium Term (Phase 3 Remaining)
 
-**Task 3.3**: Add correction count badge to chunk cards
 **Task 3.4**: Write E2E tests for correction workflow (Playwright)
 **Task 3.5**: Update documentation and user guide
 
