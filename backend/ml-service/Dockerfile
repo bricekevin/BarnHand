@@ -25,7 +25,7 @@ COPY requirements.txt ./
 COPY requirements-dev.txt ./
 
 # Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir numpy
 
 # Install all dependencies (includes torch, which mim needs to detect version)
@@ -35,6 +35,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Must be installed AFTER torch so mim can detect the version
 # This will compile from source on ARM (15-20 min), use pre-built wheels on x86
 RUN mim install "mmcv>=2.0.0,<2.2.0"
+
+# Install mmpose without dependencies to skip chumpy (broken setup.py, only needed for SMPL models)
+RUN pip install --no-cache-dir --no-deps mmpose==1.2.0
 
 # Development image
 FROM python-deps as development
