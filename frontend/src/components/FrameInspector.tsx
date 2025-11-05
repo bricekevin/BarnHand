@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DetectionCorrectionModal } from './DetectionCorrectionModal';
+import { useCorrectionStore } from '../stores/correctionStore';
 import type { CorrectionPayload } from '@barnhand/shared';
 
 interface MLSettings {
@@ -110,6 +111,9 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
   // Correction modal state
   const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
   const [selectedDetection, setSelectedDetection] = useState<TrackedHorse | null>(null);
+
+  // Correction store
+  const { addCorrection } = useCorrectionStore();
 
   const currentFrame = frames[currentFrameIndex];
 
@@ -228,11 +232,9 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
   };
 
   const handleSubmitCorrection = (correction: CorrectionPayload) => {
-    // TODO: This will be implemented in Task 2.3/2.5 to add to correction batch
+    // Add correction to the store
+    addCorrection(correction);
     console.log('Correction queued:', correction);
-
-    // For now, just log the correction
-    // In Task 2.3, this will call correctionStore.addCorrection()
   };
 
   if (!currentFrame) {
