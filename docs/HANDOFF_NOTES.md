@@ -1,7 +1,7 @@
 # BarnHand - Phase 4 Detection Correction - Handoff Notes
 
-**Date**: 2025-11-05 (Updated: Task 3.1 Complete)
-**Session Duration**: ~11 hours
+**Date**: 2025-11-05 (Updated: Task 3.2 Complete)
+**Session Duration**: ~12 hours
 **Branch**: `feature/documentation`
 
 ## 🎯 Session Objectives
@@ -156,7 +156,7 @@
 
 ---
 
-## 📦 Commits (15 total)
+## 📦 Commits (16 total)
 
 **Phase 4 Backend (Tasks 0.1-1.5)**:
 ```
@@ -178,9 +178,10 @@ b78afee  p4(task-2.2): add edit buttons to frame inspector
 2fdf510  p4(task-2.5): add correction submission API client and hook
 ```
 
-**Phase 4 Integration (Task 3.1)**:
+**Phase 4 Integration (Tasks 3.1-3.2)**:
 ```
 f8dc64d  p4(task-3.1): add WebSocket events for re-processing progress
+00f2439  p4(task-3.2): implement auto-reload after re-processing ⭐
 ```
 
 **Documentation & Official Horses Workflow**:
@@ -234,9 +235,13 @@ ab1ee6a  docs: add official horses workflow and Phase 4 documentation
   - Real-time progress updates via WebSocket
   - Frontend integration with reprocessingStore
   - Chunk room subscription pattern
+- ✅ Task 3.2: Auto-reload after re-processing
+  - reloadChunk() API function
+  - Browser custom event dispatch
+  - PrimaryVideoPlayer event listener
+  - Success notification toast
 
 **Pending Work** - **Phase 3: Integration & Polish** (NEXT PRIORITY):
-- Task 3.2: Implement auto-reload after re-processing (CRITICAL)
 - Task 3.3: Add correction count badge to chunk cards
 - Task 3.4: Write E2E tests for correction workflow
 - Task 3.5: Update documentation and user guide
@@ -359,27 +364,33 @@ Previously uncommitted changes for the **Official Horses Workflow** feature have
 
 ## 📋 Next Steps
 
-### ✅ Completed: Task 3.1 - WebSocket Events for Re-Processing
+### ✅ Completed: Task 3.2 - Auto-Reload After Re-Processing
 
-All WebSocket functionality implemented:
-- ✅ Webhook endpoint: `/api/internal/webhooks/reprocessing-event`
-- ✅ Event emitters: `emitReprocessingProgress()`, `emitChunkUpdated()`, `emitReprocessingError()`
-- ✅ Room subscription: `subscribe:chunk`, `unsubscribe:chunk`
-- ✅ Frontend integration: Real-time progress updates via reprocessingStore
-- ✅ Event flow: ML Service → API Gateway → WebSocket → Frontend
+All auto-reload functionality implemented:
+- ✅ API function: `reloadChunk()` in corrections.ts
+- ✅ Event dispatch: Browser custom event in websocketService
+- ✅ Event listener: PrimaryVideoPlayer useEffect hook
+- ✅ Success notification: Green toast (3 second display)
+- ✅ State refresh: Chunk list reload + detection data refresh
+- ✅ Event flow: ML Service → API Gateway → WebSocket → Browser Event → Component
 
-### Immediate Priority (Task 3.2 - CRITICAL)
+**Workflow**:
+1. ML service completes re-processing
+2. Emits webhook to API Gateway
+3. API Gateway emits `chunk:updated` WebSocket event
+4. websocketService dispatches browser custom event
+5. PrimaryVideoPlayer listens and reloads chunk
+6. Success notification shown to user
 
-**Auto-Reload After Re-Processing** (Task 3.2):
-1. Update `handleChunkUpdated()` in websocketService.ts:
-   - Trigger chunk data reload from API
-   - Update video player to show corrected chunk
-   - Display toast notification: "Chunk updated with corrections"
-2. Add `reloadChunk()` method to useChunks hook or chunk API client
-3. Clear re-processing progress state after reload
-4. Add loading indicator during reload
+### Immediate Priority (Task 3.3)
 
-**Why Critical**: Users need to see the corrected results immediately after re-processing completes. Without this, they'll have to manually refresh the page.
+**Add Correction Count Badge to Chunk Cards** (Task 3.3):
+1. Update chunk data type to include `correction_count`
+2. Add badge to chunk card UI in DetectionDataPanel
+3. Style with amber color to indicate manual edits
+4. Add tooltip: "This chunk has been manually corrected"
+
+**Why Important**: Users need visual feedback showing which chunks have been corrected.
 
 ### Medium Term (Phase 3 Remaining)
 
