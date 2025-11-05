@@ -58,13 +58,11 @@ export const CreateStreamRequestSchema = StreamConfigSchema.omit({
 });
 
 // Stream update request
-export const UpdateStreamRequestSchema = StreamConfigSchema
-  .omit({
-    id: true,
-    source_type: true,
-    source_url: true,
-  })
-  .partial();
+export const UpdateStreamRequestSchema = StreamConfigSchema.omit({
+  id: true,
+  source_type: true,
+  source_url: true,
+}).partial();
 
 // Video chunk information
 export const VideoChunkSchema = z.object({
@@ -78,6 +76,8 @@ export const VideoChunkSchema = z.object({
   processed_url: z.string().url().optional(),
   overlay_data: z.record(z.unknown()).optional(),
   created_at: z.string().datetime(),
+  last_corrected: z.string().datetime().optional(),
+  correction_count: z.number().int().nonnegative().default(0),
 });
 
 // Export types
