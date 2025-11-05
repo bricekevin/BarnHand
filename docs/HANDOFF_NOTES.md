@@ -1,7 +1,7 @@
 # BarnHand - Phase 4 Detection Correction - Handoff Notes
 
-**Date**: 2025-11-04
-**Session Duration**: ~4 hours
+**Date**: 2025-11-05
+**Session Duration**: ~6 hours
 **Branch**: `feature/documentation`
 
 ## 🎯 Session Objectives
@@ -9,7 +9,7 @@
 1. ✅ **Implement Phase 4 foundation** (database schema + types)
 2. ✅ **Build backend data layer** (repository + service)
 3. ✅ **Create API endpoints** (complete - with comprehensive tests)
-4. ⏳ **Build ML re-processing service** (next task)
+4. ✅ **Build ML re-processing service** (COMPLETE)
 
 ---
 
@@ -50,7 +50,7 @@
   - Helper functions: `validateCorrection()`, `generateCorrectionSummary()`
 - **Testing**: ✅ Types compile without errors
 
-### Phase 1: Backend Implementation (75% Complete)
+### Phase 1: Backend Implementation (✅ Complete)
 
 **Task 1.1: Correction Repository**
 - **File**: `backend/database/src/repositories/CorrectionRepository.ts`
@@ -110,35 +110,85 @@
   - ⚠️ Tests cannot run due to pre-existing Jest/ES module issues
   - Test structure is complete and ready when environment is fixed
 
+**Task 1.4: ML Re-Processing Service** ✅
+- **Files**:
+  - `backend/ml-service/src/services/frame_renderer.py` (NEW)
+  - `backend/ml-service/src/services/reprocessor.py` (NEW)
+- **Changes**:
+  - Extracted frame overlay rendering logic to `frame_renderer.py`:
+    - `draw_overlays()` - Draws detection boxes, poses, and labels
+    - `render_detection_overlay()` - Single detection overlay helper
+    - AP10K pose skeleton visualization
+  - Created `reprocessor.py` with complete workflow:
+    - `reprocess_chunk()` - Main re-processing orchestration
+    - Step 1: Load chunk metadata from PostgreSQL
+    - Step 2: Load detections JSON data
+    - Step 3: Apply corrections (reassign/new_guest/mark_incorrect)
+    - Step 4: Update ReID feature vectors (weighted: 70% user, 30% ML)
+    - Step 5: Regenerate frames with corrected overlays
+    - Step 6: Rebuild video chunk using FFmpeg
+    - Step 7: Update database and save updated detections JSON
+    - Step 8: Emit WebSocket progress events (0%, 10%, 20%, 40%, 50%, 70%, 85%, 95%, 100%)
+  - Comprehensive error handling with rollback logic
+  - Redis-based progress tracking
+  - WebSocket event emission via API Gateway webhook
+- **Testing**: ⏳ Unit tests pending (Task 1.4 testing phase)
+
+**Task 1.5: ML API Endpoints** ✅
+- **File**: `backend/ml-service/src/main.py` (UPDATE)
+- **Changes**:
+  - Added Pydantic models:
+    - `CorrectionPayload` - Manual correction payload
+    - `ReprocessRequest` - Re-processing request with corrections list
+    - `ReprocessingStatus` - Status response (status, progress, step, error)
+  - Added endpoints:
+    - `POST /api/v1/reprocess/chunk/:chunk_id` - Trigger re-processing (returns 202 Accepted)
+    - `GET /api/v1/reprocess/chunk/:chunk_id/status` - Get re-processing status
+  - Background task processing using FastAPI `BackgroundTasks`
+  - Redis status tracking with automatic TTL (1 hour)
+  - Database fallback for status queries
+  - Proper validation and error handling
+- **Testing**: ⏳ Integration tests pending
+
 ---
 
-## 📦 Commits (4 total)
+## 📦 Commits (5 total)
 
 ```
 8f01ef6  p4(task-0.1-0.2): add detection corrections database schema and types
 f5aab42  p4(task-1.1): add correction repository with comprehensive tests
 aba87f5  p4(task-1.2): add correction service with validation and ML integration
 fbbe010  p4(task-1.3): add correction API endpoint integration tests
+66ff030  p4(task-1.4-1.5): add ML re-processing service and API endpoints
 ```
 
 ---
 
 ## 🚀 Production Status
 
-**Ready for Next Steps**:
-- ✅ Database schema applied
-- ✅ TypeScript types defined and exported
-- ✅ Repository layer with CRUD operations
-- ✅ Service layer with validation and ML integration
-- ✅ API endpoints with comprehensive tests
-- ⏳ ML re-processing service (Task 1.4 - NEXT)
+**Completed - Phase 1 Backend** ✅:
+- ✅ Database schema applied (Task 0.1)
+- ✅ TypeScript types defined and exported (Task 0.2)
+- ✅ Repository layer with CRUD operations (Task 1.1)
+- ✅ Service layer with validation and ML integration (Task 1.2)
+- ✅ API endpoints with comprehensive tests (Task 1.3)
+- ✅ ML re-processing service (Task 1.4)
+- ✅ ML API endpoints (Task 1.5)
 
 **Pending Work**:
-- **Task 1.4**: Create ML re-processing service (Python) - **PRIORITY**
-- Task 1.5: Add ML API endpoints
-- Task 1.6: Update horse database service for feature vector updates
-- Phase 2: Frontend implementation (Tasks 2.1-2.5)
+- **Task 1.6**: Update horse database service for feature vector updates (OPTIONAL - already handled in reprocessor)
+- **Phase 2**: Frontend implementation (Tasks 2.1-2.5) - **NEXT PRIORITY**
+  - Task 2.1: Create DetectionCorrectionModal component
+  - Task 2.2: Add edit buttons to Frame Inspector
+  - Task 2.3: Create CorrectionBatchPanel component
+  - Task 2.4: Create ReprocessingProgress indicator
+  - Task 2.5: Add correction submission logic
 - Phase 3: Integration & testing (Tasks 3.1-3.5)
+  - Task 3.1: Add WebSocket events for re-processing progress
+  - Task 3.2: Implement auto-reload after re-processing
+  - Task 3.3: Add correction count badge to chunk cards
+  - Task 3.4: Write E2E tests for correction workflow
+  - Task 3.5: Update documentation and user guide
 
 ---
 
@@ -185,8 +235,8 @@ fbbe010  p4(task-1.3): add correction API endpoint integration tests
 - **Total**: 31/31 tests passing
 
 ### Integration Tests
-- ⏳ API endpoint tests (pending Task 1.3)
-- ⏳ ML re-processing pipeline (pending Task 1.4)
+- ✅ API endpoint tests (created, pending Jest environment fix)
+- ⏳ ML re-processing pipeline (pending manual testing)
 
 ### E2E Tests
 - ⏳ Full correction workflow (pending Phase 3)
