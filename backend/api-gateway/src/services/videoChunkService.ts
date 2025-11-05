@@ -33,6 +33,8 @@ export interface VideoChunk {
   };
   created_at: Date;
   updated_at: Date;
+  correction_count?: number;
+  last_corrected?: Date;
 }
 
 interface ActiveRecording {
@@ -258,8 +260,10 @@ export class VideoChunkService {
       if (isRTSP) {
         // Add RTSP-specific flags BEFORE the input
         ffmpegArgs.push(
-          '-rtsp_transport', 'tcp',     // Use TCP for RTSP
-          '-timeout', '10000000'         // 10 second timeout
+          '-rtsp_transport',
+          'tcp', // Use TCP for RTSP
+          '-timeout',
+          '10000000' // 10 second timeout
         );
       }
 
@@ -268,12 +272,17 @@ export class VideoChunkService {
 
       // Add duration and output settings
       ffmpegArgs.push(
-        '-t', duration.toString(),
-        '-c:v', 'copy',          // Copy video stream without re-encoding
-        '-an',                   // Skip audio (ML processing only needs video)
-        '-avoid_negative_ts', 'make_zero',
-        '-f', 'mp4',
-        '-movflags', 'faststart',
+        '-t',
+        duration.toString(),
+        '-c:v',
+        'copy', // Copy video stream without re-encoding
+        '-an', // Skip audio (ML processing only needs video)
+        '-avoid_negative_ts',
+        'make_zero',
+        '-f',
+        'mp4',
+        '-movflags',
+        'faststart',
         file_path
       );
 
@@ -515,6 +524,9 @@ export class VideoChunkService {
           }
         }
       }
+
+      // Enrich chunks with correction data from database
+      await this.enrichChunksWithCorrectionData(chunks);
 
       // Sort by creation time, newest first
       chunks.sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
@@ -1183,6 +1195,74 @@ export class VideoChunkService {
         farmId,
       });
       // Don't throw - we want chunk recording to succeed even if ML processing fails
+    }
+  }
+
+  /**
+   * Enrich chunks with correction data from the database
+   * Queries video_chunks table for correction_count and last_corrected
+   */
+  private async enrichChunksWithCorrectionData(
+    chunks: VideoChunk[]
+  ): Promise<void> {
+    if (chunks.length === 0) return;
+
+    try {
+      // Dynamically import the database connection
+      const { pool } = await import('@barnhand/database');
+
+      // Get chunk IDs to query
+      const chunkIds = chunks.map(c => c.id);
+
+      // Query correction data for all chunks
+      const query = `
+        SELECT id, correction_count, last_corrected
+        FROM video_chunks
+        WHERE id = ANY($1::uuid[])
+      `;
+
+      const result = await pool.query(query, [chunkIds]);
+
+      // Create a map for quick lookup
+      const correctionDataMap = new Map<
+        string,
+        { correction_count: number; last_corrected?: Date }
+      >();
+      for (const row of result.rows) {
+        correctionDataMap.set(row.id, {
+          correction_count: row.correction_count || 0,
+          last_corrected: row.last_corrected
+            ? new Date(row.last_corrected)
+            : undefined,
+        });
+      }
+
+      // Enrich chunks with correction data
+      for (const chunk of chunks) {
+        const correctionData = correctionDataMap.get(chunk.id);
+        if (correctionData) {
+          chunk.correction_count = correctionData.correction_count;
+          chunk.last_corrected = correctionData.last_corrected;
+        } else {
+          // Chunk not in database yet, set defaults
+          chunk.correction_count = 0;
+        }
+      }
+
+      logger.debug(`Enriched ${chunks.length} chunks with correction data`, {
+        chunksWithCorrections: chunks.filter(c => (c.correction_count || 0) > 0)
+          .length,
+      });
+    } catch (error) {
+      logger.warn('Failed to enrich chunks with correction data', {
+        error,
+        chunkCount: chunks.length,
+      });
+      // Don't throw - correction data is optional
+      // Set defaults for all chunks
+      for (const chunk of chunks) {
+        chunk.correction_count = 0;
+      }
     }
   }
 }
