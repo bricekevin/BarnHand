@@ -291,8 +291,20 @@ class WebSocketService {
       reprocessingStore.setStatus('completed');
       console.log(`[WebSocket] Chunk ${data.chunkId} re-processing complete`);
 
-      // TODO: Trigger chunk data reload here
-      // This will be implemented in Task 3.2
+      // Emit browser custom event for components to listen to
+      // This allows PrimaryVideoPlayer to reload chunk data
+      window.dispatchEvent(
+        new CustomEvent('chunk:updated', {
+          detail: {
+            chunkId: data.chunkId,
+            message: 'Chunk updated with corrections',
+          },
+        })
+      );
+
+      console.log(
+        `[WebSocket] Dispatched chunk:updated event for chunk ${data.chunkId}`
+      );
     }
   }
 
