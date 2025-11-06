@@ -143,7 +143,7 @@ export const DetectionCorrectionModal: React.FC<
   const availableHorses = allHorses.filter(h => h.id !== detection.id);
 
   // Filter barn horses that aren't already in chunk
-  const availableBarnHorses = barnHorses.filter(
+  const availableBarnHorses = (barnHorses || []).filter(
     bh => !allHorses.some(ch => ch.id === bh.id)
   );
 
