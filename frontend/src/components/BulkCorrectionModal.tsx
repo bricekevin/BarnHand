@@ -67,11 +67,11 @@ export const BulkCorrectionModal: React.FC<BulkCorrectionModalProps> = ({
   const horseName = horse.name || `Horse ${horse.id}`;
 
   // Filter out current horse from reassign options
-  const availableHorses = allHorses.filter(h => h.id !== horse.id);
+  const availableHorses = (allHorses || []).filter(h => h.id !== horse.id);
 
   // Filter barn horses that aren't already in chunk
   const availableBarnHorses = (barnHorses || []).filter(
-    bh => !allHorses.some(ch => ch.id === bh.id)
+    bh => !(allHorses || []).some(ch => ch.id === bh.id)
   );
 
   return (
