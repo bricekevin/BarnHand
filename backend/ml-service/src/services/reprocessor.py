@@ -15,7 +15,7 @@ from loguru import logger
 from ..config.settings import settings
 from .frame_renderer import FrameRenderer
 from .horse_database import HorseDatabaseService
-from .horse_reid import HorseReIDModel
+from ..models.horse_reid import HorseReIDModel
 
 
 class ReprocessingResult:
