@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DetectionCorrectionModal } from './DetectionCorrectionModal';
+import { BulkCorrectionModal } from './BulkCorrectionModal';
 import { useCorrectionStore } from '../stores/correctionStore';
 import type { CorrectionPayload } from '@barnhand/shared';
 
@@ -120,6 +121,10 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
   const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
   const [selectedDetection, setSelectedDetection] = useState<TrackedHorse | null>(null);
   const [barnHorses, setBarnHorses] = useState<BarnHorse[]>([]);
+
+  // Bulk correction modal state
+  const [bulkCorrectionModalOpen, setBulkCorrectionModalOpen] = useState(false);
+  const [selectedBulkHorse, setSelectedBulkHorse] = useState<ChunkHorse | null>(null);
 
   // Correction store
   const { addCorrection } = useCorrectionStore();
@@ -265,10 +270,40 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
     setCorrectionModalOpen(true);
   };
 
+  const handleBulkReassign = (horse: ChunkHorse) => {
+    setSelectedBulkHorse(horse);
+    setBulkCorrectionModalOpen(true);
+  };
+
   const handleSubmitCorrection = (correction: CorrectionPayload) => {
     // Add correction to the store
     addCorrection(correction);
     console.log('Correction queued:', correction);
+  };
+
+  const handleSubmitBulkCorrection = (targetHorseId: string) => {
+    if (!selectedBulkHorse) return;
+
+    // Find all frames where this horse appears and create corrections
+    let correctionsAdded = 0;
+    frames.forEach((frame) => {
+      const horseInFrame = frame.tracked_horses?.find(h => h.id === selectedBulkHorse.id);
+      if (horseInFrame) {
+        const correction: CorrectionPayload = {
+          detection_index: parseInt(horseInFrame.id.split('_').pop() || '0'),
+          frame_index: frame.frame_index,
+          correction_type: 'reassign',
+          original_horse_id: selectedBulkHorse.id,
+          corrected_horse_id: targetHorseId,
+        };
+        addCorrection(correction);
+        correctionsAdded++;
+      }
+    });
+
+    console.log(`Bulk reassignment: ${correctionsAdded} corrections queued for ${selectedBulkHorse.id} -> ${targetHorseId}`);
+    setBulkCorrectionModalOpen(false);
+    setSelectedBulkHorse(null);
   };
 
   if (!currentFrame) {
@@ -472,9 +507,31 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
                       </span>
                     )}
                     <button
+                      onClick={() => {
+                        const chunkHorse = horses.find(h => h.id === horse.id);
+                        if (chunkHorse) handleBulkReassign(chunkHorse);
+                      }}
+                      className="p-1 hover:bg-slate-700 rounded transition-colors group"
+                      title="Reassign all frames where this horse appears"
+                    >
+                      <svg
+                        className="w-4 h-4 text-slate-400 group-hover:text-amber-400 transition-colors"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                        />
+                      </svg>
+                    </button>
+                    <button
                       onClick={() => handleEditDetection(horse)}
                       className="p-1 hover:bg-slate-700 rounded transition-colors group"
-                      title="Edit this detection"
+                      title="Edit this frame only"
                     >
                       <svg
                         className="w-4 h-4 text-slate-400 group-hover:text-cyan-400 transition-colors"
@@ -643,6 +700,22 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
           allHorses={horses}
           barnHorses={barnHorses}
           onSubmit={handleSubmitCorrection}
+        />
+      )}
+
+      {/* Bulk Correction Modal */}
+      {selectedBulkHorse && (
+        <BulkCorrectionModal
+          isOpen={bulkCorrectionModalOpen}
+          onClose={() => {
+            setBulkCorrectionModalOpen(false);
+            setSelectedBulkHorse(null);
+          }}
+          horse={selectedBulkHorse}
+          allHorses={horses}
+          barnHorses={barnHorses}
+          framesCount={selectedBulkHorse.total_detections}
+          onSubmit={handleSubmitBulkCorrection}
         />
       )}
     </div>
