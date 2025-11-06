@@ -3,6 +3,14 @@ import { DetectionCorrectionModal } from './DetectionCorrectionModal';
 import { useCorrectionStore } from '../stores/correctionStore';
 import type { CorrectionPayload } from '@barnhand/shared';
 
+interface BarnHorse {
+  id: string;
+  name: string;
+  color: string;
+  avatar_url?: string;
+  is_official: boolean;
+}
+
 interface MLSettings {
   model: string;
   confidence_threshold: number;
@@ -111,11 +119,37 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
   // Correction modal state
   const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
   const [selectedDetection, setSelectedDetection] = useState<TrackedHorse | null>(null);
+  const [barnHorses, setBarnHorses] = useState<BarnHorse[]>([]);
 
   // Correction store
   const { addCorrection } = useCorrectionStore();
 
   const currentFrame = frames[currentFrameIndex];
+
+  // Fetch barn horses for dropdown
+  useEffect(() => {
+    const fetchBarnHorses = async () => {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+
+      try {
+        const response = await fetch('http://localhost:8000/api/v1/horses', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setBarnHorses(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch barn horses:', error);
+      }
+    };
+
+    fetchBarnHorses();
+  }, []);
 
   // Create lookup map for horse names by ID
   const horseNameMap = React.useMemo(() => {
@@ -607,6 +641,7 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
           detection={selectedDetection}
           frameIndex={currentFrame.frame_index}
           allHorses={horses}
+          barnHorses={barnHorses}
           onSubmit={handleSubmitCorrection}
         />
       )}

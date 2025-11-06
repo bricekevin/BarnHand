@@ -32,12 +32,21 @@ interface ChunkHorse {
   is_official?: boolean;
 }
 
+interface BarnHorse {
+  id: string;
+  name: string;
+  color: string;
+  avatar_url?: string;
+  is_official: boolean;
+}
+
 interface DetectionCorrectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   detection: TrackedHorse;
   frameIndex: number;
   allHorses: ChunkHorse[];
+  barnHorses: BarnHorse[];
   onSubmit: (correction: CorrectionPayload) => void;
 }
 
@@ -51,7 +60,7 @@ interface DetectionCorrectionModalProps {
  */
 export const DetectionCorrectionModal: React.FC<
   DetectionCorrectionModalProps
-> = ({ isOpen, onClose, detection, frameIndex, allHorses, onSubmit }) => {
+> = ({ isOpen, onClose, detection, frameIndex, allHorses, barnHorses, onSubmit }) => {
   const [correctionType, setCorrectionType] =
     useState<CorrectionType>('reassign');
   const [targetHorseId, setTargetHorseId] = useState<string>('');
@@ -133,6 +142,11 @@ export const DetectionCorrectionModal: React.FC<
   // Filter out current horse from reassign options
   const availableHorses = allHorses.filter(h => h.id !== detection.id);
 
+  // Filter barn horses that aren't already in chunk
+  const availableBarnHorses = barnHorses.filter(
+    bh => !allHorses.some(ch => ch.id === bh.id)
+  );
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-slate-900 rounded-xl p-6 w-full max-w-lg mx-4 border border-slate-700 shadow-xl">
@@ -207,16 +221,40 @@ export const DetectionCorrectionModal: React.FC<
                       value={targetHorseId}
                       onChange={e => setTargetHorseId(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-emerald-500 focus:outline-none"
+                      data-testid="target-horse-select"
                     >
                       <option value="">Select horse...</option>
-                      {availableHorses.map(horse => (
-                        <option key={horse.id} value={horse.id}>
-                          {horse.name || `Horse ${horse.id}`}
-                          {horse.is_official && ' ⭐'}
-                          {' • '}
-                          {horse.total_detections} detections
-                        </option>
-                      ))}
+
+                      {/* Barn Horses Section */}
+                      {availableBarnHorses.length > 0 && (
+                        <>
+                          <option disabled className="text-slate-500">
+                            ─── Your Barn Horses ───
+                          </option>
+                          {availableBarnHorses.map(horse => (
+                            <option key={horse.id} value={horse.id}>
+                              {horse.name} ⭐ (Barn Horse)
+                            </option>
+                          ))}
+                        </>
+                      )}
+
+                      {/* Chunk Horses Section */}
+                      {availableHorses.length > 0 && (
+                        <>
+                          <option disabled className="text-slate-500">
+                            ─── Horses in This Chunk ───
+                          </option>
+                          {availableHorses.map(horse => (
+                            <option key={horse.id} value={horse.id}>
+                              {horse.name || `Horse ${horse.id}`}
+                              {horse.is_official && ' ⭐'}
+                              {' • '}
+                              {horse.total_detections} detections
+                            </option>
+                          ))}
+                        </>
+                      )}
                     </select>
                   )}
                 </div>
