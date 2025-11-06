@@ -192,14 +192,31 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            corrections: pendingCorrections.map(c => ({
-              detection_index: c.detection_index,
-              frame_index: c.frame_index,
-              correction_type: c.correction_type,
-              original_horse_id: c.original_horse_id,
-              corrected_horse_id: c.corrected_horse_id,
-              corrected_horse_name: c.corrected_horse_name,
-            })),
+            corrections: pendingCorrections.map(c => {
+              const payload: {
+                detection_index: number;
+                frame_index: number;
+                correction_type: string;
+                original_horse_id: string;
+                corrected_horse_id?: string;
+                corrected_horse_name?: string;
+              } = {
+                detection_index: c.detection_index,
+                frame_index: c.frame_index,
+                correction_type: c.correction_type,
+                original_horse_id: c.original_horse_id,
+              };
+
+              // Only include optional fields if they have values (not undefined)
+              if (c.corrected_horse_id !== undefined) {
+                payload.corrected_horse_id = c.corrected_horse_id;
+              }
+              if (c.corrected_horse_name !== undefined) {
+                payload.corrected_horse_name = c.corrected_horse_name;
+              }
+
+              return payload;
+            }),
           }),
         }
       );
