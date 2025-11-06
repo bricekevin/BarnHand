@@ -140,11 +140,11 @@ export const DetectionCorrectionModal: React.FC<
   const currentHorseName = detection.name || `Horse ${detection.id}`;
 
   // Filter out current horse from reassign options
-  const availableHorses = allHorses.filter(h => h.id !== detection.id);
+  const availableHorses = (allHorses || []).filter(h => h.id !== detection.id);
 
   // Filter barn horses that aren't already in chunk
   const availableBarnHorses = (barnHorses || []).filter(
-    bh => !allHorses.some(ch => ch.id === bh.id)
+    bh => !(allHorses || []).some(ch => ch.id === bh.id)
   );
 
   return (
