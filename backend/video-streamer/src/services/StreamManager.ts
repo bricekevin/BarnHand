@@ -475,7 +475,10 @@ export class StreamManager {
       // Check age of last segment
       const lastSegmentAge = Date.now() - stats.mtime.getTime();
 
-      const isHealthy = segmentCount > 0 && lastSegmentAge < 10000; // Less than 10 seconds old
+      // Stream is healthy if it has segments and playlist was updated in last 45 seconds
+      // This gives FFmpeg enough time to handle brief pauses without triggering restarts
+      // (Health check runs every 30s, so 45s = 1.5x the check interval)
+      const isHealthy = segmentCount > 0 && lastSegmentAge < 45000;
 
       return {
         isHealthy,
