@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { DetectionCorrectionModal } from './DetectionCorrectionModal';
-import { BulkCorrectionModal } from './BulkCorrectionModal';
-import { useCorrectionStore } from '../stores/correctionStore';
 import type { CorrectionPayload } from '@barnhand/shared';
+import React, { useState, useEffect } from 'react';
+
+import { BulkCorrectionModal } from './BulkCorrectionModal';
+import { DetectionCorrectionModal } from './DetectionCorrectionModal';
+import { useCorrectionStore } from '../stores/correctionStore';
 
 interface BarnHorse {
   id: string;
@@ -97,7 +98,7 @@ interface FrameInspectorProps {
   streamId: string;
   chunkId: string | null;
   frames: FrameData[];
-  horses: ChunkHorse[];  // Top-level horses array with names
+  horses: ChunkHorse[]; // Top-level horses array with names
   videoMetadata: {
     fps: number;
     total_frames: number;
@@ -119,12 +120,15 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
 
   // Correction modal state
   const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
-  const [selectedDetection, setSelectedDetection] = useState<TrackedHorse | null>(null);
+  const [selectedDetection, setSelectedDetection] =
+    useState<TrackedHorse | null>(null);
   const [barnHorses, setBarnHorses] = useState<BarnHorse[]>([]);
 
   // Bulk correction modal state
   const [bulkCorrectionModalOpen, setBulkCorrectionModalOpen] = useState(false);
-  const [selectedBulkHorse, setSelectedBulkHorse] = useState<ChunkHorse | null>(null);
+  const [selectedBulkHorse, setSelectedBulkHorse] = useState<ChunkHorse | null>(
+    null
+  );
 
   // Correction store
   const { addCorrection } = useCorrectionStore();
@@ -146,7 +150,7 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
 
         if (response.ok) {
           const data = await response.json();
-          setBarnHorses(data);
+          setBarnHorses(data.horses || []); // Extract horses array from response
         }
       } catch (error) {
         console.error('Failed to fetch barn horses:', error);
@@ -286,8 +290,10 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
 
     // Find all frames where this horse appears and create corrections
     let correctionsAdded = 0;
-    frames.forEach((frame) => {
-      const horseInFrame = frame.tracked_horses?.find(h => h.id === selectedBulkHorse.id);
+    frames.forEach(frame => {
+      const horseInFrame = frame.tracked_horses?.find(
+        h => h.id === selectedBulkHorse.id
+      );
       if (horseInFrame) {
         const correction: CorrectionPayload = {
           detection_index: parseInt(horseInFrame.id.split('_').pop() || '0'),
@@ -301,7 +307,9 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
       }
     });
 
-    console.log(`Bulk reassignment: ${correctionsAdded} corrections queued for ${selectedBulkHorse.id} -> ${targetHorseId}`);
+    console.log(
+      `Bulk reassignment: ${correctionsAdded} corrections queued for ${selectedBulkHorse.id} -> ${targetHorseId}`
+    );
     setBulkCorrectionModalOpen(false);
     setSelectedBulkHorse(null);
   };
@@ -471,7 +479,8 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
             )}
           </div>
           <div className="text-xs text-slate-400 mt-2 text-center">
-            Frame {currentFrame.frame_index} • {videoMetadata.resolution} • {(currentFrame.timestamp).toFixed(2)}s
+            Frame {currentFrame.frame_index} • {videoMetadata.resolution} •{' '}
+            {currentFrame.timestamp.toFixed(2)}s
           </div>
         </div>
       )}
@@ -550,15 +559,37 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
                   </div>
                 </div>
                 <div className="text-xs text-slate-400 space-y-0.5">
-                  <div>ID: <span className="text-cyan-400 font-mono">{horse.id}</span></div>
-                  <div>Confidence: <span className="text-slate-300">{(horse.confidence * 100).toFixed(1)}%</span></div>
-                  <div>Track: <span className="text-slate-300">{(horse.track_confidence * 100).toFixed(1)}%</span></div>
+                  <div>
+                    ID:{' '}
+                    <span className="text-cyan-400 font-mono">{horse.id}</span>
+                  </div>
+                  <div>
+                    Confidence:{' '}
+                    <span className="text-slate-300">
+                      {(horse.confidence * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div>
+                    Track:{' '}
+                    <span className="text-slate-300">
+                      {(horse.track_confidence * 100).toFixed(1)}%
+                    </span>
+                  </div>
                   {horse.reid_confidence !== undefined && (
-                    <div>ReID: <span className="text-slate-300">{(horse.reid_confidence * 100).toFixed(1)}%</span></div>
+                    <div>
+                      ReID:{' '}
+                      <span className="text-slate-300">
+                        {(horse.reid_confidence * 100).toFixed(1)}%
+                      </span>
+                    </div>
                   )}
-                  <div>Bbox: <span className="text-slate-300 font-mono">
-                    {horse.bbox.x},{horse.bbox.y} {horse.bbox.width}x{horse.bbox.height}
-                  </span></div>
+                  <div>
+                    Bbox:{' '}
+                    <span className="text-slate-300 font-mono">
+                      {horse.bbox.x},{horse.bbox.y} {horse.bbox.width}x
+                      {horse.bbox.height}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -582,11 +613,25 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
                 className="p-2 bg-slate-900/50 rounded border-l-4 border-amber-400"
               >
                 <div className="text-xs text-slate-400 space-y-0.5">
-                  <div>Class: <span className="text-slate-300">{detection.class_name || 'horse'}</span></div>
-                  <div>Confidence: <span className="text-amber-400">{(detection.confidence * 100).toFixed(1)}%</span></div>
-                  <div>Bbox: <span className="text-slate-300 font-mono">
-                    {detection.bbox.x},{detection.bbox.y} {detection.bbox.width}x{detection.bbox.height}
-                  </span></div>
+                  <div>
+                    Class:{' '}
+                    <span className="text-slate-300">
+                      {detection.class_name || 'horse'}
+                    </span>
+                  </div>
+                  <div>
+                    Confidence:{' '}
+                    <span className="text-amber-400">
+                      {(detection.confidence * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div>
+                    Bbox:{' '}
+                    <span className="text-slate-300 font-mono">
+                      {detection.bbox.x},{detection.bbox.y}{' '}
+                      {detection.bbox.width}x{detection.bbox.height}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -607,24 +652,36 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
             <div className="space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-400">Model:</span>
-                <span className="text-slate-300 font-mono">{currentFrame.ml_settings.model}</span>
+                <span className="text-slate-300 font-mono">
+                  {currentFrame.ml_settings.model}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Confidence:</span>
-                <span className="text-slate-300 font-mono">{currentFrame.ml_settings.confidence_threshold}</span>
+                <span className="text-slate-300 font-mono">
+                  {currentFrame.ml_settings.confidence_threshold}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Frame Interval:</span>
-                <span className="text-slate-300 font-mono">{currentFrame.ml_settings.frame_interval}</span>
+                <span className="text-slate-300 font-mono">
+                  {currentFrame.ml_settings.frame_interval}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Mode:</span>
-                <span className="text-slate-300 font-mono">{currentFrame.ml_settings.mode}</span>
+                <span className="text-slate-300 font-mono">
+                  {currentFrame.ml_settings.mode}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">New Horses:</span>
-                <span className={`font-mono ${currentFrame.ml_settings.allow_new_horses ? 'text-green-400' : 'text-red-400'}`}>
-                  {currentFrame.ml_settings.allow_new_horses ? 'Allowed' : 'Disabled'}
+                <span
+                  className={`font-mono ${currentFrame.ml_settings.allow_new_horses ? 'text-green-400' : 'text-red-400'}`}
+                >
+                  {currentFrame.ml_settings.allow_new_horses
+                    ? 'Allowed'
+                    : 'Disabled'}
                 </span>
               </div>
             </div>
@@ -640,11 +697,15 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
             <div className="space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-400">Similarity Threshold:</span>
-                <span className="text-slate-300 font-mono">{currentFrame.reid_details.similarity_threshold}</span>
+                <span className="text-slate-300 font-mono">
+                  {currentFrame.reid_details.similarity_threshold}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Known Horses:</span>
-                <span className="text-slate-300 font-mono">{currentFrame.reid_details.known_horses_count}</span>
+                <span className="text-slate-300 font-mono">
+                  {currentFrame.reid_details.known_horses_count}
+                </span>
               </div>
             </div>
           </div>
@@ -657,23 +718,35 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
           </h4>
           <div className="space-y-2">
             {currentFrame.poses.map((pose, idx) => {
-              const horse = currentFrame.tracked_horses.find(h => h.id === pose.horse_id);
+              const horse = currentFrame.tracked_horses.find(
+                h => h.id === pose.horse_id
+              );
               return (
                 <div
                   key={idx}
                   className="p-2 bg-slate-900/50 rounded border-l-4"
-                  style={{ borderColor: horse ? rgbToString(horse.color) : 'rgb(148, 163, 184)' }}
+                  style={{
+                    borderColor: horse
+                      ? rgbToString(horse.color)
+                      : 'rgb(148, 163, 184)',
+                  }}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-slate-100 text-sm font-semibold">
                       {getHorseName(pose.horse_id)}
                     </span>
                     <span className="text-xs text-slate-400">
-                      Confidence: <span className="text-slate-300">{(pose.confidence * 100).toFixed(1)}%</span>
+                      Confidence:{' '}
+                      <span className="text-slate-300">
+                        {(pose.confidence * 100).toFixed(1)}%
+                      </span>
                     </span>
                   </div>
                   <div className="text-xs text-slate-400 mt-1">
-                    Keypoints: <span className="text-slate-300">{pose.pose.keypoints.length}</span>
+                    Keypoints:{' '}
+                    <span className="text-slate-300">
+                      {pose.pose.keypoints.length}
+                    </span>
                   </div>
                 </div>
               );

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { FrameInspector } from './FrameInspector';
+
 import { CorrectionBatchPanel } from './CorrectionBatchPanel';
+import { FrameInspector } from './FrameInspector';
+import { useCorrectionStore } from '../stores/correctionStore';
 
 interface Horse {
   id: string; // Global tracking ID (e.g., "1_horse_001")
@@ -65,6 +67,9 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
   const [showRawJSON, setShowRawJSON] = useState(false);
   const [selectedHorse, setSelectedHorse] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const { pendingCorrections, clearCorrections } = useCorrectionStore();
 
   useEffect(() => {
     if (chunkId) {
@@ -162,6 +167,70 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const handleProcessCorrections = async () => {
+    if (!chunkId || pendingCorrections.length === 0) {
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        setError('No authentication token available');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Submit corrections to API
+      const response = await fetch(
+        `http://localhost:8000/api/v1/streams/${streamId}/chunks/${chunkId}/corrections`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            corrections: pendingCorrections.map(c => ({
+              detection_index: c.detection_index,
+              frame_index: c.frame_index,
+              correction_type: c.correction_type,
+              original_horse_id: c.original_horse_id,
+              corrected_horse_id: c.corrected_horse_id,
+              corrected_horse_name: c.corrected_horse_name,
+            })),
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Corrections submitted successfully:', result);
+
+        // Clear corrections from store
+        clearCorrections();
+
+        // Show success message briefly
+        setError(null);
+
+        // Refresh detection data after processing
+        setTimeout(() => {
+          fetchDetectionData();
+        }, 2000);
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Failed to submit corrections:', errorData);
+        setError(errorData.message || 'Failed to submit corrections');
+      }
+    } catch (err) {
+      console.error('Error submitting corrections:', err);
+      setError('Error submitting corrections');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   if (!chunkId) {
     return (
       <div className="detection-panel-empty">
@@ -226,7 +295,11 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
   return (
     <div className="detection-data-panel">
       {/* Correction Batch Panel */}
-      <CorrectionBatchPanel streamId={streamId} chunkId={chunkId || ''} />
+      <CorrectionBatchPanel
+        horses={detectionData.horses || []}
+        onProcessCorrections={handleProcessCorrections}
+        isProcessing={isProcessing}
+      />
 
       {/* Summary Section */}
       <div className="summary-section control-panel mb-4">
