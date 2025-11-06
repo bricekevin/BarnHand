@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FrameInspector } from './FrameInspector';
+import { CorrectionBatchPanel } from './CorrectionBatchPanel';
 
 interface Horse {
   id: string; // Global tracking ID (e.g., "1_horse_001")
@@ -224,6 +225,9 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
 
   return (
     <div className="detection-data-panel">
+      {/* Correction Batch Panel */}
+      <CorrectionBatchPanel streamId={streamId} chunkId={chunkId || ''} />
+
       {/* Summary Section */}
       <div className="summary-section control-panel mb-4">
         <h3 className="text-sm font-semibold text-cyan-400 mb-3 uppercase tracking-wide">
