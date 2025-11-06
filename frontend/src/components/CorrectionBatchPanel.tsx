@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { useCorrectionStore } from '../stores/correctionStore';
 import type { PendingCorrection } from '@barnhand/shared';
+import React, { useState } from 'react';
+
+import { useCorrectionStore } from '../stores/correctionStore';
 
 interface ChunkHorse {
   id: string;
@@ -42,7 +43,7 @@ export const CorrectionBatchPanel: React.FC<CorrectionBatchPanelProps> = ({
 
   // Helper to get horse name by ID
   const getHorseName = (horseId: string): string => {
-    const horse = horses.find(h => h.id === horseId);
+    const horse = (horses || []).find(h => h.id === horseId);
     return horse?.name || `Horse ${horseId}`;
   };
 
@@ -51,11 +52,12 @@ export const CorrectionBatchPanel: React.FC<CorrectionBatchPanelProps> = ({
     const originalName = getHorseName(correction.original_horse_id);
 
     switch (correction.correction_type) {
-      case 'reassign':
+      case 'reassign': {
         const targetName = correction.corrected_horse_id
           ? getHorseName(correction.corrected_horse_id)
           : 'Unknown';
         return `${originalName} → ${targetName}`;
+      }
       case 'new_guest':
         return `${originalName} → ${correction.corrected_horse_name || 'New Guest'}`;
       case 'mark_incorrect':
