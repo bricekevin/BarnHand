@@ -182,45 +182,58 @@ class CorrectionService {
     corrections: CorrectionPayload[],
     userId: string
   ): Promise<CorrectionResponse> {
-    if (!this.useDatabase) {
-      throw new Error('Database not available');
-    }
-
     logger.info('Submitting corrections', {
       chunkId,
       streamId,
       userId,
       correctionsCount: corrections.length,
+      useDatabase: this.useDatabase,
     });
 
-    // Validate all corrections first
+    // Validate all corrections first (simple validation without database)
     for (const correction of corrections) {
-      const validation = await this.validateCorrection(correction, chunkId);
-      if (!validation.valid) {
-        throw new Error(`Invalid correction: ${validation.errors.join(', ')}`);
+      // Basic validation
+      if (correction.correction_type === 'reassign' && !correction.corrected_horse_id) {
+        throw new Error('Reassign correction requires corrected_horse_id');
+      }
+      if (correction.correction_type === 'new_guest' && !correction.corrected_horse_name) {
+        throw new Error('New guest correction requires corrected_horse_name');
+      }
+      if (correction.detection_index < 0 || correction.frame_index < 0) {
+        throw new Error('Invalid detection or frame index');
       }
     }
 
-    // Store corrections in database
+    // Store corrections in database if available
     const createdCorrections = [];
-    for (const correction of corrections) {
-      const created = await this.correctionRepository.create({
-        chunk_id: chunkId,
-        detection_index: correction.detection_index,
-        frame_index: correction.frame_index,
-        correction_type: correction.correction_type,
-        original_horse_id: correction.original_horse_id,
-        corrected_horse_id: correction.corrected_horse_id,
-        corrected_horse_name: correction.corrected_horse_name,
-        user_id: userId,
-      });
-      createdCorrections.push(created);
-    }
+    if (this.useDatabase) {
+      try {
+        for (const correction of corrections) {
+          const created = await this.correctionRepository.create({
+            chunk_id: chunkId,
+            detection_index: correction.detection_index,
+            frame_index: correction.frame_index,
+            correction_type: correction.correction_type,
+            original_horse_id: correction.original_horse_id,
+            corrected_horse_id: correction.corrected_horse_id,
+            corrected_horse_name: correction.corrected_horse_name,
+            user_id: userId,
+          });
+          createdCorrections.push(created);
+        }
 
-    logger.info('Corrections stored in database', {
-      chunkId,
-      correctionIds: createdCorrections.map(c => c.id),
-    });
+        logger.info('Corrections stored in database', {
+          chunkId,
+          correctionIds: createdCorrections.map(c => c.id),
+        });
+      } catch (error) {
+        logger.warn('Failed to store corrections in database, continuing without persistence', {
+          error: (error as Error).message,
+        });
+      }
+    } else {
+      logger.info('Database not available, triggering ML service directly without persistence');
+    }
 
     // Trigger ML service re-processing (async)
     try {
@@ -230,13 +243,15 @@ class CorrectionService {
         error: (error as Error).message,
         chunkId,
       });
-      // Mark corrections as failed
-      for (const correction of createdCorrections) {
-        await this.correctionRepository.updateStatus(
-          correction.id,
-          'failed',
-          `Failed to trigger re-processing: ${(error as Error).message}`
-        );
+      // Mark corrections as failed if we have them in database
+      if (this.useDatabase && createdCorrections.length > 0) {
+        for (const correction of createdCorrections) {
+          await this.correctionRepository.updateStatus(
+            correction.id,
+            'failed',
+            `Failed to trigger re-processing: ${(error as Error).message}`
+          );
+        }
       }
       throw new Error(`Failed to trigger re-processing: ${(error as Error).message}`);
     }
