@@ -284,7 +284,7 @@ class CorrectionService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ corrections }),
+        body: JSON.stringify({ chunk_id: chunkId, corrections }),
         signal: controller.signal,
       });
 
