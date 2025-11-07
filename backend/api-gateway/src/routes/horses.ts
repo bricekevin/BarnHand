@@ -55,14 +55,9 @@ router.get(
           ? req.query.farm_id
           : req.user.farmId;
 
-      // Query real horses from database
+      // Query real horses from database (automatically filters out deleted horses)
       try {
-        let horses = [];
-        if (farmId) {
-          horses = await horseRepository.findByFarmId(farmId);
-        } else {
-          horses = await horseRepository.findAll();
-        }
+        const horses = await horseRepository.findAll(farmId);
 
         logger.info('Horses listed from database', {
           userId: req.user.userId,
