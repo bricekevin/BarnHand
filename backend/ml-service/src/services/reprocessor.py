@@ -218,8 +218,7 @@ class ReprocessorService:
             try:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT id, stream_id, start_time, end_time,
-                           processed_video_path, detections_path, status
+                    SELECT id, stream_id, start_time, end_time, processed_path, status, processing_metadata
                     FROM video_chunks
                     WHERE id = %s
                 """, (chunk_id,))
@@ -233,15 +232,19 @@ class ReprocessorService:
                 if row[2] and row[3]:  # start_time and end_time
                     duration = (row[3] - row[2]).total_seconds()
 
+                # Get detections path from processing_metadata if available
+                processing_metadata = row[6] or {}
+                detections_path = processing_metadata.get("detections_path")
+
                 return {
                     "chunk_id": row[0],
                     "stream_id": row[1],
                     "start_time": row[2],
                     "end_time": row[3],
                     "duration": duration,
-                    "processed_video_path": row[4],
-                    "detections_path": row[5],
-                    "status": row[6]
+                    "processed_video_path": row[4],  # actually processed_path from DB
+                    "detections_path": detections_path,
+                    "status": row[5]
                 }
             finally:
                 self.horse_db.pool.putconn(conn)
