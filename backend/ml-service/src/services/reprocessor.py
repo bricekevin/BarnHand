@@ -218,7 +218,7 @@ class ReprocessorService:
             try:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT id, stream_id, start_time, end_time, duration,
+                    SELECT id, stream_id, start_time, end_time,
                            processed_video_path, detections_path, status
                     FROM video_chunks
                     WHERE id = %s
@@ -228,15 +228,20 @@ class ReprocessorService:
                 if not row:
                     raise ValueError(f"Chunk not found: {chunk_id}")
 
+                # Calculate duration from start_time and end_time if available
+                duration = None
+                if row[2] and row[3]:  # start_time and end_time
+                    duration = (row[3] - row[2]).total_seconds()
+
                 return {
                     "chunk_id": row[0],
                     "stream_id": row[1],
                     "start_time": row[2],
                     "end_time": row[3],
-                    "duration": row[4],
-                    "processed_video_path": row[5],
-                    "detections_path": row[6],
-                    "status": row[7]
+                    "duration": duration,
+                    "processed_video_path": row[4],
+                    "detections_path": row[5],
+                    "status": row[6]
                 }
             finally:
                 self.horse_db.pool.putconn(conn)
