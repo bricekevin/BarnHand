@@ -11,6 +11,7 @@ export * from './repositories/StreamRepository';
 export * from './repositories/HorseRepository';
 export * from './repositories/DetectionRepository';
 export * from './repositories/HorseFeatureRepository';
+export * from './repositories/CorrectionRepository';
 
 // Seeds
 export * from './seeds/seed';
