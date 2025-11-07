@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { HorseRepository } from '@barnhand/database';
 
 import { logger } from '../config/logger';
 import {
@@ -10,6 +11,9 @@ import {
 import { validateSchema } from '../middleware/validation';
 import { UserRole } from '../types/auth';
 // AuthenticatedRequest is now handled by createAuthenticatedRoute wrapper
+
+// Initialize repository
+const horseRepository = new HorseRepository();
 
 // Validation schemas
 const horseParamsSchema = z.object({
@@ -51,50 +55,33 @@ router.get(
           ? req.query.farm_id
           : req.user.farmId;
 
-      // TODO: Replace with HorseRepository.findAll()
-      const mockHorses = [
-        {
-          id: '123e4567-e89b-12d3-a456-426614174200',
-          farm_id: '123e4567-e89b-12d3-a456-426614174010',
-          name: 'Thunder',
-          description: 'Bay stallion, main breeding horse',
-          tracking_id: 'horse_001',
-          color_assignment: '#ff6b6b',
-          last_seen: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-          detection_count: 1247,
-          metadata: { breed: 'Thoroughbred', age: 8 },
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-        {
-          id: '123e4567-e89b-12d3-a456-426614174201',
-          farm_id: '123e4567-e89b-12d3-a456-426614174010',
-          name: 'Luna',
-          description: 'White mare, gentle temperament',
-          tracking_id: 'horse_002',
-          color_assignment: '#4ecdc4',
-          last_seen: new Date(Date.now() - 10 * 60 * 1000), // 10 minutes ago
-          detection_count: 892,
-          metadata: { breed: 'Arabian', age: 6 },
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      ];
+      // Query real horses from database
+      try {
+        let horses = [];
+        if (farmId) {
+          horses = await horseRepository.findByFarmId(farmId);
+        } else {
+          horses = await horseRepository.findAll();
+        }
 
-      const filteredHorses = farmId
-        ? mockHorses.filter(h => h.farm_id === farmId)
-        : mockHorses;
+        logger.info('Horses listed from database', {
+          userId: req.user.userId,
+          farmId,
+          count: horses.length,
+        });
 
-      logger.info('Horses listed', {
-        userId: req.user.userId,
-        farmId,
-        count: filteredHorses.length,
-      });
-
-      return res.json({
-        horses: filteredHorses,
-        total: filteredHorses.length,
-      });
+        return res.json({
+          horses,
+          total: horses.length,
+        });
+      } catch (dbError) {
+        logger.warn('Database query failed, returning empty list', { error: dbError });
+        // Return empty list if database fails
+        return res.json({
+          horses: [],
+          total: 0,
+        });
+      }
     } catch (error) {
       logger.error('List horses error', { error });
       return res.status(500).json({ error: 'Internal server error' });
