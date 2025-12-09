@@ -21,6 +21,7 @@ interface PresetScanResult {
   chunkId?: string;
   scannedAt?: string;
   error?: string;
+  snapshotBase64?: string; // Base64 encoded snapshot image
 }
 
 interface AutoScanResult {
@@ -109,6 +110,8 @@ export const AutoScanDialog: React.FC<AutoScanDialogProps> = ({
       presetName?: string;
       horsesDetected: boolean;
       horseCount: number;
+      snapshotBase64?: string;
+      detections?: Array<{ bbox: [number, number, number, number]; confidence: number }>;
     }
     interface PhaseChangePayload {
       streamId: string;
@@ -171,6 +174,8 @@ export const AutoScanDialog: React.FC<AutoScanDialogProps> = ({
           horsesDetected: data.horsesDetected,
           horseCount: data.horseCount,
           scannedAt: new Date().toISOString(),
+          snapshotBase64: data.snapshotBase64,
+          detections: data.detections,
         },
       ]);
     };
@@ -450,7 +455,7 @@ export const AutoScanDialog: React.FC<AutoScanDialogProps> = ({
             {results.map(result => (
               <div
                 key={result.preset}
-                className={`flex items-center justify-between p-3 rounded-lg border ${
+                className={`p-3 rounded-lg border ${
                   result.error
                     ? 'bg-red-500/10 border-red-500/30'
                     : result.horsesDetected
@@ -458,26 +463,78 @@ export const AutoScanDialog: React.FC<AutoScanDialogProps> = ({
                       : 'bg-slate-800 border-slate-700'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  {getStatusIcon(result)}
-                  <div>
-                    <p className="text-white font-medium">
-                      {result.presetName || `Preset ${result.preset}`}
-                    </p>
-                    <p className="text-sm text-slate-400">
-                      {result.error
-                        ? result.error
-                        : result.horsesDetected
-                          ? `${result.horseCount} horse${result.horseCount !== 1 ? 's' : ''} detected`
-                          : 'No horses detected'}
-                    </p>
+                <div className="flex gap-3">
+                  {/* Snapshot thumbnail */}
+                  {result.snapshotBase64 && (
+                    <div className="relative flex-shrink-0 w-24 h-18 rounded overflow-hidden bg-slate-900">
+                      <img
+                        src={result.snapshotBase64}
+                        alt={`Preset ${result.preset}`}
+                        className="w-full h-full object-cover"
+                      />
+                      {/* Detection boxes overlay */}
+                      {result.horsesDetected && result.detections && (
+                        <div className="absolute inset-0 pointer-events-none">
+                          {result.detections.map((det, idx) => {
+                            // Convert bbox [x1,y1,x2,y2] to percentage-based positioning
+                            const [x1, y1, x2, y2] = det.bbox;
+                            // Assume 1920x1080 resolution, scale to thumbnail
+                            const left = (x1 / 1920) * 100;
+                            const top = (y1 / 1080) * 100;
+                            const width = ((x2 - x1) / 1920) * 100;
+                            const height = ((y2 - y1) / 1080) * 100;
+                            return (
+                              <div
+                                key={idx}
+                                className="absolute border-2 border-emerald-400"
+                                style={{
+                                  left: `${left}%`,
+                                  top: `${top}%`,
+                                  width: `${width}%`,
+                                  height: `${height}%`,
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+                      {/* Horse count badge */}
+                      {result.horsesDetected && (
+                        <div className="absolute top-1 right-1 bg-emerald-500 text-white text-xs px-1.5 py-0.5 rounded font-bold">
+                          {result.horseCount}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Content */}
+                  <div className="flex-1 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {getStatusIcon(result)}
+                      <div>
+                        <p className="text-white font-medium">
+                          {result.presetName || `Preset ${result.preset}`}
+                        </p>
+                        <p className="text-sm text-slate-400">
+                          {result.error
+                            ? result.error
+                            : result.horsesDetected
+                              ? `${result.horseCount} horse${result.horseCount !== 1 ? 's' : ''} detected`
+                              : 'No horses detected'}
+                        </p>
+                        {result.detections && result.detections.length > 0 && (
+                          <p className="text-xs text-slate-500 mt-1">
+                            Confidence: {Math.round(Math.max(...result.detections.map(d => d.confidence)) * 100)}%
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {result.chunkId && (
+                      <span className="text-xs text-emerald-400 bg-emerald-500/20 px-2 py-1 rounded">
+                        Recorded
+                      </span>
+                    )}
                   </div>
                 </div>
-                {result.chunkId && (
-                  <span className="text-xs text-emerald-400 bg-emerald-500/20 px-2 py-1 rounded">
-                    Recorded
-                  </span>
-                )}
               </div>
             ))}
 
