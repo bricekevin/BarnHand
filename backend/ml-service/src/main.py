@@ -1,6 +1,6 @@
 """FastAPI ML service for horse detection and pose analysis."""
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict
 from typing import List, Dict, Any, Optional
@@ -11,6 +11,7 @@ from .config.settings import settings
 from .config.logging import setup_logging
 from .services.processor import ChunkProcessor
 from .services.reprocessor import ReprocessorService
+from .services.snapshot_detector import get_snapshot_detector, SnapshotDetector
 
 
 # Request/Response models
@@ -91,6 +92,22 @@ class ReprocessingStatus(BaseModel):
     error: Optional[str] = None
 
 
+class SnapshotDetection(BaseModel):
+    """Individual detection in snapshot."""
+    bbox: List[float]  # [x1, y1, x2, y2]
+    confidence: float
+    class_name: Optional[str] = "horse"
+
+
+class SnapshotDetectionResponse(BaseModel):
+    """Response from snapshot detection endpoint."""
+    horses_detected: bool
+    count: int
+    detections: List[SnapshotDetection]
+    processing_time_ms: float
+    error: Optional[str] = None
+
+
 class HealthResponse(BaseModel):
     status: str
     service: str
@@ -105,12 +122,13 @@ class HealthResponse(BaseModel):
 # Global processor instance
 processor: Optional[ChunkProcessor] = None
 reprocessor: Optional[ReprocessorService] = None
+snapshot_detector: Optional[SnapshotDetector] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
-    global processor, reprocessor
+    global processor, reprocessor, snapshot_detector
 
     # Startup
     setup_logging()
@@ -122,6 +140,11 @@ async def lifespan(app: FastAPI):
 
         reprocessor = ReprocessorService()
         await reprocessor.initialize()
+
+        # Initialize snapshot detector - shares detection model with processor for efficiency
+        snapshot_detector = SnapshotDetector(detection_model=processor.detection_model)
+        snapshot_detector._model_loaded = True  # Model already loaded by processor
+        logger.info("Snapshot detector initialized (sharing detection model)")
 
         logger.info("ML service startup completed")
         yield
@@ -161,6 +184,7 @@ async def root():
         "endpoints": {
             "process": "/api/process",
             "batch": "/api/batch",
+            "detect_snapshot": "/detect-snapshot",
             "health": "/health",
             "models": "/api/models",
             "tracking": "/api/tracking"
@@ -300,6 +324,67 @@ async def batch_process_chunks(request: BatchProcessRequest):
         
     except Exception as error:
         logger.error(f"Batch processing API error: {error}")
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+@app.post("/detect-snapshot", response_model=SnapshotDetectionResponse)
+async def detect_snapshot(
+    image: UploadFile = File(...),
+    confidence_threshold: float = Form(0.3)
+):
+    """
+    Fast horse detection on a single snapshot image.
+
+    This endpoint is optimized for the PTZ auto-scan feature:
+    - YOLO detection only (no pose estimation, no ReID)
+    - Lower confidence threshold (default 0.3) for higher recall
+    - Target response time: <500ms for 1080p image
+
+    Args:
+        image: JPEG or PNG image file
+        confidence_threshold: Detection confidence threshold (default 0.3)
+
+    Returns:
+        SnapshotDetectionResponse with detection results
+    """
+    if not snapshot_detector:
+        raise HTTPException(status_code=503, detail="Snapshot detector not initialized")
+
+    try:
+        # Read image bytes
+        image_bytes = await image.read()
+
+        if not image_bytes:
+            raise HTTPException(status_code=400, detail="Empty image file")
+
+        # Run detection
+        result = snapshot_detector.detect_horses_in_snapshot(
+            image_bytes=image_bytes,
+            confidence_threshold=confidence_threshold
+        )
+
+        # Convert detections to response model format
+        detections = [
+            SnapshotDetection(
+                bbox=d["bbox"],
+                confidence=d["confidence"],
+                class_name=d.get("class_name", "horse")
+            )
+            for d in result.get("detections", [])
+        ]
+
+        return SnapshotDetectionResponse(
+            horses_detected=result["horses_detected"],
+            count=result["count"],
+            detections=detections,
+            processing_time_ms=result["processing_time_ms"],
+            error=result.get("error")
+        )
+
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error(f"Snapshot detection error: {error}")
         raise HTTPException(status_code=500, detail=str(error))
 
 
