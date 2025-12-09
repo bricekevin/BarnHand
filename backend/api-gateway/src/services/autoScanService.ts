@@ -363,6 +363,9 @@ export class AutoScanService {
           state.locationsWithHorses.push(preset.number);
         }
 
+        // Convert snapshot to base64 for frontend display
+        const snapshotBase64 = snapshotBytes.toString('base64');
+
         this.emitEvent('autoScan:detection', {
           streamId: state.streamId,
           scanId: state.scanId,
@@ -370,6 +373,8 @@ export class AutoScanService {
           presetName: preset.name,
           horsesDetected: detection.horsesDetected,
           horseCount: detection.count,
+          snapshotBase64: `data:image/jpeg;base64,${snapshotBase64}`,
+          detections: detection.detections,
         });
 
         logger.info(`Detection at preset ${preset.number}: ${detection.count} horses`);

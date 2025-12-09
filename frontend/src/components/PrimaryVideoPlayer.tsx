@@ -627,13 +627,31 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Get count of saved PTZ presets
-  const ptzPresets = streamConfig?.ptzPresets || {};
-  const presetCount = Object.keys(ptzPresets).length;
+  // Check if this is a PTZ-capable stream (RTSP with credentials)
+  // Camera manages its own presets (0-9), so we always enable auto-scan for PTZ streams
+  const hasPTZCredentials = !!(
+    streamConfig?.ptzCredentials?.username ||
+    streamConfig?.username ||
+    (sourceUrl && localStorage.getItem(`ptz_auth_${sourceUrl}`))
+  );
+
+  // Debug: Log PTZ capability check
+  console.log('🎯 Auto-Scan Check:', {
+    streamId: stream.id,
+    sourceUrl,
+    hasPTZCredentials,
+    configUsername: streamConfig?.username,
+    ptzCredUsername: streamConfig?.ptzCredentials?.username,
+    localStorageKey: sourceUrl ? `ptz_auth_${sourceUrl}` : 'N/A',
+    hasLocalStorage: sourceUrl ? !!localStorage.getItem(`ptz_auth_${sourceUrl}`) : false,
+  });
+
+  // Default to scanning presets 1-8 (camera's preset range)
+  const defaultPresetCount = 8;
 
   // Auto-scan handlers
   const handleStartAutoScan = async () => {
-    if (isAutoScanning || presetCount === 0) return;
+    if (isAutoScanning) return;
 
     setIsAutoScanning(true);
     setShowAutoScanDialog(true);
@@ -1015,8 +1033,8 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
         />
       )}
 
-      {/* Auto-Scan Button - Only in Live mode for RTSP streams with presets */}
-      {stream.status === 'active' && viewMode === 'live' && sourceUrl && presetCount > 0 && (
+      {/* Auto-Scan Button - Only in Live mode for PTZ-capable RTSP streams */}
+      {stream.status === 'active' && viewMode === 'live' && sourceUrl && hasPTZCredentials && (
         <div className="mt-4">
           <button
             onClick={handleStartAutoScan}
@@ -1047,12 +1065,12 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
                     d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
                   />
                 </svg>
-                Auto-Scan {presetCount} Presets
+                Auto-Scan Presets
               </>
             )}
           </button>
           <p className="text-xs text-slate-500 text-center mt-2">
-            Scan all preset locations for horses and record where found
+            Scan camera preset locations for horses and record where found
           </p>
         </div>
       )}
