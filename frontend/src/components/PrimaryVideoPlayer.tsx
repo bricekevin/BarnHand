@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 
+import { AutoScanDialog } from './AutoScanDialog';
 import { DetectedHorsesTab } from './DetectedHorsesTab';
 import { DetectionDataPanel } from './DetectionDataPanel';
 import { OverlayCanvas } from './OverlayCanvas';
+import { PTZControls } from './PTZControls';
 import { VideoPlayer } from './VideoPlayer';
-import { useStreamHorses } from '../stores/useAppStore';
+import { useAppStore, useStreamHorses, useStreams } from '../stores/useAppStore';
 
 interface VideoChunk {
   id: string;
@@ -32,6 +34,7 @@ interface VideoChunk {
   isProcessed?: boolean;
   correction_count?: number;
   last_corrected?: string;
+  thumbnail_url?: string;
 }
 
 interface PrimaryVideoPlayerProps {
@@ -50,6 +53,14 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
 }) => {
   // Get horses from Zustand store
   const streamHorses = useStreamHorses(stream.id);
+  const setStreamHorses = useAppStore(state => state.setStreamHorses);
+
+  // Get stream config and source URL for PTZ control
+  const streams = useStreams();
+  const setStreams = useAppStore(state => state.setStreams);
+  const dbStream = streams.find(s => s.id === stream.id);
+  const streamConfig = dbStream?.config;
+  const sourceUrl = dbStream?.url; // This is the RTSP source URL from database
 
   const [viewMode, setViewMode] = useState<'live' | 'playback' | 'horses'>(
     'live'
@@ -63,6 +74,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
     useState<React.RefObject<HTMLVideoElement> | null>(null);
   const [showChunkNotification, setShowChunkNotification] = useState(false);
   const [showRawVideo, setShowRawVideo] = useState(false);
+  const [videoReloadKey, setVideoReloadKey] = useState(0);
   const [processingStatus, setProcessingStatus] = useState<string | null>(null);
   const [processingProgress, setProcessingProgress] = useState<{
     frames_processed: number;
@@ -71,10 +83,82 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
   const [detectionDataKey, setDetectionDataKey] = useState(0);
   const [showUpdateNotification, setShowUpdateNotification] = useState(false);
 
+  // Auto-scan state
+  const [isAutoScanning, setIsAutoScanning] = useState(false);
+  const [showAutoScanDialog, setShowAutoScanDialog] = useState(false);
+
   // Load video chunks for this stream
   useEffect(() => {
     loadVideoChunks();
   }, [stream.id]);
+
+  // Load streams from database if not already in Zustand (needed for PTZ source URL)
+  useEffect(() => {
+    const loadStreamsFromDatabase = async () => {
+      // Skip if we already have streams with source URLs
+      if (streams.length > 0 && streams.some(s => s.url?.startsWith('rtsp://'))) {
+        return;
+      }
+
+      try {
+        const token = await getAuthToken();
+        if (!token) return;
+
+        const response = await fetch('http://localhost:8000/api/v1/streams', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const mappedStreams = data.streams.map((dbStream: any) => ({
+            id: dbStream.id,
+            name: dbStream.name,
+            url: dbStream.source_url,
+            type: dbStream.source_type,
+            status: dbStream.status,
+            config: dbStream.config || {},
+          }));
+          setStreams(mappedStreams);
+          console.log('✅ Loaded streams for PTZ:', mappedStreams);
+        }
+      } catch (error) {
+        console.error('Error loading streams for PTZ:', error);
+      }
+    };
+
+    loadStreamsFromDatabase();
+  }, [streams.length, setStreams]);
+
+  // Load horses for this stream to populate the tab count
+  useEffect(() => {
+    const fetchHorses = async () => {
+      try {
+        const token = await getAuthToken();
+        if (!token) return;
+
+        const response = await fetch(
+          `http://localhost:8000/api/v1/streams/${stream.id}/horses`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setStreamHorses(stream.id, data.horses || []);
+        }
+      } catch (err) {
+        console.error('Error fetching horses for tab count:', err);
+      }
+    };
+
+    fetchHorses();
+  }, [stream.id, setStreamHorses]);
 
   // Reload video when raw toggle changes
   useEffect(() => {
@@ -142,6 +226,18 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
             setProcessingProgress(null);
           }
 
+          // Auto-switch to raw video when processing starts
+          if (
+            (prevStatusRef.current === 'pending' || prevStatusRef.current === null) &&
+            currentStatus === 'processing' &&
+            !showRawVideo
+          ) {
+            console.log(
+              '▶️ ML processing started! Auto-switching to raw video...'
+            );
+            setShowRawVideo(true);
+          }
+
           // If processing just completed, auto-switch to processed video and refresh data
           console.log('🔍 Status transition check:', {
             prevStatus: prevStatusRef.current,
@@ -192,17 +288,33 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
       }
     };
 
+    // Only poll if there's a selected chunk and we're in playback mode
+    if (!selectedChunk || viewMode !== 'playback') {
+      return;
+    }
+
     // Initial fetch
     pollStatus();
 
-    // Poll every 2 seconds
-    const intervalId = setInterval(pollStatus, 2000);
+    // Poll every 5 seconds (reduced from 2s to reduce API load)
+    // Stop polling once chunk reaches a terminal state (complete, failed, error)
+    const intervalId = setInterval(async () => {
+      await pollStatus();
+
+      // Stop polling if we reached a terminal state (use ref for current value)
+      const terminalStates = ['complete', 'failed', 'error'];
+      const currentStatus = prevStatusRef.current;
+      if (currentStatus && terminalStates.includes(currentStatus)) {
+        console.log(`⏸️ Stopping status polling - chunk is ${currentStatus}`);
+        clearInterval(intervalId);
+      }
+    }, 5000);
 
     // Cleanup on unmount or chunk change
     return () => {
       clearInterval(intervalId);
     };
-  }, [selectedChunk, stream.id, showRawVideo]);
+  }, [selectedChunk, stream.id, viewMode]); // Removed showRawVideo and processingStatus to prevent re-creating interval
 
   // Listen for chunk update events from WebSocket (Task 3.2)
   useEffect(() => {
@@ -228,6 +340,12 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
           // Reload chunk list to get fresh data
           await loadVideoChunks();
 
+          // Force reload video URL with cache-busting
+          await handleChunkSelect(selectedChunk);
+
+          // Force video player remount
+          setVideoReloadKey(prev => prev + 1);
+
           // Force switch to processed video
           setShowRawVideo(false);
 
@@ -242,7 +360,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
             setShowUpdateNotification(false);
           }, 3000);
 
-          console.log('[PrimaryVideoPlayer] ✅ Chunk reload complete');
+          console.log('[PrimaryVideoPlayer] ✅ Chunk reload complete with video refresh');
         } catch (error) {
           console.error('[PrimaryVideoPlayer] Failed to reload chunk:', error);
           setShowUpdateNotification(false);
@@ -447,6 +565,8 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
       if (showRawVideo) {
         url.searchParams.append('raw', 'true');
       }
+      // Add cache-busting timestamp to force video reload
+      url.searchParams.append('t', Date.now().toString());
 
       const response = await fetch(url.toString(), {
         headers: {
@@ -505,6 +625,82 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Get count of saved PTZ presets
+  const ptzPresets = streamConfig?.ptzPresets || {};
+  const presetCount = Object.keys(ptzPresets).length;
+
+  // Auto-scan handlers
+  const handleStartAutoScan = async () => {
+    if (isAutoScanning || presetCount === 0) return;
+
+    setIsAutoScanning(true);
+    setShowAutoScanDialog(true);
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        console.error('No authentication token available');
+        setIsAutoScanning(false);
+        return;
+      }
+
+      const response = await fetch(
+        `http://localhost:8000/api/v1/streams/${stream.id}/ptz/auto-scan/start`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            config: streamConfig?.autoScan || {
+              recordingDuration: 10,
+              frameInterval: 5,
+              movementDelay: 8,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error('Failed to start auto-scan:', error);
+        setIsAutoScanning(false);
+      }
+      // Dialog will receive WebSocket events for progress
+    } catch (error) {
+      console.error('Error starting auto-scan:', error);
+      setIsAutoScanning(false);
+    }
+  };
+
+  const handleStopAutoScan = async () => {
+    try {
+      const token = await getAuthToken();
+      if (!token) return;
+
+      await fetch(
+        `http://localhost:8000/api/v1/streams/${stream.id}/ptz/auto-scan/stop`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    } catch (error) {
+      console.error('Error stopping auto-scan:', error);
+    }
+    setIsAutoScanning(false);
+  };
+
+  const handleAutoScanDialogClose = () => {
+    setShowAutoScanDialog(false);
+    setIsAutoScanning(false);
+    // Refresh chunks in case new ones were recorded
+    loadVideoChunks();
   };
 
   const currentVideoUrl =
@@ -611,7 +807,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
           (viewMode === 'playback' && currentVideoUrl) ? (
             <>
               <VideoPlayer
-                key={`${selectedChunk?.id || 'live'}-${showRawVideo ? 'raw' : 'processed'}`}
+                key={`${selectedChunk?.id || 'live'}-${showRawVideo ? 'raw' : 'processed'}-${videoReloadKey}`}
                 src={currentVideoUrl}
                 streamId={stream.id}
                 className="w-full h-full object-cover"
@@ -810,11 +1006,70 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
         </div>
       )}
 
+      {/* PTZ Camera Controls - Only in Live mode for RTSP streams */}
+      {stream.status === 'active' && viewMode === 'live' && sourceUrl && (
+        <PTZControls
+          streamUrl={sourceUrl}
+          streamId={stream.id}
+          streamConfig={streamConfig}
+        />
+      )}
+
+      {/* Auto-Scan Button - Only in Live mode for RTSP streams with presets */}
+      {stream.status === 'active' && viewMode === 'live' && sourceUrl && presetCount > 0 && (
+        <div className="mt-4">
+          <button
+            onClick={handleStartAutoScan}
+            disabled={isAutoScanning}
+            className={`w-full px-6 py-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${
+              isAutoScanning
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-not-allowed'
+                : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 hover:border-emerald-500/50'
+            }`}
+          >
+            {isAutoScanning ? (
+              <>
+                <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                Auto-Scan Running...
+              </>
+            ) : (
+              <>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+                  />
+                </svg>
+                Auto-Scan {presetCount} Presets
+              </>
+            )}
+          </button>
+          <p className="text-xs text-slate-500 text-center mt-2">
+            Scan all preset locations for horses and record where found
+          </p>
+        </div>
+      )}
+
+      {/* Auto-Scan Progress Dialog */}
+      <AutoScanDialog
+        isOpen={showAutoScanDialog}
+        streamId={stream.id}
+        onClose={handleAutoScanDialogClose}
+        onStop={handleStopAutoScan}
+      />
+
       {/* Playback Mode - Video Chunks List and Detection Panel */}
       {viewMode === 'playback' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[30%_1fr] gap-4 items-start">
           {/* Left Column: Video Chunks List */}
-          <div className="space-y-3">
+          <div className="space-y-3 flex flex-col max-h-[1200px]">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-white">
                 Processed Video Chunks
@@ -822,12 +1077,12 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
             </div>
 
             {videoChunks.length > 0 ? (
-              <div className="space-y-2 max-h-64 overflow-y-auto overflow-x-hidden">
+              <div className="space-y-2 flex-1 overflow-y-auto overflow-x-hidden min-h-0">
                 {videoChunks.map(chunk => (
                   <div
                     key={chunk.id}
                     onClick={() => handleChunkSelect(chunk)}
-                    className={`p-3 border rounded-lg transition-all duration-200 cursor-pointer hover:scale-[1.02] w-full ${
+                    className={`border rounded-lg transition-all duration-200 cursor-pointer hover:scale-[1.01] w-full overflow-hidden ${
                       chunk.status === 'completed'
                         ? selectedChunk?.id === chunk.id
                           ? 'bg-blue-500/20 border-blue-500/50 text-blue-300 shadow-lg shadow-blue-500/20'
@@ -835,10 +1090,46 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
                         : 'bg-slate-800/30 border-slate-700/30 text-slate-500 cursor-not-allowed opacity-60'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-3 w-full">
-                      <div className="flex items-start space-x-3 min-w-0 flex-1">
+                    <div className="flex gap-3 w-full">
+                      {/* Thumbnail */}
+                      <div className="relative flex-shrink-0 w-32 h-32 bg-slate-900/50">
+                        {chunk.thumbnail_url ? (
+                          <img
+                            src={`http://localhost:8000${chunk.thumbnail_url}?token=${localStorage.getItem('authToken')}`}
+                            alt={`Thumbnail for ${chunk.filename}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Hide image on error and show placeholder
+                              e.currentTarget.style.display = 'none';
+                              const placeholder = e.currentTarget.nextElementSibling;
+                              if (placeholder) {
+                                (placeholder as HTMLElement).style.display = 'flex';
+                              }
+                            }}
+                          />
+                        ) : null}
+                        {/* Placeholder (shown by default if no thumbnail, or on error) */}
                         <div
-                          className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
+                          className="w-full h-full flex items-center justify-center text-slate-600"
+                          style={{ display: chunk.thumbnail_url ? 'none' : 'flex' }}
+                        >
+                          <svg
+                            className="w-8 h-8"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </div>
+                        {/* Status indicator overlay */}
+                        <div
+                          className={`absolute top-1 left-1 w-2 h-2 rounded-full ${
                             chunk.status === 'completed'
                               ? 'bg-green-500'
                               : chunk.status === 'recording'
@@ -846,62 +1137,70 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
                                 : 'bg-red-500'
                           }`}
                         ></div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium text-sm truncate">
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0 py-2 pr-3 flex flex-col justify-between">
+                        {/* Top row: filename and badges */}
+                        <div>
+                          <div className="font-medium text-sm truncate mb-1">
                             {chunk.filename}
                           </div>
-                          <div className="text-xs opacity-75 whitespace-nowrap">
+                          <div className="text-xs opacity-75">
                             {formatDuration(chunk.duration)} •{' '}
-                            {formatFileSize(chunk.file_size)} •{' '}
+                            {formatFileSize(chunk.file_size)}
+                          </div>
+                          <div className="text-xs opacity-60">
                             {new Date(chunk.created_at).toLocaleTimeString()}
                           </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center space-x-2 text-xs flex-shrink-0">
-                        {chunk.metadata.resolution && (
-                          <span className="px-2 py-1 bg-slate-700/50 rounded whitespace-nowrap">
-                            {chunk.metadata.resolution}
-                          </span>
-                        )}
-                        {chunk.correction_count &&
-                          chunk.correction_count > 0 && (
-                            <span
-                              className="px-2 py-1 bg-amber-500/20 text-amber-400 rounded whitespace-nowrap flex items-center space-x-1"
-                              title="This chunk has been manually corrected"
-                            >
-                              <svg
-                                className="w-3 h-3"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                                />
-                              </svg>
-                              <span>{chunk.correction_count}</span>
+                        {/* Bottom row: badges */}
+                        <div className="flex items-center gap-1 flex-wrap text-xs mt-2">
+                          {chunk.metadata.resolution && (
+                            <span className="px-1.5 py-0.5 bg-slate-700/50 rounded text-[10px]">
+                              {chunk.metadata.resolution}
                             </span>
                           )}
-                        {selectedChunk?.id === chunk.id && (
-                          <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded whitespace-nowrap">
-                            Playing
+                          {chunk.correction_count &&
+                            chunk.correction_count > 0 && (
+                              <span
+                                className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded text-[10px] flex items-center gap-1"
+                                title="This chunk has been manually corrected"
+                              >
+                                <svg
+                                  className="w-2.5 h-2.5"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                                  />
+                                </svg>
+                                <span>{chunk.correction_count}</span>
+                              </span>
+                            )}
+                          {selectedChunk?.id === chunk.id && (
+                            <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded text-[10px]">
+                              Playing
+                            </span>
+                          )}
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] ${
+                              chunk.status === 'completed'
+                                ? 'bg-green-500/20 text-green-400'
+                                : chunk.status === 'recording'
+                                  ? 'bg-yellow-500/20 text-yellow-400'
+                                  : 'bg-red-500/20 text-red-400'
+                            }`}
+                          >
+                            {chunk.status}
                           </span>
-                        )}
-                        <span
-                          className={`px-2 py-1 rounded whitespace-nowrap ${
-                            chunk.status === 'completed'
-                              ? 'bg-green-500/20 text-green-400'
-                              : chunk.status === 'recording'
-                                ? 'bg-yellow-500/20 text-yellow-400'
-                                : 'bg-red-500/20 text-red-400'
-                          }`}
-                        >
-                          {chunk.status}
-                        </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -930,7 +1229,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
           </div>
 
           {/* Right Column: Detection Data Panel */}
-          <div className="detection-panel-container">
+          <div className="detection-panel-container min-w-0 overflow-hidden">
             <DetectionDataPanel
               key={detectionDataKey}
               streamId={stream.id}
