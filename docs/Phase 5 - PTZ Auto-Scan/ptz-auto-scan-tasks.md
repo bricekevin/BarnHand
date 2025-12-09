@@ -105,7 +105,7 @@
 
 ---
 
-## Phase 1: Backend Implementation [IN PROGRESS]
+## Phase 1: Backend Implementation [COMPLETE]
 
 ### Task 1.1: Create YOLO-Only Snapshot Detection Endpoint [x]
 
@@ -218,7 +218,7 @@
 
 ---
 
-### Task 1.4: Integrate Snapshot Detection with Auto-Scan
+### Task 1.4: Integrate Snapshot Detection with Auto-Scan [x]
 
 **Objective**: Connect auto-scan service to ML detection endpoint
 
@@ -250,7 +250,7 @@
 
 ---
 
-### Task 1.5: Integrate Recording with Auto-Scan
+### Task 1.5: Integrate Recording with Auto-Scan [x]
 
 **Objective**: Trigger chunk recording at locations with horses
 
@@ -285,7 +285,7 @@
 
 ---
 
-### Task 1.6: Add WebSocket Events for Auto-Scan Progress
+### Task 1.6: Add WebSocket Events for Auto-Scan Progress [x]
 
 **Objective**: Real-time progress updates to frontend
 
@@ -321,9 +321,9 @@
 
 ---
 
-## Phase 2: Frontend Implementation
+## Phase 2: Frontend Implementation [IN PROGRESS]
 
-### Task 2.1: Create Auto-Scan Progress Dialog Component
+### Task 2.1: Create Auto-Scan Progress Dialog Component [x]
 
 **Objective**: Modal dialog showing real-time scan progress
 
@@ -390,7 +390,7 @@
 
 ---
 
-### Task 2.3: Add Auto-Scan Button to Live Stream Tab
+### Task 2.3: Add Auto-Scan Button to Live Stream Tab [x]
 
 **Objective**: Trigger auto-scan from live stream view
 
@@ -424,7 +424,7 @@
 
 ---
 
-### Task 2.4: Integrate WebSocket Listeners for Auto-Scan
+### Task 2.4: Integrate WebSocket Listeners for Auto-Scan [x]
 
 **Objective**: Connect frontend to real-time scan updates
 
