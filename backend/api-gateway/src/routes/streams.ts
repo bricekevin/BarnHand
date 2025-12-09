@@ -515,6 +515,7 @@ router.get(
           end_timestamp: chunk.end_timestamp,
           metadata: chunk.metadata,
           created_at: chunk.created_at,
+          thumbnail_url: `/api/v1/streams/${streamId}/chunks/${chunk.id}/thumbnail`,
         })),
         total: chunks.length,
       });
@@ -640,9 +641,57 @@ router.get(
       // Set appropriate content type for image
       res.setHeader('Content-Type', 'image/jpeg');
       res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Access-Control-Allow-Origin', '*');
       return res.send(frameImage);
     } catch (error) {
       logger.error('Get chunk frame error', { error });
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  })
+);
+
+// GET /api/v1/streams/:id/chunks/:chunkId/thumbnail - Get chunk thumbnail (first processed frame)
+router.get(
+  '/:id/chunks/:chunkId/thumbnail',
+  validateSchema(chunkParamsSchema, 'params'),
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  createAuthenticatedRoute(async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      if (!req.user.farmId) {
+        return res.status(403).json({ error: 'Farm ID required' });
+      }
+
+      const { chunkId } = req.params;
+
+      // Get the first processed frame (frame_0000.jpg)
+      const thumbnail = await videoChunkService.getChunkFrame(
+        chunkId,
+        'frame_0000.jpg',
+        req.user.farmId
+      );
+
+      if (!thumbnail) {
+        // Add CORS headers even for 404 responses
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.status(404).json({
+          error: 'Thumbnail not found',
+          message: 'Chunk may not be processed yet',
+        });
+      }
+
+      // Set appropriate content type for image
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.send(thumbnail);
+    } catch (error) {
+      logger.error('Get chunk thumbnail error', { error });
       return res.status(500).json({ error: 'Internal server error' });
     }
   })
@@ -1254,6 +1303,83 @@ router.delete(
 
       return res.status(500).json({
         error: 'Internal server error',
+      });
+    }
+  })
+);
+
+// GET /api/v1/streams/:id/ptz/snapshot - Proxy camera snapshot for PTZ control
+// This proxies the camera's snapshot to avoid CORS issues in the browser
+router.get(
+  '/:id/ptz/snapshot',
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  createAuthenticatedRoute(async (req, res) => {
+    const { id: streamId } = req.params;
+
+    try {
+      // Get stream from database to find source URL
+      const StreamRepository = require('@barnhand/database').StreamRepository;
+      const streamRepo = new StreamRepository();
+      const stream = await streamRepo.findById(streamId);
+
+      if (!stream) {
+        return res.status(404).json({ error: 'Stream not found' });
+      }
+
+      // Parse the RTSP URL to get camera hostname
+      const sourceUrl = stream.source_url;
+      if (!sourceUrl || !sourceUrl.startsWith('rtsp://')) {
+        return res.status(400).json({ error: 'Stream is not an RTSP source' });
+      }
+
+      const url = new URL(sourceUrl);
+      const hostname = url.hostname;
+
+      // Get PTZ credentials - prefer from stream config, fallback to query params
+      const streamConfig = stream.config || {};
+      const ptzCredentials = streamConfig.ptzCredentials || {};
+      const ptzUser = ptzCredentials.username || (req.query.usr as string) || '';
+      const ptzPwd = ptzCredentials.password || (req.query.pwd as string) || '';
+
+      // Build snapshot URL for HiPro camera
+      const snapshotUrl = `http://${hostname}:8080/web/tmpfs/auto.jpg?usr=${encodeURIComponent(ptzUser)}&pwd=${encodeURIComponent(ptzPwd)}&t=${Date.now()}`;
+
+      logger.debug('Proxying PTZ snapshot', { streamId, hostname });
+
+      // Fetch the snapshot from the camera
+      const response = await fetch(snapshotUrl);
+
+      if (!response.ok) {
+        logger.warn('PTZ snapshot fetch failed', {
+          streamId,
+          status: response.status,
+        });
+        return res.status(response.status).json({
+          error: 'Failed to fetch snapshot from camera',
+          status: response.status,
+        });
+      }
+
+      // Get the image data
+      const imageBuffer = await response.arrayBuffer();
+
+      // Set appropriate headers
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+
+      // Send the image
+      return res.send(Buffer.from(imageBuffer));
+    } catch (error) {
+      logger.error('PTZ snapshot proxy error', {
+        streamId,
+        error: error instanceof Error ? error.message : error,
+      });
+
+      return res.status(500).json({
+        error: 'Failed to proxy snapshot',
+        message: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   })

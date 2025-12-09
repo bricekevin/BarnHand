@@ -10,6 +10,11 @@ interface StreamFormData {
     username?: string;
     password?: string;
     useAuth?: boolean;
+    // PTZ camera credentials (for web interface on port 8080)
+    ptzCredentials?: {
+      username: string;
+      password: string;
+    };
   };
 }
 
@@ -99,16 +104,40 @@ export const StreamSettings: React.FC = () => {
         username: '',
         password: '',
         useAuth: false,
+        ptzCredentials: undefined,
       },
     });
     setShowAddForm(false);
     setEditingStream(null);
   };
 
+  const getAuthToken = async (): Promise<string | null> => {
+    let token = localStorage.getItem('authToken');
+    if (token) return token;
+
+    // Auto-login for development
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'admin@barnhand.com', password: 'admin123' }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        token = data.accessToken;
+        localStorage.setItem('authToken', token);
+        return token;
+      }
+    } catch (error) {
+      console.error('Auto-login failed:', error);
+    }
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const token = localStorage.getItem('authToken');
+    const token = await getAuthToken();
     if (!token) {
       alert('Authentication required - please log in');
       return;
@@ -218,14 +247,16 @@ export const StreamSettings: React.FC = () => {
   };
 
   const handleEdit = (stream: any) => {
+    const config = stream.config || {};
     setFormData({
       name: stream.name,
       url: stream.url,
       type: stream.type,
-      config: stream.config || {
-        username: '',
-        password: '',
-        useAuth: false,
+      config: {
+        username: config.username || '',
+        password: config.password || '',
+        useAuth: config.useAuth || false,
+        ptzCredentials: config.ptzCredentials,
       },
     });
     setEditingStream(stream.id);
@@ -425,6 +456,64 @@ export const StreamSettings: React.FC = () => {
                 )}
               </div>
 
+              {/* PTZ Camera Credentials (for RTSP streams) */}
+              {formData.type === 'rtsp' && (
+                <div className="space-y-4 p-4 bg-slate-800/50 rounded-lg border border-slate-600/50">
+                  <div>
+                    <h4 className="text-sm font-medium text-slate-200 flex items-center">
+                      <span className="mr-2">🎮</span>
+                      PTZ Camera Credentials
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Credentials for the camera's web interface (port 8080) used for PTZ control and snapshots
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        PTZ Username
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.config.ptzCredentials?.username || ''}
+                        onChange={e => setFormData({
+                          ...formData,
+                          config: {
+                            ...formData.config,
+                            ptzCredentials: {
+                              username: e.target.value,
+                              password: formData.config.ptzCredentials?.password || '',
+                            }
+                          }
+                        })}
+                        className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-cyan-500"
+                        placeholder="admin"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        PTZ Password
+                      </label>
+                      <input
+                        type="password"
+                        value={formData.config.ptzCredentials?.password || ''}
+                        onChange={e => setFormData({
+                          ...formData,
+                          config: {
+                            ...formData.config,
+                            ptzCredentials: {
+                              username: formData.config.ptzCredentials?.username || '',
+                              password: e.target.value,
+                            }
+                          }
+                        })}
+                        className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-cyan-500"
+                        placeholder="password"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Form Actions */}
               <div className="flex justify-end space-x-3 pt-4 border-t border-slate-700">
