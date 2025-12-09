@@ -19,6 +19,24 @@ interface Stream {
     username?: string;
     password?: string;
     useAuth?: boolean;
+    // PTZ camera credentials
+    ptzCredentials?: {
+      username: string;
+      password: string;
+    };
+    // PTZ presets
+    ptzPresets?: {
+      [presetNumber: string]: {
+        name: string;
+        savedAt: string;
+      };
+    };
+    // Auto-scan settings
+    autoScan?: {
+      recordingDuration: number;
+      frameInterval: number;
+      movementDelay: number;
+    };
   };
 }
 
