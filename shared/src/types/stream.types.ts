@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+import {
+  PTZCredentialsSchema,
+  PTZPresetsSchema,
+  AutoScanConfigSchema,
+} from './autoScan.types';
+
 // Stream source types
 export const StreamSourceTypeSchema = z.enum([
   'youtube',
@@ -32,6 +38,10 @@ export const StreamConfigSchema = z.object({
   enable_tracking: z.boolean().default(true),
   max_horses: z.number().int().min(1).max(20).default(10),
   metadata: z.record(z.unknown()).optional(),
+  // PTZ camera configuration (Phase 5)
+  ptzCredentials: PTZCredentialsSchema.optional(),
+  ptzPresets: PTZPresetsSchema.optional(),
+  autoScan: AutoScanConfigSchema.optional(),
 });
 
 // Stream status
