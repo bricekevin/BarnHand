@@ -1,22 +1,133 @@
-# BarnHand - Phase 4 Detection Correction - Handoff Notes
+# BarnHand - Project Handoff Notes
 
-**Date**: 2025-11-05 (Updated: Task 3.4 Complete)
-**Session Duration**: ~14 hours
+**Date**: 2025-12-08 (Updated: Phase 5 Auto-Scan Backend Complete)
 **Branch**: `feature/documentation`
 
-## 🎯 Session Objectives
+## 🎯 Latest Session: Phase 5 - PTZ Auto-Scan (Backend)
 
-1. ✅ **Implement Phase 4 foundation** (database schema + types)
-2. ✅ **Build backend data layer** (repository + service)
-3. ✅ **Create API endpoints** (complete - with comprehensive tests)
-4. ✅ **Build ML re-processing service** (COMPLETE)
-5. ✅ **Integrate Phase 4 with existing codebase** (COMPLETE)
-6. ✅ **Build frontend UI components** (Phase 2 - COMPLETE)
-7. ✅ **Implement correction submission workflow** (COMPLETE)
-8. ✅ **Add WebSocket events for real-time progress** (Task 3.1 - COMPLETE)
-9. ✅ **Add auto-reload after re-processing** (Task 3.2 - COMPLETE)
-10. ✅ **Add correction count badge to chunk cards** (Task 3.3 - COMPLETE)
-11. ✅ **Write comprehensive E2E tests** (Task 3.4 - COMPLETE)
+### Completed Work
+
+**Phase 0: Foundation (3/3 tasks) ✅**
+1. ✅ **Task 0.1**: Auto-scan types in shared package (`autoScan.types.ts`)
+2. ✅ **Task 0.2**: PTZ credentials moved from localStorage to stream config
+3. ✅ **Task 0.3**: PTZ presets moved from localStorage to stream config
+
+**Phase 1: Backend (3/6 tasks) ✅**
+4. ✅ **Task 1.1**: YOLO-only snapshot detection endpoint (`/detect-snapshot`)
+5. ✅ **Task 1.2**: Auto-scan service (`autoScanService.ts`)
+6. ✅ **Task 1.3**: Auto-scan API routes (start/stop/status)
+
+### New Files
+
+**Shared Types:**
+- `shared/src/types/autoScan.types.ts` - Zod schemas for auto-scan config, state, results, WebSocket events
+
+**ML Service:**
+- `backend/ml-service/src/services/snapshot_detector.py` - Fast YOLO-only detection for snapshots
+- New endpoint: `POST /detect-snapshot` - Returns horses_detected, count, detections (bbox + confidence)
+
+**API Gateway:**
+- `backend/api-gateway/src/services/autoScanService.ts` - Orchestrates two-phase scan
+- New routes in `streams.ts`:
+  - `POST /api/v1/streams/:id/ptz/auto-scan/start`
+  - `GET /api/v1/streams/:id/ptz/auto-scan/status`
+  - `POST /api/v1/streams/:id/ptz/auto-scan/stop`
+
+### Stream Config Changes
+
+PTZ credentials and presets now stored in `streams.config`:
+```json
+{
+  "ptzCredentials": { "username": "admin", "password": "..." },
+  "ptzPresets": {
+    "1": { "name": "North Barn", "savedAt": "2025-01-15T10:00:00Z" },
+    "2": { "name": "South Paddock", "savedAt": "..." }
+  },
+  "autoScan": {
+    "recordingDuration": 10,
+    "frameInterval": 5,
+    "movementDelay": 8
+  }
+}
+```
+
+### Remaining Phase 5 Tasks
+
+**Phase 1 (Backend - remaining):**
+- [ ] Task 1.4: Integrate snapshot detection with auto-scan (already integrated)
+- [ ] Task 1.5: Integrate recording with auto-scan (already integrated)
+- [ ] Task 1.6: Add WebSocket events for progress (already implemented)
+
+**Phase 2 (Frontend):**
+- [ ] Task 2.1: Create AutoScanDialog component
+- [ ] Task 2.2: Add auto-scan settings to StreamSettings
+- [ ] Task 2.3: Add auto-scan button to PrimaryVideoPlayer
+- [ ] Task 2.4: Add WebSocket listeners for progress
+
+**Phase 3 (Integration & Testing):**
+- [ ] Task 3.1: End-to-end testing
+- [ ] Task 3.2: Edge case handling
+- [ ] Task 3.3: Performance optimization
+
+### Next Steps
+
+1. Start with **Task 2.1: AutoScanDialog** - progress dialog with preset results
+2. Then **Task 2.3: Auto-scan button** in PrimaryVideoPlayer
+3. Test full flow with real camera
+
+---
+
+## Previous Session: PTZ Camera Controls
+
+### Completed Work
+
+1. ✅ **PTZ Controls Component** - Full pan/tilt/zoom control for HiPro cameras
+2. ✅ **Live Camera Preview** - Real-time snapshot-based preview in popup (1 second refresh)
+3. ✅ **Camera Authentication** - Support for username/password auth to camera web interface
+4. ✅ **Backend Proxy Endpoint** - CORS-safe snapshot fetching via API gateway
+5. ✅ **Preset Management** - Save and recall camera presets (1-8)
+
+### New Files & Endpoints
+
+**Frontend:**
+- `frontend/src/components/PTZControls.tsx` - PTZ control popup component with:
+  - Directional pad (up/down/left/right) with hold-to-move
+  - Zoom in/out controls
+  - Speed slider (1-63)
+  - 8 preset save/recall buttons
+  - Live camera snapshot preview (1-second refresh)
+  - Camera authentication form
+
+**Backend:**
+- `backend/api-gateway/src/routes/streams.ts` - Added PTZ proxy endpoint:
+  - `GET /api/v1/streams/:id/ptz/snapshot?usr=&pwd=` - Proxies camera snapshot to avoid CORS
+
+### HiPro Camera API Reference
+
+```bash
+# PTZ Movement (port 8080, requires auth)
+http://{camera}:8080/web/cgi-bin/hi3510/ptzctrl.cgi?-step=0&-act={direction}&-speed={1-63}&-usr={user}&-pwd={pass}
+# Directions: up, down, left, right, zoomin, zoomout, stop
+
+# Preset Control
+http://{camera}:8080/web/cgi-bin/hi3510/param.cgi?cmd=preset&-act={set|goto}&-status=1&-number={1-8}&-usr={user}&-pwd={pass}
+
+# Snapshot (proxied through backend to avoid CORS)
+GET /api/v1/streams/:id/ptz/snapshot?usr=admin&pwd=Utah2025
+```
+
+### Integration Notes
+
+- PTZ controls appear on streams where `sourceUrl` contains port 8554 (RTSP)
+- The backend extracts the camera hostname from the RTSP URL and constructs snapshot URL
+- Snapshot is fetched server-side and returned as binary image to avoid CORS
+- Live preview uses 1-second polling instead of MJPEG (camera MJPEG has CORS issues)
+
+---
+
+## 📋 Previous Session: Phase 4 Detection Correction
+
+**Status**: Phase 4 Complete (Tasks 0.1 - 3.4) ✅
 
 ---
 
