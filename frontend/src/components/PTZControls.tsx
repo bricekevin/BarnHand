@@ -9,10 +9,19 @@ interface PTZControlsProps {
       username: string;
       password: string;
     };
+    // PTZ presets (from database config)
+    ptzPresets?: {
+      [presetNumber: string]: {
+        name: string;
+        savedAt: string;
+      };
+    };
     // Legacy support for old format
     username?: string;
     password?: string;
   };
+  // Callback to update stream config (triggers parent re-fetch)
+  onConfigUpdate?: () => void;
 }
 
 interface SavedPreset {
@@ -37,7 +46,7 @@ const getAuthToken = (): string => {
   return localStorage.getItem('authToken') || '';
 };
 
-export const PTZControls: React.FC<PTZControlsProps> = ({ streamUrl, streamId, streamConfig }) => {
+export const PTZControls: React.FC<PTZControlsProps> = ({ streamUrl, streamId, streamConfig, onConfigUpdate }) => {
   const [showPopup, setShowPopup] = useState(false);
   const [speed, setSpeed] = useState(45);
   const [presetNumber, setPresetNumber] = useState(0);
@@ -95,17 +104,29 @@ export const PTZControls: React.FC<PTZControlsProps> = ({ streamUrl, streamId, s
     }
   }, [streamId, username, password, snapshotBlobUrl, error]);
 
-  // Load saved presets from localStorage (will be migrated to config in Task 0.3)
+  // Load saved presets from config, fallback to localStorage for migration
   useEffect(() => {
-    const storedPresets = localStorage.getItem(`ptz_presets_${streamUrl}`);
-    if (storedPresets) {
-      try {
-        setSavedPresets(JSON.parse(storedPresets));
-      } catch {
-        console.error('Failed to parse saved presets');
+    const configPresets = streamConfig?.ptzPresets;
+    if (configPresets && Object.keys(configPresets).length > 0) {
+      // Convert config presets (object keyed by number) to array format
+      const presetsArray: SavedPreset[] = Object.entries(configPresets).map(([num, preset]) => ({
+        number: parseInt(num, 10),
+        name: preset.name,
+        savedAt: preset.savedAt,
+      }));
+      setSavedPresets(presetsArray);
+    } else {
+      // Fall back to localStorage (backward compatibility / migration)
+      const storedPresets = localStorage.getItem(`ptz_presets_${streamUrl}`);
+      if (storedPresets) {
+        try {
+          setSavedPresets(JSON.parse(storedPresets));
+        } catch {
+          console.error('Failed to parse saved presets');
+        }
       }
     }
-  }, [streamUrl]);
+  }, [streamUrl, streamConfig?.ptzPresets]);
 
   // Use config credentials when available, otherwise fall back to localStorage
   useEffect(() => {
@@ -223,8 +244,9 @@ export const PTZControls: React.FC<PTZControlsProps> = ({ streamUrl, streamId, s
     );
   }, [sendPTZCommand, speed]);
 
-  // Preset commands
+  // Save preset to camera and database
   const savePreset = useCallback(async (number: number) => {
+    // First, save to camera
     const success = await sendPTZCommand(
       '/web/cgi-bin/hi3510/param.cgi',
       `cmd=preset&-act=set&-status=1&-number=${number}`
@@ -239,11 +261,50 @@ export const PTZControls: React.FC<PTZControlsProps> = ({ streamUrl, streamId, s
 
       const updated = [...savedPresets.filter(p => p.number !== number), newPreset];
       setSavedPresets(updated);
-      localStorage.setItem(`ptz_presets_${streamUrl}`, JSON.stringify(updated));
+
+      // Save to database via API if streamId is available
+      if (streamId) {
+        try {
+          const token = getAuthToken();
+          // Convert array format to object format for database
+          const ptzPresets: { [key: string]: { name: string; savedAt: string } } = {};
+          updated.forEach(p => {
+            ptzPresets[p.number.toString()] = { name: p.name, savedAt: p.savedAt };
+          });
+
+          const response = await fetch(`http://localhost:8000/api/v1/streams/${streamId}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              config: {
+                ...streamConfig,
+                ptzPresets,
+              },
+            }),
+          });
+
+          if (response.ok) {
+            console.log('✅ Preset saved to database');
+            onConfigUpdate?.();
+          } else {
+            console.warn('⚠️ Failed to save preset to database, using localStorage fallback');
+            localStorage.setItem(`ptz_presets_${streamUrl}`, JSON.stringify(updated));
+          }
+        } catch (error) {
+          console.warn('⚠️ Network error saving preset, using localStorage fallback:', error);
+          localStorage.setItem(`ptz_presets_${streamUrl}`, JSON.stringify(updated));
+        }
+      } else {
+        // Fallback to localStorage if no streamId
+        localStorage.setItem(`ptz_presets_${streamUrl}`, JSON.stringify(updated));
+      }
     }
 
     return success;
-  }, [sendPTZCommand, savedPresets, streamUrl]);
+  }, [sendPTZCommand, savedPresets, streamUrl, streamId, streamConfig, onConfigUpdate]);
 
   const recallPreset = useCallback(async (number: number) => {
     return await sendPTZCommand(

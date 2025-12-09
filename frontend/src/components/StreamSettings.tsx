@@ -15,6 +15,13 @@ interface StreamFormData {
       username: string;
       password: string;
     };
+    // PTZ presets (saved camera positions)
+    ptzPresets?: {
+      [presetNumber: string]: {
+        name: string;
+        savedAt: string;
+      };
+    };
   };
 }
 
@@ -257,6 +264,7 @@ export const StreamSettings: React.FC = () => {
         password: config.password || '',
         useAuth: config.useAuth || false,
         ptzCredentials: config.ptzCredentials,
+        ptzPresets: config.ptzPresets,
       },
     });
     setEditingStream(stream.id);
@@ -512,6 +520,31 @@ export const StreamSettings: React.FC = () => {
                       />
                     </div>
                   </div>
+
+                  {/* Show saved PTZ presets (read-only info) */}
+                  {formData.config.ptzPresets && Object.keys(formData.config.ptzPresets).length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-slate-600/50">
+                      <h5 className="text-sm font-medium text-slate-300 mb-2">
+                        Saved Presets ({Object.keys(formData.config.ptzPresets).length})
+                      </h5>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(formData.config.ptzPresets)
+                          .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                          .map(([num, preset]) => (
+                            <span
+                              key={num}
+                              className="px-2 py-1 bg-slate-700 rounded text-xs text-slate-300"
+                              title={`Saved: ${new Date(preset.savedAt).toLocaleString()}`}
+                            >
+                              #{num} {preset.name}
+                            </span>
+                          ))}
+                      </div>
+                      <p className="text-xs text-slate-500 mt-2">
+                        Presets are saved via PTZ Controls when viewing the stream
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
