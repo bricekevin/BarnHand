@@ -248,7 +248,6 @@ export const AutoScanDialog: React.FC<AutoScanDialogProps> = ({
       setCurrentStep('Initializing...');
       setCurrentPreset(null);
       setResults([]);
-      setLocationsWithHorses([]);
       setScanResult(null);
       setError(null);
     }
