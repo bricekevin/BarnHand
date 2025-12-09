@@ -13,6 +13,7 @@ import { validateSchema } from '../middleware/validation';
 import { streamHorseService } from '../services/streamHorseService';
 import { videoChunkService } from '../services/videoChunkService';
 import { correctionService } from '../services/correctionService';
+import { getAutoScanService, AutoScanConfig } from '../services/autoScanService';
 import { UserRole } from '../types/auth';
 import { emitHorseUpdatedEvent } from '../websocket/events';
 // AuthenticatedRequest is now handled by createAuthenticatedRoute wrapper
@@ -46,6 +47,19 @@ const streamParamsSchema = z.object({
 const recordChunkSchema = z.object({
   duration: z.number().min(1).max(30).default(5),
   frame_interval: z.number().min(1).max(300).default(1),
+});
+
+// Auto-scan configuration schema
+const autoScanConfigSchema = z.object({
+  recordingDuration: z.number().min(5).max(30).default(10),
+  frameInterval: z.number().min(1).max(30).default(5),
+  movementDelay: z.number().min(3).max(15).default(8),
+  presetSequence: z.array(z.number().int().min(0).max(9)).optional(),
+});
+
+const startAutoScanSchema = z.object({
+  config: autoScanConfigSchema.partial().optional(),
+  presets: z.array(z.number().int().min(0).max(9)).optional(),
 });
 
 const chunkParamsSchema = z.object({
@@ -1379,6 +1393,213 @@ router.get(
 
       return res.status(500).json({
         error: 'Failed to proxy snapshot',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  })
+);
+
+// ==================== AUTO-SCAN ENDPOINTS ====================
+
+// POST /api/v1/streams/:id/ptz/auto-scan/start - Start auto-scan
+router.post(
+  '/:id/ptz/auto-scan/start',
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  validateSchema({ body: startAutoScanSchema }),
+  createAuthenticatedRoute(async (req, res) => {
+    const { id: streamId } = req.params;
+    const { config, presets: requestedPresets } = req.body;
+
+    try {
+      // Get stream from database
+      const StreamRepository = require('@barnhand/database').StreamRepository;
+      const streamRepo = new StreamRepository();
+      const stream = await streamRepo.findById(streamId);
+
+      if (!stream) {
+        return res.status(404).json({ error: 'Stream not found' });
+      }
+
+      const streamConfig = stream.config || {};
+
+      // Get PTZ credentials from stream config
+      const ptzCredentials = streamConfig.ptzCredentials;
+      if (!ptzCredentials?.username || !ptzCredentials?.password) {
+        return res.status(400).json({
+          error: 'PTZ credentials not configured',
+          message: 'Please configure PTZ credentials in Stream Settings before using auto-scan',
+        });
+      }
+
+      // Get saved presets from stream config
+      const savedPresets = streamConfig.ptzPresets || {};
+      if (Object.keys(savedPresets).length === 0) {
+        return res.status(400).json({
+          error: 'No presets saved',
+          message: 'Please save at least one PTZ preset before using auto-scan',
+        });
+      }
+
+      // Convert presets to array format
+      let presets = Object.entries(savedPresets).map(([num, preset]: [string, any]) => ({
+        number: parseInt(num, 10),
+        name: preset.name,
+      }));
+
+      // Filter by requested presets if provided
+      if (requestedPresets && requestedPresets.length > 0) {
+        presets = presets.filter(p => requestedPresets.includes(p.number));
+        if (presets.length === 0) {
+          return res.status(400).json({
+            error: 'Invalid preset selection',
+            message: 'None of the requested presets have been saved',
+          });
+        }
+      }
+
+      // Parse hostname from source URL
+      const sourceUrl = stream.source_url;
+      if (!sourceUrl || !sourceUrl.startsWith('rtsp://')) {
+        return res.status(400).json({ error: 'Stream is not an RTSP source' });
+      }
+      const url = new URL(sourceUrl);
+      const cameraHostname = url.hostname;
+
+      // Get auto-scan service
+      const autoScanService = getAutoScanService(videoChunkService);
+
+      // Start the scan
+      const scanState = await autoScanService.startScan(
+        streamId,
+        presets,
+        ptzCredentials,
+        cameraHostname,
+        config as Partial<AutoScanConfig>,
+        stream.farm_id,
+        req.user!.id
+      );
+
+      logger.info('Auto-scan started', {
+        streamId,
+        scanId: scanState.scanId,
+        totalPresets: presets.length,
+      });
+
+      return res.status(202).json({
+        message: 'Auto-scan started',
+        scanId: scanState.scanId,
+        statusUrl: `/api/v1/streams/${streamId}/ptz/auto-scan/status`,
+        totalPresets: presets.length,
+        presets: presets.map(p => ({ number: p.number, name: p.name })),
+      });
+    } catch (error) {
+      logger.error('Failed to start auto-scan', {
+        streamId,
+        error: error instanceof Error ? error.message : error,
+      });
+
+      if ((error as Error).message?.includes('already in progress')) {
+        return res.status(409).json({
+          error: 'Scan already in progress',
+          message: 'Please wait for the current scan to complete or stop it first',
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Failed to start auto-scan',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  })
+);
+
+// GET /api/v1/streams/:id/ptz/auto-scan/status - Get auto-scan status
+router.get(
+  '/:id/ptz/auto-scan/status',
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  createAuthenticatedRoute(async (req, res) => {
+    const { id: streamId } = req.params;
+
+    try {
+      const autoScanService = getAutoScanService(videoChunkService);
+      const state = autoScanService.getScanStatus(streamId);
+
+      if (!state) {
+        return res.json({
+          isRunning: false,
+          state: null,
+          lastResult: null,
+        });
+      }
+
+      const isRunning = state.phase === 'detection' || state.phase === 'recording';
+
+      return res.json({
+        isRunning,
+        state,
+        lastResult: !isRunning
+          ? {
+              scanId: state.scanId,
+              totalScanned: state.results.length,
+              withHorses: state.locationsWithHorses.length,
+              chunksRecorded: state.results.filter(r => r.chunkId).length,
+              status: state.phase,
+              presetResults: state.results,
+            }
+          : null,
+      });
+    } catch (error) {
+      logger.error('Failed to get auto-scan status', {
+        streamId,
+        error: error instanceof Error ? error.message : error,
+      });
+
+      return res.status(500).json({
+        error: 'Failed to get auto-scan status',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  })
+);
+
+// POST /api/v1/streams/:id/ptz/auto-scan/stop - Stop auto-scan
+router.post(
+  '/:id/ptz/auto-scan/stop',
+  requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
+  createAuthenticatedRoute(async (req, res) => {
+    const { id: streamId } = req.params;
+
+    try {
+      const autoScanService = getAutoScanService(videoChunkService);
+      const state = await autoScanService.stopScan(streamId);
+
+      if (!state) {
+        return res.status(404).json({
+          error: 'No active scan',
+          message: 'No auto-scan is currently running for this stream',
+        });
+      }
+
+      logger.info('Auto-scan stopped', {
+        streamId,
+        scanId: state.scanId,
+        presetsScanned: state.results.length,
+      });
+
+      return res.json({
+        message: 'Auto-scan stopped',
+        scanId: state.scanId,
+        presetsScanned: state.results.length,
+        results: state.results,
+      });
+    } catch (error) {
+      logger.error('Failed to stop auto-scan', {
+        streamId,
+        error: error instanceof Error ? error.message : error,
+      });
+
+      return res.status(500).json({
+        error: 'Failed to stop auto-scan',
         message: error instanceof Error ? error.message : 'Unknown error',
       });
     }
