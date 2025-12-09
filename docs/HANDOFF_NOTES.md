@@ -1,9 +1,9 @@
 # BarnHand - Project Handoff Notes
 
-**Date**: 2025-12-08 (Updated: Phase 5 Auto-Scan Backend Complete)
+**Date**: 2025-12-08 (Updated: Phase 5 Frontend Core Complete)
 **Branch**: `feature/documentation`
 
-## 🎯 Latest Session: Phase 5 - PTZ Auto-Scan (Backend)
+## 🎯 Latest Session: Phase 5 - PTZ Auto-Scan (Frontend Core)
 
 ### Completed Work
 
@@ -12,68 +12,58 @@
 2. ✅ **Task 0.2**: PTZ credentials moved from localStorage to stream config
 3. ✅ **Task 0.3**: PTZ presets moved from localStorage to stream config
 
-**Phase 1: Backend (3/6 tasks) ✅**
+**Phase 1: Backend (6/6 tasks) ✅**
 4. ✅ **Task 1.1**: YOLO-only snapshot detection endpoint (`/detect-snapshot`)
 5. ✅ **Task 1.2**: Auto-scan service (`autoScanService.ts`)
 6. ✅ **Task 1.3**: Auto-scan API routes (start/stop/status)
+7. ✅ **Task 1.4**: Snapshot detection integrated with auto-scan
+8. ✅ **Task 1.5**: Recording integrated with auto-scan
+9. ✅ **Task 1.6**: WebSocket events for progress
 
-### New Files
+**Phase 2: Frontend (4/5 tasks) ✅**
+10. ✅ **Task 2.1**: AutoScanDialog progress modal component
+11. ✅ **Task 2.3**: Auto-scan button in PrimaryVideoPlayer
+12. ✅ **Task 2.4**: WebSocket listeners in AutoScanDialog
 
-**Shared Types:**
-- `shared/src/types/autoScan.types.ts` - Zod schemas for auto-scan config, state, results, WebSocket events
+### New Frontend Files
 
-**ML Service:**
-- `backend/ml-service/src/services/snapshot_detector.py` - Fast YOLO-only detection for snapshots
-- New endpoint: `POST /detect-snapshot` - Returns horses_detected, count, detections (bbox + confidence)
+**Components:**
+- `frontend/src/components/AutoScanDialog.tsx` - Real-time progress modal with:
+  - Phase indicator (Detection Scan / Recording Scan)
+  - Progress bar (0-50% detection, 50-100% recording)
+  - Preset results list with status icons
+  - Summary display on completion
+  - Stop button during active scan
 
-**API Gateway:**
-- `backend/api-gateway/src/services/autoScanService.ts` - Orchestrates two-phase scan
-- New routes in `streams.ts`:
-  - `POST /api/v1/streams/:id/ptz/auto-scan/start`
-  - `GET /api/v1/streams/:id/ptz/auto-scan/status`
-  - `POST /api/v1/streams/:id/ptz/auto-scan/stop`
-
-### Stream Config Changes
-
-PTZ credentials and presets now stored in `streams.config`:
-```json
-{
-  "ptzCredentials": { "username": "admin", "password": "..." },
-  "ptzPresets": {
-    "1": { "name": "North Barn", "savedAt": "2025-01-15T10:00:00Z" },
-    "2": { "name": "South Paddock", "savedAt": "..." }
-  },
-  "autoScan": {
-    "recordingDuration": 10,
-    "frameInterval": 5,
-    "movementDelay": 8
-  }
-}
-```
+**Store Updates:**
+- `frontend/src/stores/useAppStore.ts` - Extended Stream config type with:
+  - `ptzCredentials` - Camera auth credentials
+  - `ptzPresets` - Saved preset locations
+  - `autoScan` - Auto-scan settings
 
 ### Remaining Phase 5 Tasks
 
-**Phase 1 (Backend - remaining):**
-- [ ] Task 1.4: Integrate snapshot detection with auto-scan (already integrated)
-- [ ] Task 1.5: Integrate recording with auto-scan (already integrated)
-- [ ] Task 1.6: Add WebSocket events for progress (already implemented)
-
-**Phase 2 (Frontend):**
-- [ ] Task 2.1: Create AutoScanDialog component
-- [ ] Task 2.2: Add auto-scan settings to StreamSettings
-- [ ] Task 2.3: Add auto-scan button to PrimaryVideoPlayer
-- [ ] Task 2.4: Add WebSocket listeners for progress
+**Phase 2 (Frontend - remaining):**
+- [ ] Task 2.2: Add auto-scan settings to StreamSettings (optional)
+- [ ] Task 2.5: Update PTZControls to show auto-scan option (optional)
 
 **Phase 3 (Integration & Testing):**
-- [ ] Task 3.1: End-to-end testing
+- [ ] Task 3.1: End-to-end testing with real camera
 - [ ] Task 3.2: Edge case handling
 - [ ] Task 3.3: Performance optimization
+- [ ] Task 3.4: Documentation and handoff
 
 ### Next Steps
 
-1. Start with **Task 2.1: AutoScanDialog** - progress dialog with preset results
-2. Then **Task 2.3: Auto-scan button** in PrimaryVideoPlayer
-3. Test full flow with real camera
+1. **Test full flow** - Run auto-scan with real camera
+2. Optionally add **Task 2.2** (auto-scan settings in StreamSettings)
+3. Complete **Phase 3** testing tasks
+
+### Commits This Session
+```
+b853915 p5(task-2.1): create AutoScanDialog progress modal component
+550590f p5(task-2.3): add auto-scan button to PrimaryVideoPlayer
+```
 
 ---
 
