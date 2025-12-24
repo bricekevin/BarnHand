@@ -12,8 +12,11 @@ export const logger = winston.createLogger({
     isDevelopment
       ? winston.format.combine(
           winston.format.colorize(),
-          winston.format.printf(({ timestamp, level, message, stack }) => {
-            return `${timestamp} [${level}]: ${message}${stack ? '\n' + stack : ''}`;
+          winston.format.printf(({ timestamp, level, message, stack, ...metadata }) => {
+            const metaStr = Object.keys(metadata).length > 0 && metadata.timestamp !== timestamp
+              ? ' ' + JSON.stringify(metadata)
+              : '';
+            return `${timestamp} [${level}]: ${message}${metaStr}${stack ? '\n' + stack : ''}`;
           })
         )
       : winston.format.json()

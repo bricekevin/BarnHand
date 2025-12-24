@@ -60,6 +60,11 @@ const autoScanConfigSchema = z.object({
 const startAutoScanSchema = z.object({
   config: autoScanConfigSchema.partial().optional(),
   presets: z.array(z.number().int().min(0).max(9)).optional(),
+  // PTZ credentials can be passed from frontend (from localStorage)
+  ptzCredentials: z.object({
+    username: z.string(),
+    password: z.string(),
+  }).optional(),
 });
 
 const chunkParamsSchema = z.object({
@@ -295,7 +300,14 @@ router.delete(
 
       const { id } = req.params;
 
-      // TODO: Replace with StreamRepository.delete()
+      // Delete stream from database
+      const streamRepository = new (require('@barnhand/database').StreamRepository)();
+      const deleted = await streamRepository.delete(id);
+
+      if (!deleted) {
+        return res.status(404).json({ error: 'Stream not found' });
+      }
+
       logger.info('Stream deleted', {
         userId: req.user.userId,
         streamId: id,
@@ -1405,10 +1417,10 @@ router.get(
 router.post(
   '/:id/ptz/auto-scan/start',
   requireRole([UserRole.SUPER_ADMIN, UserRole.FARM_ADMIN, UserRole.FARM_USER]),
-  validateSchema({ body: startAutoScanSchema }),
+  validateSchema(startAutoScanSchema, 'body'),
   createAuthenticatedRoute(async (req, res) => {
     const { id: streamId } = req.params;
-    const { config, presets: requestedPresets } = req.body;
+    const { config, presets: requestedPresets, ptzCredentials: requestCredentials } = req.body;
 
     try {
       // Get stream from database
@@ -1422,39 +1434,51 @@ router.post(
 
       const streamConfig = stream.config || {};
 
-      // Get PTZ credentials from stream config
-      const ptzCredentials = streamConfig.ptzCredentials;
+      // Get PTZ credentials from stream config OR request body (frontend localStorage)
+      const ptzCredentials = streamConfig.ptzCredentials || requestCredentials;
       if (!ptzCredentials?.username || !ptzCredentials?.password) {
         return res.status(400).json({
           error: 'PTZ credentials not configured',
-          message: 'Please configure PTZ credentials in Stream Settings before using auto-scan',
+          message: 'Please configure PTZ credentials in Stream Settings or PTZ Controls before using auto-scan',
         });
       }
 
-      // Get saved presets from stream config
+      // Get saved presets from stream config OR use requested presets
       const savedPresets = streamConfig.ptzPresets || {};
-      if (Object.keys(savedPresets).length === 0) {
-        return res.status(400).json({
-          error: 'No presets saved',
-          message: 'Please save at least one PTZ preset before using auto-scan',
-        });
-      }
+      let presets: Array<{ number: number; name: string }> = [];
 
-      // Convert presets to array format
-      let presets = Object.entries(savedPresets).map(([num, preset]: [string, any]) => ({
-        number: parseInt(num, 10),
-        name: preset.name,
-      }));
+      if (Object.keys(savedPresets).length > 0) {
+        // Use saved presets from stream config
+        presets = Object.entries(savedPresets).map(([num, preset]: [string, any]) => ({
+          number: parseInt(num, 10),
+          name: preset.name || `Preset ${num}`,
+        }));
 
-      // Filter by requested presets if provided
-      if (requestedPresets && requestedPresets.length > 0) {
-        presets = presets.filter(p => requestedPresets.includes(p.number));
-        if (presets.length === 0) {
-          return res.status(400).json({
-            error: 'Invalid preset selection',
-            message: 'None of the requested presets have been saved',
-          });
+        // Filter by requested presets if provided
+        if (requestedPresets && requestedPresets.length > 0) {
+          presets = presets.filter(p => requestedPresets.includes(p.number));
+          if (presets.length === 0) {
+            return res.status(400).json({
+              error: 'Invalid preset selection',
+              message: 'None of the requested presets have been saved',
+            });
+          }
         }
+      } else if (requestedPresets && requestedPresets.length > 0) {
+        // No saved presets, but presets were specified in request
+        // Use the requested presets directly (camera manages presets)
+        presets = requestedPresets.map((num: number) => ({
+          number: num,
+          name: `Preset ${num}`,
+        }));
+      } else {
+        // No saved presets and no requested presets - scan all presets 0-9
+        // Camera manages presets directly, so we'll try all of them
+        presets = Array.from({ length: 10 }, (_, i) => ({
+          number: i,
+          name: `Preset ${i}`,
+        }));
+        logger.info('No presets specified, scanning all 10 preset positions', { streamId });
       }
 
       // Parse hostname from source URL

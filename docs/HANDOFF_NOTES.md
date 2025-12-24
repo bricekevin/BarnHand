@@ -1,9 +1,53 @@
 # BarnHand - Project Handoff Notes
 
-**Date**: 2025-12-08 (Updated: Phase 5 Frontend Core Complete)
+**Date**: 2025-12-24 (Updated: Correction Store Chunk Scoping Fix)
 **Branch**: `feature/documentation`
 
-## 🎯 Latest Session: Phase 5 - PTZ Auto-Scan (Frontend Core)
+## 🎯 Latest Session: Bulk Corrections UX Fix
+
+### Problem
+After triggering bulk corrections from the Recorded Chunks tab:
+1. Pending corrections still showed in the frontend after processing started
+2. Corrections appeared on ALL chunk pages (not just the chunk they belonged to)
+3. Required page reload to clear the UI
+
+### Solution Implemented
+
+**1. Scoped Corrections by ChunkId**
+- Added `chunk_id` field to `PendingCorrectionSchema` in shared types
+- Updated correction store with chunk-scoped methods:
+  - `addCorrection(chunkId, correction)` - now requires chunkId
+  - `getCorrectionsForChunk(chunkId)` - filter by chunk
+  - `getCorrectionCountForChunk(chunkId)` - count for specific chunk
+  - `clearCorrectionsForChunk(chunkId)` - clear only that chunk's corrections
+
+**2. Immediate UI Clearing**
+- `DetectionDataPanel.tsx`: Now clears corrections IMMEDIATELY when "Process" is clicked (before API call), not after 3-second delay
+- Corrections are copied before clearing so they can still be submitted
+
+**3. Component Updates**
+- `CorrectionBatchPanel.tsx`: Now receives `chunkId` prop, displays only that chunk's corrections
+- `FrameInspector.tsx`: Passes `chunkId` when adding corrections (single and bulk)
+
+### Files Changed
+- `shared/src/types/correction.types.ts` - Added `chunk_id` to PendingCorrectionSchema
+- `frontend/src/stores/correctionStore.ts` - Added chunk-scoped methods
+- `frontend/src/components/CorrectionBatchPanel.tsx` - Added chunkId prop, filtered display
+- `frontend/src/components/DetectionDataPanel.tsx` - Immediate clear, pass chunkId
+- `frontend/src/components/FrameInspector.tsx` - Pass chunkId on add
+
+### ML Pipeline ReID Improvement (Verified)
+The ML reprocessor (`backend/ml-service/src/services/reprocessor.py`) correctly uses corrections to improve ReID:
+- Step 4 (`_update_reid_features`): Extracts features from corrected bounding boxes
+- Updates horse feature vectors with 70/30 weighted average (70% user correction, 30% existing)
+- Invalidates Redis cache so updated features are used immediately
+- Updates horse thumbnails from raw frames
+
+This means each correction makes future ReID matching more accurate.
+
+---
+
+## Previous Session: Phase 5 - PTZ Auto-Scan (Frontend Core)
 
 ### Completed Work
 

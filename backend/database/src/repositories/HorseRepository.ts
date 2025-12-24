@@ -2,13 +2,14 @@ import { query } from '../connection';
 import type { Horse, CreateHorseRequest } from '../types';
 
 export class HorseRepository {
-  async findAll(farmId?: string): Promise<Horse[]> {
+  async findAll(streamId?: string): Promise<Horse[]> {
     // Filter out soft-deleted horses (status='deleted')
-    const sql = farmId
-      ? "SELECT * FROM horses WHERE farm_id = $1 AND status != 'deleted' ORDER BY last_seen DESC"
+    // Note: horses table uses stream_id, not farm_id
+    const sql = streamId
+      ? "SELECT * FROM horses WHERE stream_id = $1 AND status != 'deleted' ORDER BY last_seen DESC"
       : "SELECT * FROM horses WHERE status != 'deleted' ORDER BY last_seen DESC";
 
-    const params = farmId ? [farmId] : [];
+    const params = streamId ? [streamId] : [];
     const result = await query(sql, params);
 
     return result.rows.map(this.mapRowToHorse);
@@ -42,12 +43,10 @@ export class HorseRepository {
     const sql = `
       SELECT
         h.*,
-        s.name as stream_name,
-        f.name as farm_name
+        s.name as stream_name
       FROM horses h
       LEFT JOIN streams s ON h.stream_id = s.id
-      LEFT JOIN farms f ON h.farm_id = f.id
-      WHERE h.stream_id = $1
+      WHERE h.stream_id = $1 AND h.status != 'deleted'
       ORDER BY h.last_seen DESC
     `;
     const result = await query(sql, [streamId]);
@@ -56,23 +55,19 @@ export class HorseRepository {
   }
 
   async create(horseData: CreateHorseRequest): Promise<Horse> {
+    // Note: Actual schema has: stream_id, name, tracking_id, color_hex, metadata, avatar_thumbnail
+    // Does NOT have: farm_id, breed, age, color, markings, gender, ui_color
     const sql = `
-      INSERT INTO horses (farm_id, stream_id, name, breed, age, color, markings, gender, tracking_id, ui_color, avatar_thumbnail, metadata)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      INSERT INTO horses (stream_id, name, tracking_id, color_hex, avatar_thumbnail, metadata)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `;
 
     const params = [
-      horseData.farm_id,
       horseData.stream_id || null,
       horseData.name || null,
-      horseData.breed || null,
-      horseData.age || null,
-      horseData.color || null,
-      horseData.markings || null,
-      horseData.gender || null,
       horseData.tracking_id || null,
-      horseData.ui_color || null,
+      horseData.ui_color || null, // Maps to color_hex in DB
       horseData.avatar_thumbnail || null,
       JSON.stringify(horseData.metadata || {}),
     ];
@@ -124,13 +119,9 @@ export class HorseRepository {
     horseId: string,
     updates: Partial<Horse>
   ): Promise<Horse> {
+    // Only include fields that exist in the actual DB schema
     const allowedFields = [
       'name',
-      'breed',
-      'age',
-      'color',
-      'markings',
-      'gender',
       'metadata',
     ];
     const updateFields: string[] = [];
@@ -176,25 +167,26 @@ export class HorseRepository {
     featureVector: number[],
     threshold = 0.7,
     maxResults = 10,
-    streamId?: string,
-    farmId?: string
+    streamId?: string
   ): Promise<Array<{ horse: Horse; similarity: number }>> {
+    // Simple cosine similarity search without the stored function
+    // (function may not exist or have different signature)
     const sql = `
-      SELECT h.*, s.name as stream_name, f.name as farm_name, fs.similarity
-      FROM find_similar_horses($1::vector, $2, $3, $4::uuid, $5::uuid) fs
-      JOIN horses h ON h.id = fs.horse_id
+      SELECT h.*, s.name as stream_name,
+             1 - (h.feature_vector <=> $1::vector) as similarity
+      FROM horses h
       LEFT JOIN streams s ON h.stream_id = s.id
-      LEFT JOIN farms f ON h.farm_id = f.id
-      ORDER BY fs.similarity DESC
+      WHERE h.feature_vector IS NOT NULL
+        AND h.status != 'deleted'
+        AND 1 - (h.feature_vector <=> $1::vector) >= $2
+        ${streamId ? 'AND h.stream_id = $4' : ''}
+      ORDER BY h.feature_vector <=> $1::vector
+      LIMIT $3
     `;
 
-    const params = [
-      `[${featureVector.join(',')}]`,
-      threshold,
-      maxResults,
-      streamId || null,
-      farmId || null,
-    ];
+    const params = streamId
+      ? [`[${featureVector.join(',')}]`, threshold, maxResults, streamId]
+      : [`[${featureVector.join(',')}]`, threshold, maxResults];
     const result = await query(sql, params);
 
     return result.rows.map((row: any) => ({
@@ -211,43 +203,40 @@ export class HorseRepository {
     return result.rows.length > 0 ? result.rows[0] : null;
   }
 
-  async getActiveHorses(farmId?: string): Promise<Horse[]> {
+  async getActiveHorses(streamId?: string): Promise<Horse[]> {
     // Filter out soft-deleted horses
-    const sql = farmId
-      ? "SELECT * FROM horses WHERE activity_status = 'active' AND status != 'deleted' AND farm_id = $1"
-      : "SELECT * FROM horses WHERE activity_status = 'active' AND status != 'deleted'";
+    // Note: horses table doesn't have activity_status column, use last_seen instead
+    const sql = streamId
+      ? "SELECT * FROM horses WHERE status != 'deleted' AND stream_id = $1 AND last_seen > NOW() - INTERVAL '1 hour'"
+      : "SELECT * FROM horses WHERE status != 'deleted' AND last_seen > NOW() - INTERVAL '1 hour'";
 
-    const params = farmId ? [farmId] : [];
+    const params = streamId ? [streamId] : [];
     const result = await query(sql, params);
 
     return result.rows.map(this.mapRowToHorse);
   }
 
-  async countOfficialHorses(farmId: string): Promise<number> {
+  async countOfficialHorses(streamId: string): Promise<number> {
     // Filter out soft-deleted horses
     const result = await query(
-      "SELECT COUNT(*) FROM horses WHERE farm_id = $1 AND is_official = TRUE AND status != 'deleted'",
-      [farmId]
+      "SELECT COUNT(*) FROM horses WHERE stream_id = $1 AND is_official = TRUE AND status != 'deleted'",
+      [streamId]
     );
 
     return parseInt(result.rows[0].count, 10);
   }
 
   async update(id: string, updates: Partial<Horse>): Promise<Horse | null> {
+    // Only include fields that exist in the actual DB schema
     const allowedFields = [
-      'farm_id',
       'stream_id',
       'name',
-      'breed',
-      'age',
-      'color',
-      'markings',
-      'gender',
-      'ui_color',
+      'color_hex',  // Maps from ui_color
       'metadata',
       'is_official',
       'made_official_at',
       'made_official_by',
+      'tracking_id',
     ];
     const updateFields: string[] = [];
     const params: any[] = [];
@@ -308,18 +297,16 @@ export class HorseRepository {
   }
 
   private mapRowToHorse(row: any): Horse {
+    // Map from actual DB columns to Horse type
+    // DB has: id, name, stream_id, tracking_id, color_hex, first_detected, last_seen,
+    //         total_detections, feature_vector, thumbnail_url, metadata, track_confidence,
+    //         status, avatar_thumbnail, is_official, made_official_at, made_official_by
     return {
       id: row.id,
-      farm_id: row.farm_id,
       stream_id: row.stream_id,
       name: row.name,
-      breed: row.breed,
-      age: row.age,
-      color: row.color,
-      markings: row.markings,
-      gender: row.gender,
       tracking_id: row.tracking_id,
-      ui_color: row.ui_color,
+      ui_color: row.color_hex, // DB uses color_hex, map to ui_color
       feature_vector: row.feature_vector,
       thumbnail_url: row.thumbnail_url,
       avatar_thumbnail: row.avatar_thumbnail
@@ -328,20 +315,18 @@ export class HorseRepository {
       first_detected: row.first_detected,
       last_seen: row.last_seen,
       total_detections: row.total_detections,
-      confidence_score: row.confidence_score,
+      confidence_score: row.track_confidence, // DB uses track_confidence
       metadata:
         typeof row.metadata === 'string'
           ? JSON.parse(row.metadata)
           : row.metadata,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      // Include stream and farm names when available (from JOINs)
+      // Include stream name when available (from JOINs)
       stream_name: row.stream_name,
-      farm_name: row.farm_name,
       // Official horse fields
       is_official: row.is_official,
       made_official_at: row.made_official_at,
       made_official_by: row.made_official_by,
+      status: row.status,
     };
   }
 }

@@ -53,7 +53,8 @@ export const PTZControls: React.FC<PTZControlsProps> = ({ streamUrl, streamId, s
   const [savedPresets, setSavedPresets] = useState<SavedPreset[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [snapshotBlobUrl, setSnapshotBlobUrl] = useState<string | null>(null);
-  const [isLoadingSnapshot, setIsLoadingSnapshot] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_isLoadingSnapshot, _setIsLoadingSnapshot] = useState(false);
 
   // Auth credentials for PTZ control (web interface on port 8080)
   // Priority: ptzCredentials from config > localStorage fallback
@@ -203,7 +204,7 @@ export const PTZControls: React.FC<PTZControlsProps> = ({ streamUrl, streamId, s
 
     try {
       // Try direct fetch first (may fail due to CORS)
-      const response = await fetch(fullUrl, {
+      await fetch(fullUrl, {
         method: 'GET',
         mode: 'no-cors',
       });
@@ -312,6 +313,61 @@ export const PTZControls: React.FC<PTZControlsProps> = ({ streamUrl, streamId, s
       `cmd=preset&-act=goto&-status=1&-number=${number}`
     );
   }, [sendPTZCommand]);
+
+  // Clear/delete preset from camera and database
+  const clearPreset = useCallback(async (number: number) => {
+    // Send delete command to camera
+    const success = await sendPTZCommand(
+      '/web/cgi-bin/hi3510/param.cgi',
+      `cmd=preset&-act=del&-status=1&-number=${number}`
+    );
+
+    // Remove from local state regardless of camera response (camera may not support delete)
+    const updated = savedPresets.filter(p => p.number !== number);
+    setSavedPresets(updated);
+
+    // Update database
+    if (streamId) {
+      try {
+        const token = getAuthToken();
+        // Convert array format to object format for database
+        const ptzPresets: { [key: string]: { name: string; savedAt: string } } = {};
+        updated.forEach(p => {
+          ptzPresets[p.number.toString()] = { name: p.name, savedAt: p.savedAt };
+        });
+
+        const response = await fetch(`http://localhost:8000/api/v1/streams/${streamId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            config: {
+              ...streamConfig,
+              ptzPresets,
+            },
+          }),
+        });
+
+        if (response.ok) {
+          console.log('✅ Preset cleared from database');
+          onConfigUpdate?.();
+        } else {
+          console.warn('⚠️ Failed to clear preset from database, using localStorage fallback');
+          localStorage.setItem(`ptz_presets_${streamUrl}`, JSON.stringify(updated));
+        }
+      } catch (error) {
+        console.warn('⚠️ Network error clearing preset, using localStorage fallback:', error);
+        localStorage.setItem(`ptz_presets_${streamUrl}`, JSON.stringify(updated));
+      }
+    } else {
+      // Fallback to localStorage if no streamId
+      localStorage.setItem(`ptz_presets_${streamUrl}`, JSON.stringify(updated));
+    }
+
+    return success;
+  }, [sendPTZCommand, savedPresets, streamUrl, streamId, streamConfig, onConfigUpdate]);
 
   // Clean up on unmount
   useEffect(() => {
@@ -582,15 +638,22 @@ export const PTZControls: React.FC<PTZControlsProps> = ({ streamUrl, streamId, s
                 </select>
                 <button
                   onClick={() => savePreset(presetNumber)}
-                  className="px-4 py-2 bg-amber-600/20 text-amber-400 border border-amber-600/30 rounded-lg hover:bg-amber-600/30 transition-colors text-sm"
+                  className="px-3 py-2 bg-amber-600/20 text-amber-400 border border-amber-600/30 rounded-lg hover:bg-amber-600/30 transition-colors text-sm"
                 >
                   Save
                 </button>
                 <button
                   onClick={() => recallPreset(presetNumber)}
-                  className="px-4 py-2 bg-cyan-600/20 text-cyan-400 border border-cyan-600/30 rounded-lg hover:bg-cyan-600/30 transition-colors text-sm"
+                  className="px-3 py-2 bg-cyan-600/20 text-cyan-400 border border-cyan-600/30 rounded-lg hover:bg-cyan-600/30 transition-colors text-sm"
                 >
                   Go To
+                </button>
+                <button
+                  onClick={() => clearPreset(presetNumber)}
+                  disabled={!savedPresets.find(p => p.number === presetNumber)}
+                  className="px-3 py-2 bg-red-600/20 text-red-400 border border-red-600/30 rounded-lg hover:bg-red-600/30 transition-colors text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Clear
                 </button>
               </div>
 

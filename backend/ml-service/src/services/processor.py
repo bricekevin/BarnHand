@@ -352,13 +352,18 @@ class ChunkProcessor:
 
             logger.info(f"📹 Video: {width}x{height} @ {fps}fps, {total_frames} frames")
 
+            # Get chunk start time (Unix timestamp) - use current time if not provided
+            chunk_start_time = chunk_metadata.get("start_time", time.time())
+            if chunk_start_time < 946684800:  # < year 2000, invalid
+                chunk_start_time = time.time()
+
             # Process frames
             while cap.isOpened():
                 ret, frame = cap.read()
                 if not ret:
                     break
 
-                timestamp = chunk_metadata.get("start_time", 0) + (frame_idx / fps)
+                timestamp = chunk_start_time + (frame_idx / fps)
 
                 # YOLO detection
                 detections, _ = self.detection_model.detect_horses(frame)
@@ -579,9 +584,15 @@ class ChunkProcessor:
 
             logger.debug(f"Starting frame processing for {len(frames)} frames")
             
+            # Get chunk start time (Unix timestamp) - use current time if not provided
+            chunk_start_time = chunk_metadata.get("start_time", time.time())
+            # Ensure it's a valid Unix timestamp (should be > year 2000 = 946684800)
+            if chunk_start_time < 946684800:
+                chunk_start_time = time.time()
+
             for frame_idx, frame in enumerate(frames):
                 frame_start = time.time()
-                frame_timestamp = chunk_metadata.get("start_time", 0) + (frame_idx / fps if fps > 0 else frame_idx * 0.033)
+                frame_timestamp = chunk_start_time + (frame_idx / fps if fps > 0 else frame_idx * 0.033)
                 
                 # Step 1: Detect horses in frame
                 detections, detection_time = self.detection_model.detect_horses(frame)
@@ -595,7 +606,8 @@ class ChunkProcessor:
                 frame_poses = []
 
                 for track_info in tracked_horses:
-                    horse_id = str(track_info.get("tracking_id", "unknown"))
+                    # Use 'id' field (not 'tracking_id') to match how horses are identified in frame renderer
+                    horse_id = str(track_info.get("id", track_info.get("tracking_id", "unknown")))
                     bbox = track_info.get("bbox", {})
 
                     # Estimate pose for this horse
@@ -892,6 +904,11 @@ class ChunkProcessor:
             frames_to_process = [i for i in range(total_frames) if i % frame_interval == 0]
             logger.info(f"Frame interval: {frame_interval}, will process {len(frames_to_process)} out of {total_frames} frames")
 
+            # Get chunk start time (Unix timestamp) - use current time if not provided
+            official_chunk_start_time = chunk_metadata.get("start_time", time.time())
+            if official_chunk_start_time < 946684800:  # < year 2000, invalid
+                official_chunk_start_time = time.time()
+
             while cap.isOpened() and frame_idx < total_frames:
                 read_start = time.time()
                 ret, frame = cap.read()
@@ -902,7 +919,7 @@ class ChunkProcessor:
                 # Check if this frame should be processed based on interval
                 should_process = (frame_idx % frame_interval == 0)
 
-                frame_timestamp = chunk_metadata.get("start_time", 0) + (frame_idx / fps)
+                frame_timestamp = official_chunk_start_time + (frame_idx / fps)
 
                 if should_process:
                     # Step 1: Detect horses
@@ -1503,28 +1520,38 @@ class ChunkProcessor:
                 if isinstance(first_detected, (int, float)):
                     first_detected = datetime.fromtimestamp(first_detected).isoformat()
 
-                horses_data.append({
+                horse_data = {
                     "id": state.get("id", horse_id),
-                    "tracking_id": state.get("tracking_id", horse_id),
+                    "tracking_id": str(state.get("tracking_id", horse_id)),  # Ensure string
                     "assigned_color": state.get("color", "#06B6D4"),
                     "confidence_score": float(state.get("confidence", 0.0)),
-                    "first_detected": first_detected,
                     "last_seen": last_seen,
                     "total_detections": int(state.get("detection_count", 0)),
-                })
+                }
+
+                # Only include first_detected if it has a value (field is optional)
+                if first_detected:
+                    horse_data["first_detected"] = first_detected
+
+                horses_data.append(horse_data)
 
             # Send HTTP POST to API Gateway webhook endpoint
             async with httpx.AsyncClient(timeout=5.0) as client:
                 webhook_url = f"{settings.api_gateway_url}/api/internal/webhooks/horses-detected"
+                payload = {"streamId": stream_id, "horses": horses_data}
+
+                # DEBUG: Log payload to diagnose schema validation issue
+                logger.info(f"📤 Sending webhook payload: {json.dumps(payload, indent=2)[:500]}")
+
                 response = await client.post(
                     webhook_url,
-                    json={"streamId": stream_id, "horses": horses_data}
+                    json=payload
                 )
 
                 if response.status_code == 200:
                     logger.debug(f"Notified API Gateway about {len(horses_data)} horses for stream {stream_id}")
                 else:
-                    logger.warning(f"API Gateway webhook returned status {response.status_code}")
+                    logger.warning(f"API Gateway webhook returned status {response.status_code}: {response.text[:200]}")
 
         except httpx.TimeoutException:
             logger.warning(f"Timeout notifying API Gateway about horses for stream {stream_id}")

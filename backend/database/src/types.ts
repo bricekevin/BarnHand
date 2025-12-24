@@ -49,46 +49,32 @@ export interface StreamConfig {
 
 export interface Horse {
   id: string;
-  farm_id: string;
   stream_id?: string;
   name?: string;
-  breed?: string;
-  age?: number;
-  color?: string;
-  markings?: string;
-  gender?: 'mare' | 'stallion' | 'gelding' | 'unknown';
   tracking_id?: string;
-  ui_color?: string;
+  ui_color?: string;  // Maps to color_hex in DB
   feature_vector?: number[];
   thumbnail_url?: string;
   avatar_thumbnail?: string; // base64 encoded JPEG
   first_detected?: Date;
   last_seen?: Date;
-  total_detections: number;
-  confidence_score: number;
-  metadata: Record<string, any>;
-  created_at: Date;
-  updated_at: Date;
+  total_detections?: number;
+  confidence_score?: number;  // Maps to track_confidence in DB
+  metadata?: Record<string, any>;
+  status?: 'active' | 'deleted';
   // Official horse designation
   is_official?: boolean;
   made_official_at?: Date;
   made_official_by?: string;
   // Optional fields from JOINs for display purposes
   stream_name?: string;
-  farm_name?: string;
 }
 
 export interface CreateHorseRequest {
-  farm_id: string;
   stream_id?: string;
   name?: string;
-  breed?: string;
-  age?: number;
-  color?: string;
-  markings?: string;
-  gender?: 'mare' | 'stallion' | 'gelding' | 'unknown';
   tracking_id?: string;
-  ui_color?: string;
+  ui_color?: string;  // Maps to color_hex in DB
   avatar_thumbnail?: Buffer;
   metadata?: Record<string, any>;
 }

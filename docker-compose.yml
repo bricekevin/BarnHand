@@ -56,6 +56,10 @@ services:
       - stream-service
       - ml-service
       - video-streamer
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
     networks:
       - barnhand-network
 
@@ -67,8 +71,8 @@ services:
       target: development
     ports:
       - "${STREAM_SERVICE_PORT:-8001}:8001"
-      - "1935:1935"     # RTMP
-      - "8088:8088"     # HTTP-FLV
+      - "${RTMP_PORT:-1935}:1935"     # RTMP
+      - "${HTTP_FLV_PORT:-8088}:8088"     # HTTP-FLV
     environment:
       - NODE_ENV=development
       - PORT=8001
@@ -139,7 +143,7 @@ services:
       target: development
     ports:
       - "${VIDEO_STREAMER_PORT:-8003}:8003"
-      - "5000-5100:5000-5100/udp"  # WebRTC range
+      - "${WEBRTC_PORT_START:-5000}-${WEBRTC_PORT_END:-5100}:5000-5100/udp"  # WebRTC range
     environment:
       - NODE_ENV=development
       - PORT=8003

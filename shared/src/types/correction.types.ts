@@ -86,9 +86,10 @@ export const CorrectionPayloadSchema = z
 
 /**
  * Batch correction request (array of corrections for single chunk)
+ * Max 500 corrections per batch (typical chunk has ~150 frames)
  */
 export const BatchCorrectionRequestSchema = z.object({
-  corrections: z.array(CorrectionPayloadSchema).min(1).max(50),
+  corrections: z.array(CorrectionPayloadSchema).min(1).max(500),
 });
 
 /**
@@ -149,6 +150,7 @@ export const ReprocessingResultSchema = z.object({
 export const PendingCorrectionSchema = z
   .object({
     id: z.string().uuid(), // Temporary client-side ID
+    chunk_id: z.string().uuid(), // Chunk ID this correction belongs to
     detection_index: z.number().int().min(0),
     frame_index: z.number().int().min(0),
     correction_type: CorrectionTypeSchema,

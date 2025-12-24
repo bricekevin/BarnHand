@@ -87,6 +87,9 @@ class WebSocketService {
       auth: authToken ? { token: authToken } : undefined,
     });
 
+    // Expose socket globally for components like AutoScanDialog
+    (window as unknown as { socket: Socket }).socket = this.socket;
+
     this.setupEventListeners();
   }
 
@@ -165,6 +168,32 @@ class WebSocketService {
         this.handleReprocessingError(data);
       }
     );
+
+    // Auto-scan events (logged here for debugging, handled by AutoScanDialog component)
+    this.socket.on('autoScan:started', (data: unknown) => {
+      console.log('[WebSocket] autoScan:started event:', data);
+    });
+    this.socket.on('autoScan:position', (data: unknown) => {
+      console.log('[WebSocket] autoScan:position event:', data);
+    });
+    this.socket.on('autoScan:detection', (data: unknown) => {
+      console.log('[WebSocket] autoScan:detection event:', data);
+    });
+    this.socket.on('autoScan:phaseChange', (data: unknown) => {
+      console.log('[WebSocket] autoScan:phaseChange event:', data);
+    });
+    this.socket.on('autoScan:recording', (data: unknown) => {
+      console.log('[WebSocket] autoScan:recording event:', data);
+    });
+    this.socket.on('autoScan:complete', (data: unknown) => {
+      console.log('[WebSocket] autoScan:complete event:', data);
+    });
+    this.socket.on('autoScan:stopped', (data: unknown) => {
+      console.log('[WebSocket] autoScan:stopped event:', data);
+    });
+    this.socket.on('autoScan:error', (data: unknown) => {
+      console.log('[WebSocket] autoScan:error event:', data);
+    });
   }
 
   private handleHorsesDetected(event: HorsesDetectedEvent): void {
@@ -334,7 +363,7 @@ class WebSocketService {
     }
 
     console.log('[WebSocket] Subscribing to stream', streamId);
-    this.socket.emit('subscribe:stream', { streamId });
+    this.socket.emit('subscribe:stream', streamId);
     this.subscribedStreams.add(streamId);
   }
 
@@ -348,7 +377,7 @@ class WebSocketService {
     }
 
     console.log('[WebSocket] Unsubscribing from stream', streamId);
-    this.socket.emit('unsubscribe:stream', { streamId });
+    this.socket.emit('unsubscribe:stream', streamId);
     this.subscribedStreams.delete(streamId);
   }
 

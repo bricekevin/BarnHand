@@ -967,6 +967,11 @@ class HorseTracker:
             guest_count = 0
 
             for horse_id, horse_state in known_horses.items():
+                # Skip horses with None or empty ID
+                if not horse_id:
+                    logger.warning(f"Skipping horse with None or empty ID")
+                    continue
+
                 # Extract horse data from state
                 features = horse_state.get("features", [])
                 if isinstance(features, list) and len(features) > 0:
@@ -982,28 +987,43 @@ class HorseTracker:
                 horse_type = "official" if is_official else "guest"
 
                 # Parse tracking ID from horse_id (format: {stream_id}_horse_{tracking_id})
+                # For guest horses, tracking_id might be a string like "guest_12345678"
                 try:
                     parts = horse_id.split('_horse_')
                     if len(parts) == 2:
                         tracking_id = int(parts[1])
                     else:
-                        # Fallback for different format
-                        tracking_id = horse_state.get("tracking_id", self.next_track_id)
-                        if tracking_id == 0:
+                        # Fallback: use tracking_id from state or generate new one
+                        tracking_id = horse_state.get("tracking_id", None)
+
+                        # If tracking_id is a string (guest horses), use it as-is
+                        if isinstance(tracking_id, str):
+                            # Keep string tracking_id (e.g., "guest_12345678")
+                            pass
+                        elif tracking_id == 0 or tracking_id is None:
+                            # Generate new numeric tracking_id
                             tracking_id = self.next_track_id
                             self.next_track_id += 1
                 except (IndexError, ValueError):
                     tracking_id = self.next_track_id
                     self.next_track_id += 1
 
-                # Track max ID to set next_track_id correctly
-                max_tracking_id = max(max_tracking_id, tracking_id)
+                # Track max numeric ID to set next_track_id correctly
+                # Only update if tracking_id is numeric
+                if isinstance(tracking_id, int):
+                    max_tracking_id = max(max_tracking_id, tracking_id)
 
                 # Create HorseTrack from state
+                # Calculate color index - use hash for string tracking_ids, direct index for numeric
+                if isinstance(tracking_id, str):
+                    color_index = hash(tracking_id) % len(self.TRACKING_COLORS)
+                else:
+                    color_index = (tracking_id - 1) % len(self.TRACKING_COLORS)
+
                 track = HorseTrack(
                     id=horse_id,
                     tracking_id=tracking_id,
-                    color=horse_state.get("color", self.TRACKING_COLORS[(tracking_id - 1) % len(self.TRACKING_COLORS)]),
+                    color=horse_state.get("color", self.TRACKING_COLORS[color_index]),
                     feature_vector=feature_vector,
                     last_bbox=horse_state.get("bbox", {}),
                     last_seen=horse_state.get("last_updated", time.time()),
@@ -1055,14 +1075,16 @@ class HorseTracker:
                 "horse_id": track_id,
                 "stream_id": self.stream_id,
                 "tracking_id": track.tracking_id,
-                "color": track.color,
+                "color": track.color,  # Already included but keeping for clarity
                 "last_updated": track.last_seen,
                 "bbox": track.last_bbox.copy(),
                 "confidence": track.confidence,
                 "total_detections": track.total_detections,
                 "features": track.feature_vector.tolist() if isinstance(track.feature_vector, np.ndarray) else [],
                 "tracking_confidence": track.track_confidence,
-                "state": track.state
+                "state": track.state,
+                "is_official": track.horse_type == "official",  # Preserve official status
+                "name": track.horse_name  # Preserve horse name
             }
 
         # Include lost tracks (recently seen horses that might reappear)
@@ -1078,7 +1100,9 @@ class HorseTracker:
                 "total_detections": track.total_detections,
                 "features": track.feature_vector.tolist() if isinstance(track.feature_vector, np.ndarray) else [],
                 "tracking_confidence": track.track_confidence,
-                "state": track.state
+                "state": track.state,
+                "is_official": track.horse_type == "official",  # Preserve official status
+                "name": track.horse_name  # Preserve horse name
             }
 
         return horse_states

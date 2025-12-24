@@ -454,6 +454,14 @@ export class WebSocketServer {
   public getStreamSubscribers(streamId: string): number {
     return this.streamRooms.get(`stream:${streamId}`)?.size || 0;
   }
+
+  /**
+   * Get the underlying Socket.IO server instance
+   * Used by services that need to emit events (like AutoScanService)
+   */
+  public getIO(): Server {
+    return this.io;
+  }
 }
 
 export default WebSocketServer;
