@@ -20,21 +20,21 @@ The system was showing **"discovery mode"** and **"allow new horses"** in the Fr
 **Old Behavior**:
 ```
 Chunk processed with:
-  Mode: DISCOVERY  ❌ Wrong!
-  Allow New Horses: true  ❌ Wrong!
+  Mode: DISCOVERY   Wrong!
+  Allow New Horses: true   Wrong!
   Known Horses: 3
 
-System created: "horse_016" as NEW GUEST  ❌ Should force-match to official horses!
+System created: "horse_016" as NEW GUEST   Should force-match to official horses!
 ```
 
 **What Should Happen**:
 ```
 Chunk processed with:
-  Mode: OFFICIAL  ✅ Correct!
-  Allow New Horses: false  ✅ Correct!
+  Mode: OFFICIAL   Correct!
+  Allow New Horses: false   Correct!
   Known Horses: 3 (official only)
 
-System force-matches to: one of the 3 official horses  ✅ Correct!
+System force-matches to: one of the 3 official horses   Correct!
 ```
 
 ## Root Cause
@@ -56,7 +56,7 @@ else:
 Example:
 - Farm has 3 official horses
 - Only 1 has been seen in this stream so far
-- System: "1 < 3, so stay in discovery mode" ❌
+- System: "1 < 3, so stay in discovery mode" 
 - Result: Creates new guest horses instead of force-matching
 
 ## Solution
@@ -74,7 +74,7 @@ else:
     allow_new_horses = True
 ```
 
-**Key Change**: If you have ANY official horses defined → official mode (no guests)
+**Key Change**: If you have ANY official horses defined => official mode (no guests)
 
 ## Changes Made
 
@@ -131,17 +131,17 @@ else:
 
 | Official Horses | Detected | Mode | Allow New | Behavior |
 |----------------|----------|------|-----------|----------|
-| 0 | 0 | DISCOVERY | ✅ true | Create guests |
-| 3 (defined) | 1 | DISCOVERY ❌ | ✅ true ❌ | Create guests ❌ |
-| 3 (defined) | 3 | OFFICIAL | ❌ false | Force-match |
+| 0 | 0 | DISCOVERY |  true | Create guests |
+| 3 (defined) | 1 | DISCOVERY  |  true  | Create guests  |
+| 3 (defined) | 3 | OFFICIAL |  false | Force-match |
 
 ### After the Fix
 
 | Official Horses | Detected | Mode | Allow New | Behavior |
 |----------------|----------|------|-----------|----------|
-| 0 | 0 | DISCOVERY | ✅ true | Create guests |
-| 3 (defined) | 1 | OFFICIAL ✅ | ❌ false ✅ | Force-match ✅ |
-| 3 (defined) | 3 | OFFICIAL | ❌ false | Force-match |
+| 0 | 0 | DISCOVERY |  true | Create guests |
+| 3 (defined) | 1 | OFFICIAL  |  false  | Force-match  |
+| 3 (defined) | 3 | OFFICIAL |  false | Force-match |
 
 ## Frame Inspector Display
 
@@ -149,8 +149,8 @@ else:
 ```
 ML Settings:
   Model: YOLO11
-  Mode: discovery  ❌
-  Allow New Horses: true  ❌
+  Mode: discovery  
+  Allow New Horses: true  
 
 ReID Details:
   Known Horses: 3
@@ -160,8 +160,8 @@ ReID Details:
 ```
 ML Settings:
   Model: YOLO11
-  Mode: official  ✅
-  Allow New Horses: false  ✅
+  Mode: official  
+  Allow New Horses: false  
 
 ReID Details:
   Known Horses: 3 (official only)
@@ -183,10 +183,10 @@ ReID Details:
 
 Wait for a new chunk to be processed and verify:
 
-1. ✅ **Mode shows "official"** in Frame Inspector
-2. ✅ **Allow New Horses shows "false"**
-3. ✅ **No new guest horses created**
-4. ✅ **Detections force-matched to official horses**
+1.  **Mode shows "official"** in Frame Inspector
+2.  **Allow New Horses shows "false"**
+3.  **No new guest horses created**
+4.  **Detections force-matched to official horses**
 
 Example log output (new behavior):
 ```

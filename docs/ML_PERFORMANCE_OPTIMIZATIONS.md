@@ -173,13 +173,13 @@ All optimizations include fallbacks to ensure functionality is preserved:
 2. Monitor ML service: `docker compose logs -f ml-service`
 3. Trigger processing via UI or API
 4. Look for log messages:
-   - `✅ Batch RTMPose: N horses in Xms (Y ms/horse)` ← Batch working
+   - ` Batch RTMPose: N horses in Xms (Y ms/horse)` ← Batch working
    - Check if per-horse time < 200ms (success!)
 
 ### Expected Log Output
 
 ```
-✅ Batch RTMPose: 3 horses in 320.5ms (106.8ms/horse)
+ Batch RTMPose: 3 horses in 320.5ms (106.8ms/horse)
 Track update: 3 active, 0 lost
 ```
 
@@ -228,9 +228,9 @@ docker compose up -d --build ml-service
 
 Implemented **non-disruptive performance optimizations** that achieve:
 
-- ✅ **3-8x faster** processing for multi-horse scenarios
-- ✅ **Maintained functionality** with comprehensive fallbacks
-- ✅ **Production-ready** with error handling and logging
-- ✅ **Tested in Docker** environment
+-  **3-8x faster** processing for multi-horse scenarios
+-  **Maintained functionality** with comprehensive fallbacks
+-  **Production-ready** with error handling and logging
+-  **Tested in Docker** environment
 
 The biggest win is **RTMPose batch inference** which eliminates the sequential bottleneck for multi-horse frames.

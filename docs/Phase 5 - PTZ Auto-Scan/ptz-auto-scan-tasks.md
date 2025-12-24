@@ -58,7 +58,7 @@
 
 **Testing**:
 - [ ] Unit: Config serialization includes ptzCredentials
-- [ ] Integration: Save settings → PTZ controls use saved credentials
+- [ ] Integration: Save settings => PTZ controls use saved credentials
 - [ ] Regression: Existing PTZ functionality unchanged
 - [ ] Manual: Clear localStorage, verify PTZ still works via DB config
 
@@ -92,7 +92,7 @@
 
 **Testing**:
 - [ ] Unit: Preset save/load via API
-- [ ] Integration: Save preset → refresh page → preset still there
+- [ ] Integration: Save preset => refresh page => preset still there
 - [ ] Regression: Preset recall moves camera correctly
 - [ ] Manual: Verify presets available for auto-scan
 
@@ -205,7 +205,7 @@
 
 **Testing**:
 - [ ] Unit: Endpoint validation rejects invalid requests
-- [ ] Integration: Start → Status → Stop cycle works
+- [ ] Integration: Start => Status => Stop cycle works
 - [ ] Regression: Existing stream routes unaffected
 - [ ] Manual: Test with Postman/curl
 

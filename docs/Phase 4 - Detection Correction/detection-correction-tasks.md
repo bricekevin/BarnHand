@@ -166,7 +166,7 @@
 
 ---
 
-### Task 1.3: Add Correction API Endpoints ✅
+### Task 1.3: Add Correction API Endpoints 
 
 **Objective**: REST API for submitting and tracking corrections
 
@@ -175,25 +175,25 @@
 - `backend/api-gateway/src/__tests__/corrections.test.ts` (NEW - comprehensive test suite)
 
 **Steps**:
-1. ✅ Create endpoints in `streams.ts` router (already implemented):
+1.  Create endpoints in `streams.ts` router (already implemented):
    ```typescript
    POST /api/v1/streams/:id/chunks/:chunkId/corrections (lines 1060-1134)
    GET /api/v1/streams/:id/chunks/:chunkId/corrections/status (lines 1140-1169)
    GET /api/v1/streams/:id/chunks/:chunkId/corrections (lines 1175-1208)
    DELETE /api/v1/streams/:id/chunks/:chunkId/corrections (lines 1214-1260)
    ```
-2. ✅ Add request validation using Zod schemas:
+2.  Add request validation using Zod schemas:
    - `BatchCorrectionRequestSchema` from `@barnhand/shared`
    - `chunkParamsSchema` for path params
-3. ✅ Add authentication middleware (requireRole)
-4. ✅ Implement endpoints using `correctionService`
-5. ⚠️  Rate limiting: Global API rate limit applied (not per-chunk specific)
-6. ✅ Write integration tests (tests created, Jest environment needs fixes)
+3.  Add authentication middleware (requireRole)
+4.  Implement endpoints using `correctionService`
+5.   Rate limiting: Global API rate limit applied (not per-chunk specific)
+6.  Write integration tests (tests created, Jest environment needs fixes)
 
 **Testing**:
 - [x] Unit: Test validation schemas with invalid data
-- [x] Integration: POST correction → verify 202 response → check DB (test written)
-- [x] Integration: GET status → verify returns progress (test written)
+- [x] Integration: POST correction => verify 202 response => check DB (test written)
+- [x] Integration: GET status => verify returns progress (test written)
 - [ ] E2E: Full workflow with Playwright (pending Phase 3)
 
 **Acceptance**:
@@ -213,7 +213,7 @@
 
 ---
 
-### Task 1.4: Create Re-Processing Service (ML Service - Python) ✅
+### Task 1.4: Create Re-Processing Service (ML Service - Python) 
 
 **Objective**: Core re-processing logic that applies corrections and regenerates chunk data
 
@@ -270,7 +270,7 @@
 
 ---
 
-### Task 1.5: Add ML Re-Processing API Endpoints ✅
+### Task 1.5: Add ML Re-Processing API Endpoints 
 
 **Objective**: REST API for triggering and monitoring chunk re-processing
 
@@ -294,7 +294,7 @@
 
 **Testing**:
 - [x] Unit: Test endpoint validation (pending integration tests)
-- [ ] Integration: POST to trigger → GET status → verify completion (pending manual test)
+- [ ] Integration: POST to trigger => GET status => verify completion (pending manual test)
 - [ ] Manual: Monitor Redis keys during re-processing
 
 **Acceptance**:
@@ -330,7 +330,7 @@
 **Testing**:
 - [ ] Unit: Test weighted average calculation
 - [ ] Unit: Test vector normalization
-- [ ] Integration: Update horse features → verify PostgreSQL + Redis updated
+- [ ] Integration: Update horse features => verify PostgreSQL + Redis updated
 - [ ] Regression: Existing horse DB methods still work
 
 **Acceptance**:
@@ -379,7 +379,7 @@
 - [ ] Unit: Test component renders with all props
 - [ ] Unit: Test validation (can't reassign to same horse)
 - [ ] Manual: Visual review in Storybook
-- [ ] E2E: Open modal → select option → submit → verify correction queued
+- [ ] E2E: Open modal => select option => submit => verify correction queued
 
 **Acceptance**:
 - [ ] Modal opens/closes smoothly
@@ -413,7 +413,7 @@
 
 **Testing**:
 - [ ] Unit: Test edit button click opens modal
-- [ ] Manual: Click edit → modal opens with correct data
+- [ ] Manual: Click edit => modal opens with correct data
 - [ ] E2E: Playwright test for edit workflow
 
 **Acceptance**:
@@ -446,9 +446,9 @@
    ```
 2. Create `CorrectionBatchPanel.tsx`:
    - Display list of pending corrections with summary:
-     * "Frame 42: Horse 1 → Horse 2 (Reassign)"
-     * "Frame 55: Horse 3 → New Guest (Create)"
-     * "Frame 78: Horse 4 → Deleted (Mark Incorrect)"
+     * "Frame 42: Horse 1 => Horse 2 (Reassign)"
+     * "Frame 55: Horse 3 => New Guest (Create)"
+     * "Frame 78: Horse 4 => Deleted (Mark Incorrect)"
    - Show total correction count badge
    - Add "Process Corrections" button (primary CTA)
    - Add "Clear All" button to discard pending corrections
@@ -458,8 +458,8 @@
 **Testing**:
 - [ ] Unit: Test Zustand store actions
 - [ ] Unit: Test component renders corrections list
-- [ ] Manual: Queue 3 corrections → verify all shown in panel
-- [ ] E2E: Queue corrections → click Process → verify API called
+- [ ] Manual: Queue 3 corrections => verify all shown in panel
+- [ ] E2E: Queue corrections => click Process => verify API called
 
 **Acceptance**:
 - [ ] Corrections persist in Zustand store across component re-renders
@@ -505,8 +505,8 @@
 **Testing**:
 - [ ] Unit: Test store updates from WebSocket events
 - [ ] Unit: Test progress bar rendering at different percentages
-- [ ] Manual: Trigger re-processing → watch progress update
-- [ ] E2E: Mock WebSocket events → verify UI updates
+- [ ] Manual: Trigger re-processing => watch progress update
+- [ ] E2E: Mock WebSocket events => verify UI updates
 
 **Acceptance**:
 - [ ] Progress bar animates smoothly (CSS transitions)
@@ -551,7 +551,7 @@
 **Testing**:
 - [ ] Unit: Test API client with mock fetch
 - [ ] Unit: Test hook error handling
-- [ ] Integration: Submit corrections → verify API called correctly
+- [ ] Integration: Submit corrections => verify API called correctly
 - [ ] E2E: Full workflow from UI to API
 
 **Acceptance**:
@@ -567,7 +567,7 @@
 
 ## Phase 3: Integration & Polish
 
-### Task 3.1: Add WebSocket Events for Re-Processing Progress ✅
+### Task 3.1: Add WebSocket Events for Re-Processing Progress 
 
 **Objective**: Real-time progress updates via WebSocket instead of polling
 
@@ -578,27 +578,27 @@
 - `frontend/src/services/websocketService.ts:1-347` (IMPLEMENTED - event subscribers)
 
 **Steps**:
-1. ✅ Add webhook endpoint `/api/internal/webhooks/reprocessing-event`:
+1.  Add webhook endpoint `/api/internal/webhooks/reprocessing-event`:
    - Validates reprocessing events from ML service
    - Routes events to appropriate WebSocket emitters
    - Returns 200 OK immediately
-2. ✅ Add event emitters in API Gateway `events.ts`:
+2.  Add event emitters in API Gateway `events.ts`:
    - `emitReprocessingProgress()` - Progress updates
    - `emitChunkUpdated()` - Completion notification
    - `emitReprocessingError()` - Error handling
-3. ✅ Add room subscription handlers in `socketServer.ts`:
+3.  Add room subscription handlers in `socketServer.ts`:
    - `subscribe:chunk` - Join chunk-specific room
    - `unsubscribe:chunk` - Leave chunk room
    - `emitToRoom()` - Generic room-based event emission
-4. ✅ Subscribe in frontend `websocketService.ts`:
-   - `reprocessing:progress` → Updates reprocessingStore
-   - `chunk:updated` → Marks complete
-   - `reprocessing:error` → Displays error
+4.  Subscribe in frontend `websocketService.ts`:
+   - `reprocessing:progress` => Updates reprocessingStore
+   - `chunk:updated` => Marks complete
+   - `reprocessing:error` => Displays error
 
 **Testing**:
-- [ ] Integration: Trigger re-processing → verify WebSocket events received (pending manual test)
+- [ ] Integration: Trigger re-processing => verify WebSocket events received (pending manual test)
 - [ ] Manual: Watch browser DevTools WebSocket tab during re-processing (pending)
-- [ ] E2E: Mock WebSocket server → verify frontend updates (pending Task 3.4)
+- [ ] E2E: Mock WebSocket server => verify frontend updates (pending Task 3.4)
 
 **Acceptance**:
 - [x] WebSocket event emitters created
@@ -609,7 +609,7 @@
 
 **Implementation Notes**:
 - ML service already emits events via httpx webhook to API Gateway (Task 1.4)
-- Event flow: ML Service → API Gateway Webhook → WebSocket Rooms → Frontend Store
+- Event flow: ML Service => API Gateway Webhook => WebSocket Rooms => Frontend Store
 - Chunk subscription pattern similar to existing stream subscription
 - Progress updates at: 0%, 10%, 20%, 40%, 50%, 70%, 85%, 95%, 100%
 
@@ -617,7 +617,7 @@
 
 ---
 
-### Task 3.2: Implement Auto-Reload After Re-Processing ✅
+### Task 3.2: Implement Auto-Reload After Re-Processing 
 
 **Objective**: Automatically reload chunk data when re-processing completes
 
@@ -627,12 +627,12 @@
 - `frontend/src/components/PrimaryVideoPlayer.tsx:205-258,1001-1025` (IMPLEMENTED - event listener + notification)
 
 **Steps**:
-1. ✅ Add `reloadChunk()` API function to corrections.ts
-2. ✅ Update `handleChunkUpdated()` in websocketService to dispatch browser custom event
-3. ✅ Add useEffect in PrimaryVideoPlayer to listen for `chunk:updated` events
-4. ✅ Reload chunk list and trigger detection data refresh
-5. ✅ Show success notification toast (3 second display)
-6. ✅ Clear re-processing progress state after reload
+1.  Add `reloadChunk()` API function to corrections.ts
+2.  Update `handleChunkUpdated()` in websocketService to dispatch browser custom event
+3.  Add useEffect in PrimaryVideoPlayer to listen for `chunk:updated` events
+4.  Reload chunk list and trigger detection data refresh
+5.  Show success notification toast (3 second display)
+6.  Clear re-processing progress state after reload
 
 **Implementation**:
 ```typescript
@@ -661,7 +661,7 @@ useEffect(() => {
 
 **Testing**:
 - [x] Implementation: All functions implemented correctly
-- [ ] Manual: Trigger re-processing → verify auto-reload (pending Task 3.2 testing)
+- [ ] Manual: Trigger re-processing => verify auto-reload (pending Task 3.2 testing)
 - [ ] E2E: Full workflow with auto-reload (pending Task 3.4)
 
 **Acceptance**:
@@ -684,7 +684,7 @@ useEffect(() => {
 
 ---
 
-### Task 3.3: Add Correction Count Badge to Chunk Cards ✅
+### Task 3.3: Add Correction Count Badge to Chunk Cards 
 
 **Objective**: Show visual indicator when chunks have been corrected
 
@@ -694,13 +694,13 @@ useEffect(() => {
 - `shared/src/types/stream.types.ts:81-82` (IMPLEMENTED - schema update)
 
 **Steps**:
-1. ✅ Update chunk data types to include `correction_count` and `last_corrected`
-2. ✅ Add badge to chunk card UI in PrimaryVideoPlayer:
+1.  Update chunk data types to include `correction_count` and `last_corrected`
+2.  Add badge to chunk card UI in PrimaryVideoPlayer:
    - Shows pencil icon + count when `correction_count > 0`
    - Styled with amber color (`bg-amber-500/20 text-amber-400`)
    - Positioned next to resolution badge
-3. ✅ Add tooltip: "This chunk has been manually corrected"
-4. ✅ Update chunk list queries to include `correction_count` from database:
+3.  Add tooltip: "This chunk has been manually corrected"
+4.  Update chunk list queries to include `correction_count` from database:
    - Implemented `enrichChunksWithCorrectionData()` method
    - Queries `video_chunks` table for correction data
    - Batch query with `ANY($1::uuid[])` for efficiency
@@ -708,7 +708,7 @@ useEffect(() => {
 
 **Testing**:
 - [x] Implementation: All changes complete
-- [ ] Manual: Create correction → verify badge appears (pending)
+- [ ] Manual: Create correction => verify badge appears (pending)
 - [ ] E2E: Playwright test for badge visibility (pending Task 3.4)
 
 **Acceptance**:
@@ -727,7 +727,7 @@ useEffect(() => {
 
 ---
 
-### Task 3.4: Write E2E Tests for Correction Workflow ✅
+### Task 3.4: Write E2E Tests for Correction Workflow 
 
 **Objective**: Comprehensive Playwright tests covering happy path and error cases
 
@@ -736,7 +736,7 @@ useEffect(() => {
 - `testing/e2e/README.md` (NEW - COMPLETE)
 
 **Steps**:
-1. ✅ **Test 1: Reassign Detection**
+1.  **Test 1: Reassign Detection**
    - Navigate to chunk with 2 horses
    - Click edit on Horse 1
    - Select "Reassign to existing horse"
@@ -747,37 +747,37 @@ useEffect(() => {
    - Wait for progress bar to reach 100%
    - Verify chunk reloads with updated data
    - Verify Horse 1 no longer exists in chunk
-2. ✅ **Test 2: Create New Guest Horse**
+2.  **Test 2: Create New Guest Horse**
    - Click edit on Horse 3
    - Select "Create new guest horse"
    - Verify auto-generated name shown
    - Submit correction
    - Process corrections
    - Verify new guest horse created in database
-3. ✅ **Test 3: Mark Detection Incorrect**
+3.  **Test 3: Mark Detection Incorrect**
    - Click edit on Horse 4
    - Select "Mark as incorrect"
    - Confirm deletion
    - Process corrections
    - Verify detection removed from chunk
-4. ✅ **Test 4: Batch Corrections**
+4.  **Test 4: Batch Corrections**
    - Queue 3 different corrections
    - Verify all shown in batch panel
    - Process all at once
    - Verify all applied successfully
-5. ✅ **Test 5: Error Handling**
+5.  **Test 5: Error Handling**
    - Submit correction with invalid horse ID
    - Verify error message shown
    - Verify correction not applied
-6. ✅ **Test 6: Correction Count Badge** (BONUS)
+6.  **Test 6: Correction Count Badge** (BONUS)
    - Verify badge displays on corrected chunks
    - Verify tooltip shows on hover
    - Verify badge styling matches design system
-7. ✅ **Test 7: Clear Pending Corrections** (BONUS)
+7.  **Test 7: Clear Pending Corrections** (BONUS)
    - Queue corrections
    - Click "Clear All"
    - Verify batch panel cleared
-8. ✅ **Test 8: Re-processing Progress Updates** (BONUS)
+8.  **Test 8: Re-processing Progress Updates** (BONUS)
    - Submit correction
    - Verify real-time progress updates
    - Verify step descriptions display
