@@ -82,6 +82,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
   } | null>(null);
   const [detectionDataKey, setDetectionDataKey] = useState(0);
   const [showUpdateNotification, setShowUpdateNotification] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState('Corrections successfully submitted');
 
   // Auto-scan state
   const [isAutoScanning, setIsAutoScanning] = useState(false);
@@ -92,6 +93,37 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
     loadVideoChunks();
   }, [stream.id]);
 
+  // Function to reload streams from database (used after PTZ preset changes)
+  const reloadStreamsFromDatabase = async () => {
+    try {
+      const token = await getAuthToken();
+      if (!token) return;
+
+      const response = await fetch('http://localhost:8000/api/v1/streams', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const mappedStreams = data.streams.map((dbStream: any) => ({
+          id: dbStream.id,
+          name: dbStream.name,
+          url: dbStream.source_url,
+          type: dbStream.source_type,
+          status: dbStream.status,
+          config: dbStream.config || {},
+        }));
+        setStreams(mappedStreams);
+        console.log('✅ Reloaded streams with updated config:', mappedStreams);
+      }
+    } catch (error) {
+      console.error('Error reloading streams:', error);
+    }
+  };
+
   // Load streams from database if not already in Zustand (needed for PTZ source URL)
   useEffect(() => {
     const loadStreamsFromDatabase = async () => {
@@ -99,34 +131,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
       if (streams.length > 0 && streams.some(s => s.url?.startsWith('rtsp://'))) {
         return;
       }
-
-      try {
-        const token = await getAuthToken();
-        if (!token) return;
-
-        const response = await fetch('http://localhost:8000/api/v1/streams', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const mappedStreams = data.streams.map((dbStream: any) => ({
-            id: dbStream.id,
-            name: dbStream.name,
-            url: dbStream.source_url,
-            type: dbStream.source_type,
-            status: dbStream.status,
-            config: dbStream.config || {},
-          }));
-          setStreams(mappedStreams);
-          console.log('✅ Loaded streams for PTZ:', mappedStreams);
-        }
-      } catch (error) {
-        console.error('Error loading streams for PTZ:', error);
-      }
+      await reloadStreamsFromDatabase();
     };
 
     loadStreamsFromDatabase();
@@ -316,8 +321,30 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
     };
   }, [selectedChunk, stream.id, viewMode]); // Removed showRawVideo and processingStatus to prevent re-creating interval
 
-  // Listen for chunk update events from WebSocket (Task 3.2)
+  // Listen for correction events (Task 3.2)
   useEffect(() => {
+    // Handle when corrections are submitted (show immediate feedback)
+    const handleCorrectionsSubmitted = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        chunkId: string;
+        correctionsCount: number;
+      }>;
+      const { chunkId } = customEvent.detail;
+
+      // Only show notification if this is the currently selected chunk
+      if (selectedChunk && selectedChunk.id === chunkId) {
+        console.log('[PrimaryVideoPlayer] Corrections submitted, showing notification...');
+        setNotificationMessage('Corrections successfully submitted');
+        setShowUpdateNotification(true);
+
+        // Hide after 3 seconds (will be replaced if chunk:updated comes sooner)
+        setTimeout(() => {
+          setShowUpdateNotification(false);
+        }, 3000);
+      }
+    };
+
+    // Handle when chunk processing is complete (reload video)
     const handleChunkUpdate = async (event: Event) => {
       const customEvent = event as CustomEvent<{
         chunkId: string;
@@ -334,7 +361,8 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
         console.log('[PrimaryVideoPlayer] Reloading chunk data...');
 
         try {
-          // Show notification
+          // Show "processing complete" notification
+          setNotificationMessage('Corrections applied - video updated');
           setShowUpdateNotification(true);
 
           // Reload chunk list to get fresh data
@@ -368,11 +396,13 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
       }
     };
 
-    // Add event listener
+    // Add event listeners
+    window.addEventListener('corrections:submitted', handleCorrectionsSubmitted);
     window.addEventListener('chunk:updated', handleChunkUpdate);
 
     // Cleanup
     return () => {
+      window.removeEventListener('corrections:submitted', handleCorrectionsSubmitted);
       window.removeEventListener('chunk:updated', handleChunkUpdate);
     };
   }, [selectedChunk]);
@@ -647,7 +677,8 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
   });
 
   // Default to scanning presets 1-8 (camera's preset range)
-  const defaultPresetCount = 8;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _defaultPresetCount = 8;
 
   // Auto-scan handlers
   const handleStartAutoScan = async () => {
@@ -664,6 +695,52 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
         return;
       }
 
+      // Get PTZ credentials from config or localStorage
+      let ptzCredentials: { username: string; password: string } | undefined;
+      if (streamConfig?.ptzCredentials?.username) {
+        ptzCredentials = streamConfig.ptzCredentials;
+      } else if (streamConfig?.username && streamConfig?.password) {
+        ptzCredentials = { username: streamConfig.username, password: streamConfig.password };
+      } else if (sourceUrl) {
+        const stored = localStorage.getItem(`ptz_auth_${sourceUrl}`);
+        if (stored) {
+          try {
+            ptzCredentials = JSON.parse(stored);
+          } catch (e) {
+            console.warn('Failed to parse stored PTZ credentials');
+          }
+        }
+      }
+
+      // Get saved presets from stream config or localStorage
+      // Only scan presets that have been explicitly saved/configured
+      let savedPresetNumbers: number[] = [];
+
+      if (streamConfig?.ptzPresets && Object.keys(streamConfig.ptzPresets).length > 0) {
+        // Use presets from database config
+        savedPresetNumbers = Object.keys(streamConfig.ptzPresets).map(k => parseInt(k, 10));
+        console.log('📍 Using saved presets from config:', savedPresetNumbers);
+      } else if (sourceUrl) {
+        // Fallback to localStorage
+        const storedPresets = localStorage.getItem(`ptz_presets_${sourceUrl}`);
+        if (storedPresets) {
+          try {
+            const parsed = JSON.parse(storedPresets);
+            savedPresetNumbers = parsed.map((p: { number: number }) => p.number);
+            console.log('📍 Using saved presets from localStorage:', savedPresetNumbers);
+          } catch {
+            console.warn('Failed to parse stored presets');
+          }
+        }
+      }
+
+      // If no saved presets, don't pass any - let backend decide default behavior
+      const presetsToScan = savedPresetNumbers.length > 0 ? savedPresetNumbers : undefined;
+
+      if (!presetsToScan) {
+        console.warn('⚠️ No saved presets found - backend will scan default range');
+      }
+
       const response = await fetch(
         `http://localhost:8000/api/v1/streams/${stream.id}/ptz/auto-scan/start`,
         {
@@ -673,11 +750,16 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            config: streamConfig?.autoScan || {
-              recordingDuration: 10,
+            config: {
+              recordingDuration: streamConfig?.autoScan?.recordingDuration || 10,
               frameInterval: 5,
-              movementDelay: 8,
+              movementDelay: streamConfig?.autoScan?.movementDelay || 5,
+              hlsDelay: streamConfig?.autoScan?.hlsDelay || 6,
             },
+            // Send credentials if from localStorage (backend will use these if not in stream config)
+            ptzCredentials,
+            // Only scan saved presets - if none, backend will handle default
+            ...(presetsToScan && { presets: presetsToScan }),
           }),
         }
       );
@@ -1030,6 +1112,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
           streamUrl={sourceUrl}
           streamId={stream.id}
           streamConfig={streamConfig}
+          onConfigUpdate={reloadStreamsFromDatabase}
         />
       )}
 
@@ -1079,6 +1162,19 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
       <AutoScanDialog
         isOpen={showAutoScanDialog}
         streamId={stream.id}
+        sourceUrl={sourceUrl}
+        ptzCredentials={
+          streamConfig?.ptzCredentials ||
+          (streamConfig?.username && streamConfig?.password
+            ? { username: streamConfig.username, password: streamConfig.password }
+            : undefined) ||
+          (sourceUrl
+            ? (() => {
+                const stored = localStorage.getItem(`ptz_auth_${sourceUrl}`);
+                return stored ? JSON.parse(stored) : undefined;
+              })()
+            : undefined)
+        }
         onClose={handleAutoScanDialogClose}
         onStop={handleStopAutoScan}
       />
@@ -1383,7 +1479,7 @@ export const PrimaryVideoPlayer: React.FC<PrimaryVideoPlayerProps> = ({
         >
           <span style={{ fontSize: '20px' }}>✓</span>
           <span style={{ fontWeight: '500' }}>
-            Chunk updated with corrections
+            {notificationMessage}
           </span>
         </div>
       )}

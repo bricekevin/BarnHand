@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 interface TrackedHorse {
   id: string;
   name?: string;
-  color: [number, number, number];
+  color?: [number, number, number] | null;
   bbox: {
     x: number;
     y: number;
@@ -23,7 +23,7 @@ interface TrackedHorse {
 interface ChunkHorse {
   id: string;
   name?: string;
-  color: [number, number, number];
+  color?: [number, number, number] | null;
   first_detected_frame: number;
   last_detected_frame: number;
   total_detections: number;
@@ -45,6 +45,7 @@ interface DetectionCorrectionModalProps {
   onClose: () => void;
   detection: TrackedHorse;
   frameIndex: number;
+  detectionIndex: number;
   allHorses: ChunkHorse[];
   barnHorses: BarnHorse[];
   onSubmit: (correction: CorrectionPayload) => void;
@@ -60,7 +61,7 @@ interface DetectionCorrectionModalProps {
  */
 export const DetectionCorrectionModal: React.FC<
   DetectionCorrectionModalProps
-> = ({ isOpen, onClose, detection, frameIndex, allHorses, barnHorses, onSubmit }) => {
+> = ({ isOpen, onClose, detection, frameIndex, detectionIndex, allHorses, barnHorses, onSubmit }) => {
   const [correctionType, setCorrectionType] =
     useState<CorrectionType>('reassign');
   const [targetHorseId, setTargetHorseId] = useState<string>('');
@@ -111,7 +112,7 @@ export const DetectionCorrectionModal: React.FC<
 
     // Build correction payload
     const correction: CorrectionPayload = {
-      detection_index: parseInt(detection.id.split('_').pop() || '0'),
+      detection_index: detectionIndex,
       frame_index: frameIndex,
       correction_type: correctionType,
       original_horse_id: detection.id,
@@ -139,12 +140,35 @@ export const DetectionCorrectionModal: React.FC<
   // Get current horse name
   const currentHorseName = detection.name || `Horse ${detection.id}`;
 
-  // Filter out current horse from reassign options
-  const availableHorses = (allHorses || []).filter(h => h.id !== detection.id);
+  // Filter out current horse and any horses without proper names
+  const availableHorses = (allHorses || [])
+    .filter(h => {
+      // Exclude current horse
+      if (h.id === detection.id) return false;
 
-  // Filter barn horses that aren't already in chunk
+      // Exclude horses marked as deleted or with "deleted" in name
+      if (h.name?.toLowerCase().includes('deleted')) return false;
+
+      // Only include horses with valid names
+      return h.name && h.name.trim().length > 0;
+    })
+    // Remove duplicates by ID
+    .filter((h, index, self) =>
+      index === self.findIndex(t => t.id === h.id)
+    );
+
+  // Filter barn horses that aren't already in chunk and have valid data
   const availableBarnHorses = (barnHorses || []).filter(
-    bh => !(allHorses || []).some(ch => ch.id === bh.id)
+    bh => {
+      // Must have a name
+      if (!bh.name || bh.name.trim().length === 0) return false;
+
+      // Exclude deleted horses
+      if (bh.name.toLowerCase().includes('deleted')) return false;
+
+      // Not already in chunk
+      return !(allHorses || []).some(ch => ch.id === bh.id);
+    }
   );
 
   return (
@@ -179,7 +203,9 @@ export const DetectionCorrectionModal: React.FC<
             <div
               className="w-4 h-4 rounded-full"
               style={{
-                backgroundColor: `rgb(${detection.color[0]}, ${detection.color[1]}, ${detection.color[2]})`,
+                backgroundColor: detection.color
+                  ? `rgb(${detection.color[0]}, ${detection.color[1]}, ${detection.color[2]})`
+                  : 'rgb(128, 128, 128)',
               }}
             />
             <div className="flex-1">

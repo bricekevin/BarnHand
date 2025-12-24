@@ -19,6 +19,8 @@ export const apiRateLimit = rateLimit({
       ip: req.ip,
       userAgent: req.get('user-agent'),
       path: req.path,
+      method: req.method,
+      url: req.url,
     });
 
     res.status(429).json({

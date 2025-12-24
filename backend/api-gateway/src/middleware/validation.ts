@@ -60,24 +60,40 @@ export const validateSchema = <T>(
       next();
     } catch (error) {
       if (error instanceof ZodError) {
+        const errorDetails = error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message,
+          code: err.code,
+          received: err.code === 'invalid_type' ? (err as any).received : undefined,
+        }));
+
         logger.warn('Schema validation failed', {
           path: req.path,
           method: req.method,
-          errors: error.errors,
+          source,
+          data: JSON.stringify(
+            source === 'body'
+              ? req.body
+              : source === 'query'
+                ? req.query
+                : req.params
+          ),
+          errors: errorDetails,
         });
 
         res.status(400).json({
           error: 'Invalid request data',
-          details: error.errors.map(err => ({
-            field: err.path.join('.'),
-            message: err.message,
-            code: err.code,
-          })),
+          details: errorDetails,
         });
         return;
       }
 
-      logger.error('Schema validation error', { error });
+      logger.error('Schema validation error', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        path: req.path,
+        method: req.method,
+      });
       res.status(500).json({ error: 'Internal validation error' });
     }
   };

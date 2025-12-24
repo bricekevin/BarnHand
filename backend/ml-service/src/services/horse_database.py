@@ -79,6 +79,7 @@ class HorseDatabaseService:
                 "bbox": horse_state.get("bbox", {}),
                 "confidence": horse_state.get("confidence", 0.0),
                 "total_detections": horse_state.get("total_detections", 0),
+                "is_official": horse_state.get("is_official", False),  # Preserve official status
                 "features": horse_state.get("features", []),
                 "behavioral_state": horse_state.get("behavioral_state", {}),
                 "tracking_confidence": horse_state.get("tracking_confidence", 1.0)
@@ -265,8 +266,18 @@ class HorseDatabaseService:
                                     state_data = json.loads(state_json)
                                     horse_id = state_data.get("horse_id")
                                     if horse_id:
-                                        # Redis data overrides PostgreSQL (fresher)
-                                        horses[horse_id] = state_data
+                                        # Merge Redis data with PostgreSQL data
+                                        # Redis has fresher tracking state, PostgreSQL has canonical fields (name, is_official)
+                                        if horse_id in horses:
+                                            # Update existing horse with fresh Redis state, preserving important fields
+                                            horses[horse_id].update(state_data)
+                                            # Re-apply critical fields from PostgreSQL that should never be overwritten
+                                            if "name" in state_data and state_data.get("name"):
+                                                pass  # Redis has name, use it
+                                            # Keep is_official from Redis if present, otherwise from PostgreSQL
+                                        else:
+                                            # Horse not in PostgreSQL, add from Redis
+                                            horses[horse_id] = state_data
                                         redis_count += 1
                             except Exception as e:
                                 logger.debug(f"Failed to load horse state from Redis key {key}: {e}")
@@ -868,7 +879,49 @@ class HorseDatabaseService:
                 "tracking_id_int": tracking_id
             }
 
-            # Upsert horse record with thumbnail
+            # Check if horse already exists to blend features
+            cursor.execute("""
+                SELECT feature_vector FROM horses WHERE tracking_id = %s
+            """, (horse_id,))
+
+            existing_row = cursor.fetchone()
+            final_feature_vector = feature_vector
+
+            if existing_row and existing_row[0]:
+                # Horse exists - blend new features with existing using exponential moving average
+                try:
+                    old_feature_data = existing_row[0]
+
+                    # Parse existing features
+                    if isinstance(old_feature_data, str):
+                        old_features = np.array(json.loads(old_feature_data))
+                    elif isinstance(old_feature_data, list):
+                        old_features = np.array(old_feature_data)
+                    else:
+                        old_features = None
+
+                    # Blend if shapes match
+                    if old_features is not None and len(old_features) == len(feature_vector):
+                        # EMA: 50% new chunk + 50% accumulated knowledge
+                        # This balances learning from new data while retaining historical knowledge
+                        new_features_array = np.array(feature_vector)
+                        blended = 0.5 * new_features_array + 0.5 * old_features
+
+                        # Normalize to unit vector (important for cosine similarity)
+                        norm = np.linalg.norm(blended)
+                        if norm > 0:
+                            blended = blended / norm
+
+                        final_feature_vector = blended.tolist()
+                        logger.debug(f"Blended features for {horse_id}: 50% new + 50% existing")
+                    else:
+                        logger.debug(f"Using new features for {horse_id} (shape mismatch or no existing)")
+                except Exception as e:
+                    logger.warning(f"Failed to blend features for {horse_id}: {e}, using new features")
+            else:
+                logger.debug(f"New horse {horse_id}, using initial features")
+
+            # Upsert horse record with blended features
             if thumbnail_bytes:
                 # Update with thumbnail
                 cursor.execute("""
@@ -887,7 +940,7 @@ class HorseDatabaseService:
                         -- Do NOT re-activate deleted horses
                 """, (
                     horse_id, stream_id, farm_id, color, last_updated, total_detections,
-                    json.dumps(feature_vector), json.dumps(metadata), track_confidence, 'active',
+                    json.dumps(final_feature_vector), json.dumps(metadata), track_confidence, 'active',
                     psycopg2.Binary(thumbnail_bytes),
                     last_updated
                 ))
@@ -908,7 +961,7 @@ class HorseDatabaseService:
                         -- Do NOT re-activate deleted horses
                 """, (
                     horse_id, stream_id, farm_id, color, last_updated, total_detections,
-                    json.dumps(feature_vector), json.dumps(metadata), track_confidence, 'active',
+                    json.dumps(final_feature_vector), json.dumps(metadata), track_confidence, 'active',
                     last_updated
                 ))
 

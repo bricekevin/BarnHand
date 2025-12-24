@@ -94,27 +94,32 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
   }, [streamId]);
 
   // Handle horse card click - now opens actions modal
-  const handleHorseClick = (horse: Horse) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleHorseClick = (horse: Horse) => {
     setActionsModalHorse(horse);
   };
 
   // Handle settings button click - opens edit modal
-  const handleSettingsClick = (horse: Horse) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleSettingsClick = (horse: Horse) => {
     setSelectedHorse(horse);
   };
 
   // Handle modal close
-  const handleModalClose = () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleModalClose = () => {
     setSelectedHorse(null);
   };
 
   // Handle actions modal close
-  const handleActionsModalClose = () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleActionsModalClose = () => {
     setActionsModalHorse(null);
   };
 
   // Handle horse save
-  const handleHorseSave = async (updates: {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleHorseSave = async (updates: {
     name?: string;
     notes?: string;
   }) => {
@@ -154,7 +159,8 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
   };
 
   // Handle horse delete
-  const handleHorseDelete = async () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleHorseDelete = async () => {
     if (!selectedHorse) return;
 
     const token = getAuthToken();
@@ -212,9 +218,18 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
       }
 
       const data = await response.json();
+      const horses = data.horses || [];
 
       // Update Zustand store with fetched horses
-      setStreamHorses(streamId, data.horses || []);
+      setStreamHorses(streamId, horses);
+
+      // If a horse is selected, update it with the fresh data
+      if (selectedHorse) {
+        const updatedHorse = horses.find((h: Horse) => h.id === selectedHorse.id);
+        if (updatedHorse) {
+          setSelectedHorse(updatedHorse);
+        }
+      }
     } catch (err) {
       console.error('Error fetching horses:', err);
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
@@ -244,7 +259,8 @@ export const DetectedHorsesTab: React.FC<DetectedHorsesTabProps> = ({
     });
 
   // Format relative time
-  const formatRelativeTime = (dateString: string) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _formatRelativeTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();

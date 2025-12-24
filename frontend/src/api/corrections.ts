@@ -6,11 +6,61 @@ import type {
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
+// Helper to decode JWT and extract payload
+const decodeJWT = (token: string): { farmId?: string; exp?: number } | null => {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const decoded = JSON.parse(atob(payload));
+    return decoded;
+  } catch {
+    return null;
+  }
+};
+
+// Check if JWT token is expired
+const isTokenExpired = (token: string): boolean => {
+  const decoded = decodeJWT(token);
+  if (!decoded || !decoded.exp) return true;
+  // Add 60 second buffer before expiry
+  return Date.now() >= (decoded.exp * 1000) - 60000;
+};
+
 /**
- * Get authentication token from localStorage
+ * Get authentication token from localStorage, auto-refreshing if expired
  */
-const getAuthToken = (): string | null => {
-  return localStorage.getItem('authToken');
+const getAuthToken = async (): Promise<string | null> => {
+  let token = localStorage.getItem('authToken');
+
+  // Check if token exists and is not expired
+  if (token && !isTokenExpired(token)) {
+    return token;
+  }
+
+  // Clear expired token
+  if (token) {
+    console.log('🔄 Token expired, refreshing...');
+    localStorage.removeItem('authToken');
+  }
+
+  // Auto-login for development
+  try {
+    const response = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'admin@barnhand.com', password: 'admin123' }),
+    });
+    if (response.ok) {
+      const data = await response.json();
+      token = data.accessToken;
+      localStorage.setItem('authToken', token!);
+      console.log('✅ New token obtained');
+      return token;
+    }
+  } catch (err) {
+    console.error('Auto-login failed:', err);
+  }
+  return null;
 };
 
 /**
@@ -26,7 +76,7 @@ export const submitCorrections = async (
   chunkId: string,
   corrections: CorrectionPayload[]
 ): Promise<CorrectionResponse> => {
-  const token = getAuthToken();
+  const token = await getAuthToken();
   if (!token) {
     throw new Error('Authentication required');
   }
@@ -64,7 +114,7 @@ export const getReprocessingStatus = async (
   streamId: string,
   chunkId: string
 ): Promise<ReprocessingProgress> => {
-  const token = getAuthToken();
+  const token = await getAuthToken();
   if (!token) {
     throw new Error('Authentication required');
   }
@@ -100,7 +150,7 @@ export const getCorrectionHistory = async (
   chunkId: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any[]> => {
-  const token = getAuthToken();
+  const token = await getAuthToken();
   if (!token) {
     throw new Error('Authentication required');
   }
@@ -136,7 +186,7 @@ export const cancelPendingCorrections = async (
   streamId: string,
   chunkId: string
 ): Promise<{ message: string; deleted_count: number }> => {
-  const token = getAuthToken();
+  const token = await getAuthToken();
   if (!token) {
     throw new Error('Authentication required');
   }
@@ -173,7 +223,7 @@ export const reloadChunk = async (
   chunkId: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> => {
-  const token = getAuthToken();
+  const token = await getAuthToken();
   if (!token) {
     throw new Error('Authentication required');
   }

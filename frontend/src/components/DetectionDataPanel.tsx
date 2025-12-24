@@ -7,7 +7,7 @@ import { useCorrectionStore } from '../stores/correctionStore';
 interface Horse {
   id: string; // Global tracking ID (e.g., "1_horse_001")
   name?: string; // Optional horse name from registry
-  color: [number, number, number];
+  color?: [number, number, number] | null; // Optional color, may be null for horses without color assigned
   first_detected_frame: number;
   last_detected_frame: number;
   total_detections: number;
@@ -69,7 +69,10 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
   const [copySuccess, setCopySuccess] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const { pendingCorrections, clearCorrections } = useCorrectionStore();
+  const { getCorrectionsForChunk, clearCorrectionsForChunk } = useCorrectionStore();
+
+  // Get corrections for current chunk only
+  const pendingCorrections = chunkId ? getCorrectionsForChunk(chunkId) : [];
 
   useEffect(() => {
     if (chunkId) {
@@ -135,7 +138,8 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
     return `${(ms / 1000).toFixed(2)}s`;
   };
 
-  const rgbToString = (color: [number, number, number]): string => {
+  const rgbToString = (color: [number, number, number] | null | undefined): string => {
+    if (!color) return 'rgb(128, 128, 128)'; // Default gray for horses without color
     return `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
   };
 
@@ -174,6 +178,11 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
 
     setIsProcessing(true);
 
+    // IMMEDIATELY clear corrections from UI so user sees instant feedback
+    // This prevents the panel from showing stale corrections after submit
+    const correctionsToSubmit = [...pendingCorrections]; // Copy before clearing
+    clearCorrectionsForChunk(chunkId);
+
     try {
       const token = getAuthToken();
       if (!token) {
@@ -183,6 +192,34 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
       }
 
       // Submit corrections to API
+      const correctionsPayload = correctionsToSubmit.map(c => {
+        const payload: {
+          detection_index: number;
+          frame_index: number;
+          correction_type: string;
+          original_horse_id: string;
+          corrected_horse_id?: string;
+          corrected_horse_name?: string;
+        } = {
+          detection_index: c.detection_index,
+          frame_index: c.frame_index,
+          correction_type: c.correction_type,
+          original_horse_id: c.original_horse_id,
+        };
+
+        // Only include optional fields if they have values (not undefined)
+        if (c.corrected_horse_id !== undefined) {
+          payload.corrected_horse_id = c.corrected_horse_id;
+        }
+        if (c.corrected_horse_name !== undefined) {
+          payload.corrected_horse_name = c.corrected_horse_name;
+        }
+
+        return payload;
+      });
+
+      console.log('📤 Submitting corrections:', correctionsPayload);
+
       const response = await fetch(
         `http://localhost:8000/api/v1/streams/${streamId}/chunks/${chunkId}/corrections`,
         {
@@ -192,31 +229,7 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            corrections: pendingCorrections.map(c => {
-              const payload: {
-                detection_index: number;
-                frame_index: number;
-                correction_type: string;
-                original_horse_id: string;
-                corrected_horse_id?: string;
-                corrected_horse_name?: string;
-              } = {
-                detection_index: c.detection_index,
-                frame_index: c.frame_index,
-                correction_type: c.correction_type,
-                original_horse_id: c.original_horse_id,
-              };
-
-              // Only include optional fields if they have values (not undefined)
-              if (c.corrected_horse_id !== undefined) {
-                payload.corrected_horse_id = c.corrected_horse_id;
-              }
-              if (c.corrected_horse_name !== undefined) {
-                payload.corrected_horse_name = c.corrected_horse_name;
-              }
-
-              return payload;
-            }),
+            corrections: correctionsPayload,
           }),
         }
       );
@@ -225,16 +238,20 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
         const result = await response.json();
         console.log('✅ Corrections submitted successfully:', result);
 
-        // Clear corrections from store
-        clearCorrections();
-
         // Show success message briefly
         setError(null);
 
-        // Refresh detection data after processing
-        setTimeout(() => {
-          fetchDetectionData();
-        }, 2000);
+        // The WebSocket will emit 'chunk:updated' when ML processing is complete
+        // PrimaryVideoPlayer listens for this and will reload the video automatically
+        // We just need to show the "submitted" notification now
+        const event = new CustomEvent('corrections:submitted', {
+          detail: {
+            chunkId: chunkId,
+            correctionsCount: correctionsToSubmit.length,
+          },
+        });
+        window.dispatchEvent(event);
+        console.log('✅ Corrections submitted, waiting for ML processing to complete...');
       } else {
         const errorData = await response.json();
         console.error('❌ Failed to submit corrections:', errorData);
@@ -310,16 +327,17 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
   }
 
   return (
-    <div className="detection-data-panel">
+    <div className="detection-data-panel w-full max-w-full overflow-hidden">
       {/* Correction Batch Panel */}
       <CorrectionBatchPanel
+        chunkId={chunkId}
         horses={detectionData.horses || []}
         onProcessCorrections={handleProcessCorrections}
         isProcessing={isProcessing}
       />
 
       {/* Summary Section */}
-      <div className="summary-section control-panel mb-4">
+      <div className="summary-section control-panel mb-4 max-w-full">
         <h3 className="text-sm font-semibold text-cyan-400 mb-3 uppercase tracking-wide">
           Detection Summary
         </h3>
@@ -377,7 +395,7 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
       </div>
 
       {/* Horse List Section */}
-      <div className="horse-list-section control-panel mb-4">
+      <div className="horse-list-section control-panel mb-4 max-w-full">
         <h3 className="text-sm font-semibold text-cyan-400 mb-3 uppercase tracking-wide">
           Tracked Horses
         </h3>
@@ -446,11 +464,11 @@ export const DetectionDataPanel: React.FC<DetectionDataPanelProps> = ({
       </div>
 
       {/* Frame Timeline Section */}
-      <div className="timeline-section control-panel mb-4">
+      <div className="timeline-section control-panel mb-4 max-w-full">
         <h3 className="text-sm font-semibold text-cyan-400 mb-3 uppercase tracking-wide">
           Frame Timeline
         </h3>
-        <div className="timeline-scrubber bg-slate-800 rounded-lg p-2 overflow-x-auto">
+        <div className="timeline-scrubber bg-slate-800 rounded-lg p-2 overflow-x-auto max-w-full">
           <div className="flex gap-1 min-w-max">
             {(() => {
               // Create a map of processed frames for quick lookup

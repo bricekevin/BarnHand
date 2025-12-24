@@ -44,7 +44,12 @@ export const authenticateToken = (
   next: NextFunction
 ): void => {
   const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  // Also check query parameter for image requests (since img tags can't send headers)
+  const queryToken = req.query.token as string | undefined;
+
+  const token = headerToken || queryToken;
 
   if (!token) {
     res.status(401).json({ error: 'Access token required' });
