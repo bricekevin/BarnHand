@@ -353,4 +353,4 @@ For issues with E2E tests:
 1. Check this README
 2. Review test logs in `test-results/`
 3. Run in UI mode for interactive debugging: `npx playwright test --ui`
-4. Check GitHub Issues: https://github.com/anthropics/barnhand/issues
+4. Check GitHub Issues: https://github.com/bricekevin/BarnHand/issues

@@ -1,6 +1,6 @@
 # Test Progress Tracking - Quick Guide
 
-## ✅ Services Restarted
+##  Services Restarted
 
 Both API Gateway and ML Service have been restarted with the new code.
 
@@ -56,15 +56,15 @@ When processing completes, you should see:
 
 ```javascript
 // Browser console:
-✅ ML processing completed! Auto-switching to processed video...
+ ML processing completed! Auto-switching to processed video...
 ```
 
 And in the UI:
 
-- ✅ Video automatically switches from raw to processed
-- ✅ Detection summary panel appears
-- ✅ Overlays (boxes, keypoints) are visible
-- ✅ Badge shows "✓ Processed"
+-  Video automatically switches from raw to processed
+-  Detection summary panel appears
+-  Overlays (boxes, keypoints) are visible
+-  Badge shows " Processed"
 
 ## 🐛 If It Doesn't Work
 
@@ -123,18 +123,18 @@ chunk_stream_002_296a368b-e9f8-416f-8069-13a8d1d812c4.mp4  ← CORRECT!
 chunk_stream_002_1759976289373.mp4  ← OLD (won't work)
 ```
 
-## 🔍 Watch Docker Logs (Optional)
+##  Watch Docker Logs (Optional)
 
 **Terminal 1: ML Service**
 
 ```bash
-docker compose logs -f ml-service | grep -E "✅ Initialized|📊 Redis progress"
+docker compose logs -f ml-service | grep -E " Initialized|📊 Redis progress"
 ```
 
 You should see:
 
 ```
-✅ Initialized Redis progress: chunk:296a368b-...:progress = 0/126
+ Initialized Redis progress: chunk:296a368b-...:progress = 0/126
 📊 Redis progress update: chunk:296a368b-...:progress = 31/126
 📊 Redis progress update: chunk:296a368b-...:progress = 61/126
 ```
@@ -142,16 +142,16 @@ You should see:
 **Terminal 2: API Gateway**
 
 ```bash
-docker compose logs -f api-gateway | grep -E "📤 Sending|FFmpeg"
+docker compose logs -f api-gateway | grep -E " Sending|FFmpeg"
 ```
 
 You should see:
 
 ```
-📤 Sending chunk_id to ML service { chunk_id: '296a368b-...' }
+ Sending chunk_id to ML service { chunk_id: '296a368b-...' }
 ```
 
-## ⚠️ Important Notes
+##  Important Notes
 
 1. **Old chunks won't work!** Only NEW chunks recorded after the restart will have the UUID format.
 
@@ -159,13 +159,13 @@ You should see:
 
 3. **The fix only applies to newly recorded chunks** - Existing chunks in the list won't work for progress tracking.
 
-## ✅ Success Criteria
+##  Success Criteria
 
 You'll know it's working when you see ALL of these:
 
-1. ✅ Browser console shows chunk_id as UUID (not timestamp)
-2. ✅ Browser console shows frames_processed increasing (31, 61, 91...)
-3. ✅ UI badge shows "🔄 Processing: X/Y frames"
-4. ✅ Video auto-switches when complete
-5. ✅ Detection summary appears automatically
-6. ✅ NO manual refresh needed!
+1.  Browser console shows chunk_id as UUID (not timestamp)
+2.  Browser console shows frames_processed increasing (31, 61, 91...)
+3.  UI badge shows "🔄 Processing: X/Y frames"
+4.  Video auto-switches when complete
+5.  Detection summary appears automatically
+6.  NO manual refresh needed!

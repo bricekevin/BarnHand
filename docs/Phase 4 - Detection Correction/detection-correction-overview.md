@@ -171,7 +171,7 @@ CREATE TABLE detection_corrections (
 - `videoChunkService.ts`: Status tracking, correction count updates
 
 ### Integration Tests
-- **Correction Workflow**: Submit correction → verify DB records → verify ML triggered
+- **Correction Workflow**: Submit correction => verify DB records => verify ML triggered
 - **Re-Processing**: Mock FFmpeg, verify frames regenerated, video rebuilt
 - **ReID Update**: Verify feature vectors updated in PostgreSQL + Redis
 
@@ -184,8 +184,8 @@ CREATE TABLE detection_corrections (
   5. Verify progress indicator appears
   6. Wait for completion (mock fast re-processing)
   7. Verify chunk reloads with corrected data
-- **Error Handling**: Submit invalid horse ID → verify error message
-- **Batch Corrections**: Queue 3 corrections → submit → verify all applied
+- **Error Handling**: Submit invalid horse ID => verify error message
+- **Batch Corrections**: Queue 3 corrections => submit => verify all applied
 
 ### Manual Testing
 - Re-process chunk with 5 corrections, verify all frames updated
@@ -195,7 +195,7 @@ CREATE TABLE detection_corrections (
 ## Success Metrics
 
 - **Functionality**: 100% of corrections applied successfully (no data loss)
-- **Performance**: Re-processing completes in <2x chunk duration (e.g., 10s chunk → <20s re-processing)
+- **Performance**: Re-processing completes in <2x chunk duration (e.g., 10s chunk => <20s re-processing)
 - **UX**: Progress indicator updates within 500ms of status changes
 - **Accuracy**: ReID accuracy improves by >10% for corrected horses in subsequent chunks
 

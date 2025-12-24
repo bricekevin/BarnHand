@@ -2,7 +2,7 @@
 
 ## What to Do
 
-1. **Open Browser Console** (F12 → Console tab)
+1. **Open Browser Console** (F12 => Console tab)
 2. **Clear the console** (click the 🚫 icon or press Ctrl+L)
 3. **Record a NEW chunk** (click "Record Chunk" button)
 4. **Copy ALL the console output** and share it with me
@@ -28,9 +28,9 @@ You should start seeing status polls every 2 seconds:
   raw_response: { ... }
 }
 
-⚠️ No progress data available  ← Expected at first
+ No progress data available  ← Expected at first
 
-🔍 Status transition check: {
+ Status transition check: {
   prevStatus: null,
   currentStatus: 'pending',
   willAutoSwitch: false
@@ -52,12 +52,12 @@ After a few seconds, you should see:
   ...
 }
 
-✅ Setting progress: {             ← Progress is being set!
+ Setting progress: {             ← Progress is being set!
   frames_processed: 31,
   total_frames: 126
 }
 
-🔍 Status transition check: {
+ Status transition check: {
   prevStatus: 'pending',
   currentStatus: 'processing',
   willAutoSwitch: false
@@ -77,7 +77,7 @@ Every 2 seconds while processing:
   ...
 }
 
-✅ Setting progress: {
+ Setting progress: {
   frames_processed: 61,
   total_frames: 126
 }
@@ -96,15 +96,15 @@ Every 2 seconds while processing:
   ...
 }
 
-⚠️ No progress data available     ← Expected when complete
+ No progress data available     ← Expected when complete
 
-🔍 Status transition check: {
+ Status transition check: {
   prevStatus: 'processing',       ← Was processing
   currentStatus: 'complete',      ← Now complete
   willAutoSwitch: true            ← Should trigger auto-switch!
 }
 
-✅ ML processing completed! Auto-switching to processed video...
+ ML processing completed! Auto-switching to processed video...
 
 🔄 Current state: {
   showRawVideo: false,
@@ -112,7 +112,7 @@ Every 2 seconds while processing:
   detectionDataKey: 0
 }
 
-✅ Auto-switch triggered!
+ Auto-switch triggered!
 ```
 
 ## Common Issues & What They Mean
@@ -150,7 +150,7 @@ status: 'complete'  ← Second poll (skipped 'processing'!)
 ### Issue 4: willAutoSwitch is false
 
 ```javascript
-🔍 Status transition check: {
+ Status transition check: {
   prevStatus: null,              ← Previous status is null!
   currentStatus: 'complete',
   willAutoSwitch: false
@@ -162,7 +162,7 @@ status: 'complete'  ← Second poll (skipped 'processing'!)
 
 ### Issue 5: Auto-switch message doesn't appear
 
-If you see `willAutoSwitch: true` but NO "✅ ML processing completed!" message:
+If you see `willAutoSwitch: true` but NO " ML processing completed!" message:
 **Cause**: JavaScript error preventing the code from running
 **Check**: Look for red error messages in the console
 

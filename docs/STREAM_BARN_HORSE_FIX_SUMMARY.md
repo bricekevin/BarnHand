@@ -11,9 +11,9 @@
 3. **Lack of Management UI**: No self-service page to manage stream-to-barn assignments
 
 ### Data Integrity Check
-✅ All 4 horses in system have correct `stream_id` and `farm_id`
-✅ No NULL values or mismatched relationships
-✅ Proper distribution across streams
+ All 4 horses in system have correct `stream_id` and `farm_id`
+ No NULL values or mismatched relationships
+ Proper distribution across streams
 
 ## Changes Implemented
 
@@ -22,8 +22,8 @@
 #### Migration 005: Stream-Scoped Re-identification
 **File**: `src/migrations/sql/005_fix_reid_stream_scoping.sql`
 
-- ✅ Updated `find_similar_horses()` function with optional `filter_stream_id` and `filter_farm_id` parameters
-- ✅ Supports three modes:
+-  Updated `find_similar_horses()` function with optional `filter_stream_id` and `filter_farm_id` parameters
+-  Supports three modes:
   - **Stream-scoped** (strict): Only match horses within same stream
   - **Farm-scoped** (barn-level): Match horses across streams in same farm
   - **Global** (backward compatible): Match across all horses
@@ -43,39 +43,39 @@ find_similar_horses(
 **File**: `src/repositories/HorseRepository.ts`
 
 Changes:
-- ✅ Updated `findByStreamId()` to JOIN with `streams` and `farms` tables
-- ✅ Added `stream_name` and `farm_name` to query results
-- ✅ Updated `findSimilarHorses()` to accept optional `streamId` and `farmId` parameters
-- ✅ Updated `mapRowToHorse()` to include `stream_name` and `farm_name` fields
+-  Updated `findByStreamId()` to JOIN with `streams` and `farms` tables
+-  Added `stream_name` and `farm_name` to query results
+-  Updated `findSimilarHorses()` to accept optional `streamId` and `farmId` parameters
+-  Updated `mapRowToHorse()` to include `stream_name` and `farm_name` fields
 
 #### Updated TypeScript Types
 **File**: `src/types.ts`
 
-- ✅ Added optional `stream_name?: string` and `farm_name?: string` to `Horse` interface
+-  Added optional `stream_name?: string` and `farm_name?: string` to `Horse` interface
 
 ### 2. API Gateway Layer (`backend/api-gateway/`)
 
 #### Updated Stream Horse Service
 **File**: `src/services/streamHorseService.ts`
 
-- ✅ Updated `Horse` interface to include `stream_name` and `farm_name`
-- ✅ Service now returns enriched horse data with context information
+-  Updated `Horse` interface to include `stream_name` and `farm_name`
+-  Service now returns enriched horse data with context information
 
 ### 3. Frontend Layer (`frontend/`)
 
 #### Updated Shared Types
 **File**: `shared/src/types/horse.types.ts`
 
-- ✅ Added `stream_name?: z.string().optional()` to `HorseSchema`
-- ✅ Added `farm_name?: z.string().optional()` to `HorseSchema`
+-  Added `stream_name?: z.string().optional()` to `HorseSchema`
+-  Added `farm_name?: z.string().optional()` to `HorseSchema`
 
 #### Enhanced HorseCard Component
 **File**: `src/components/HorseCard.tsx`
 
-- ✅ Added new section displaying stream and barn names
-- ✅ Includes building icon for visual clarity
-- ✅ Format: "Stream 1 • Default Farm"
-- ✅ Only shown when data is available
+-  Added new section displaying stream and barn names
+-  Includes building icon for visual clarity
+-  Format: "Stream 1 • Default Farm"
+-  Only shown when data is available
 
 **UI Enhancement**:
 ```tsx
@@ -89,17 +89,17 @@ Changes:
 
 ### Database Integrity
 ```bash
-✅ 0 horses with NULL stream_id
-✅ 0 horses with NULL farm_id
-✅ 0 horses with mismatched farm_id
-✅ 4 total horses properly distributed across streams
+ 0 horses with NULL stream_id
+ 0 horses with NULL farm_id
+ 0 horses with mismatched farm_id
+ 4 total horses properly distributed across streams
 ```
 
 ### Migration
 ```bash
-✅ Migration 005 applied successfully
-✅ find_similar_horses() function updated
-✅ Backward compatibility maintained
+ Migration 005 applied successfully
+ find_similar_horses() function updated
+ Backward compatibility maintained
 ```
 
 ## Usage Guide
@@ -139,7 +139,7 @@ const matches = await horseRepo.findSimilarHorses(featureVector);
 
 ## ML Service Analysis
 
-### Finding: ML Pipeline Already Stream-Scoped ✅
+### Finding: ML Pipeline Already Stream-Scoped 
 
 After detailed code analysis, **the ML service was already implementing stream-scoped Re-ID correctly**:
 
@@ -279,5 +279,5 @@ Testing:
 
 ---
 
-**Status**: ✅ Phase 1 Complete (Diagnostics & Visibility)
+**Status**:  Phase 1 Complete (Diagnostics & Visibility)
 **Next**: Phase 2 (ML Pipeline Hardening)

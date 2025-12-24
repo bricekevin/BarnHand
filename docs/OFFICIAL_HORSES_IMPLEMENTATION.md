@@ -1,7 +1,7 @@
 # Official Horses System - Implementation Guide
 
 **Date**: 2025-10-20
-**Status**: ✅ Implemented, Ready for Testing
+**Status**:  Implemented, Ready for Testing
 
 ## Overview
 
@@ -173,7 +173,7 @@ $$ LANGUAGE plpgsql;
 ```
 ┌─────────────────────────────────────────┐
 │  Official Horse              [Toggle]   │
-│  ✓ Official                              │
+│   Official                              │
 │                                          │
 │  This horse is confirmed as one of the   │
 │  barn's official horses                  │
@@ -185,7 +185,7 @@ $$ LANGUAGE plpgsql;
 **New Visual Indicators**: Badges next to tracking number
 
 **Official Horse**:
-- Green checkmark badge (✓)
+- Green checkmark badge ()
 - `bg-emerald-500/20 text-emerald-400 border-emerald-500/50`
 - Tooltip: "Official barn horse"
 
@@ -197,7 +197,7 @@ $$ LANGUAGE plpgsql;
 **Layout**:
 ```
 ┌─────────────────────────────────────┐
-│ #3 ✓   OR   #7 Guest     42 det.   │ <- Badges
+│ #3    OR   #7 Guest     42 det.   │ <- Badges
 │                                     │
 │ [Horse Avatar]                      │
 │                                     │
@@ -228,7 +228,7 @@ This ensures official horses are matched first, reducing false positives from gu
 
 ### Setting Up a Barn
 
-1. **Admin creates/edits barn** via Settings → Stream & Barn Management
+1. **Admin creates/edits barn** via Settings => Stream & Barn Management
 2. **Set expected horse count** (e.g., 5 horses)
 3. Barn is now configured for capacity-based Re-ID
 
@@ -236,7 +236,7 @@ This ensures official horses are matched first, reducing false positives from gu
 
 **Method 1**: Via Actions Modal
 1. User views detected horses in stream
-2. Clicks on a horse card → Opens Actions Modal
+2. Clicks on a horse card => Opens Actions Modal
 3. Toggles "Official Horse" switch to ON
 4. System validates against barn capacity
 5. Horse is marked as official (visible via checkmark badge)
@@ -253,7 +253,7 @@ This ensures official horses are matched first, reducing false positives from gu
 **Scenario**: Unexpected horse arrives at barn
 1. System detects new horse in frame
 2. Attempts to match against official horses (similarity < 0.7)
-3. No match found → Creates new horse record with `is_official = FALSE`
+3. No match found => Creates new horse record with `is_official = FALSE`
 4. Horse card displays "Guest" badge
 5. Admin can:
    - Mark as official (if it's actually a new barn horse)
@@ -296,7 +296,7 @@ docker compose logs -f ml-service | grep official
 ### 3. Frontend Testing
 
 #### A. Set Barn Capacity
-1. Navigate to Settings → Stream & Barn Management
+1. Navigate to Settings => Stream & Barn Management
 2. Click "Edit Barn" on your test barn
 3. Set "Expected Number of Horses" to 5
 4. Click "Update Barn"
@@ -316,7 +316,7 @@ docker compose logs -f ml-service | grep official
    - Toggle turns green
    - "Official" badge appears
    - Close modal
-   - Horse card now shows green checkmark (✓)
+   - Horse card now shows green checkmark ()
 
 5. Repeat for 4 more horses (total 5 official)
 6. Try to mark a 6th horse as official
@@ -327,7 +327,7 @@ docker compose logs -f ml-service | grep official
 
 #### D. Guest Horse Behavior
 1. If system detected >5 horses, remaining ones show "Guest" badge
-2. Click guest horse card → No checkmark, shows "Guest" indicator
+2. Click guest horse card => No checkmark, shows "Guest" indicator
 3. **Verify**: Visual distinction is clear
 
 ### 4. API Testing
@@ -381,29 +381,29 @@ docker compose exec -T postgres psql -U admin -d barnhand -c "SELECT * FROM farm
 ## Edge Cases Handled
 
 ### 1. Capacity Enforcement
-- ✅ Cannot mark more horses as official than barn capacity
-- ✅ Helpful error message guides user to increase capacity or unmark another horse
-- ✅ Unmarking official horses frees up capacity
+-  Cannot mark more horses as official than barn capacity
+-  Helpful error message guides user to increase capacity or unmark another horse
+-  Unmarking official horses frees up capacity
 
 ### 2. Guest Horse Detection
-- ✅ System can still detect horses beyond capacity
-- ✅ These are automatically marked as `is_official = FALSE`
-- ✅ Clear visual distinction in UI
+-  System can still detect horses beyond capacity
+-  These are automatically marked as `is_official = FALSE`
+-  Clear visual distinction in UI
 
 ### 3. Re-ID Priority
-- ✅ Official horses always checked first during Re-ID
-- ✅ Reduces false positives from duplicate detections
-- ✅ Guest horses still available for matching if no official match found
+-  Official horses always checked first during Re-ID
+-  Reduces false positives from duplicate detections
+-  Guest horses still available for matching if no official match found
 
 ### 4. Barn with No Capacity Set
-- ✅ `expected_horse_count = 0` means no limit
-- ✅ All horses can be marked as official
-- ✅ System behaves as before (backward compatible)
+-  `expected_horse_count = 0` means no limit
+-  All horses can be marked as official
+-  System behaves as before (backward compatible)
 
 ### 5. Audit Trail
-- ✅ `made_official_by` tracks which user designated the horse
-- ✅ `made_official_at` tracks when designation happened
-- ✅ Supports future compliance/reporting needs
+-  `made_official_by` tracks which user designated the horse
+-  `made_official_at` tracks when designation happened
+-  Supports future compliance/reporting needs
 
 ## Future Enhancements
 
@@ -466,5 +466,5 @@ docker compose up -d --build
 
 ---
 
-**Status**: ✅ Implementation Complete, Ready for Testing
+**Status**:  Implementation Complete, Ready for Testing
 **Next Steps**: Test the workflow on stream_004, validate capacity enforcement, verify Re-ID prioritization

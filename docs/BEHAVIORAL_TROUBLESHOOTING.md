@@ -2,7 +2,7 @@
 
 This guide covers common issues and solutions for the BarnHand behavioral analysis system.
 
-## 🔍 Quick Diagnostics
+##  Quick Diagnostics
 
 ### Health Check Commands
 

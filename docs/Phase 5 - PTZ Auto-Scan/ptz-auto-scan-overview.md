@@ -7,7 +7,7 @@ Implement an intelligent auto-patrol mode for PTZ cameras that automatically cyc
 ## Scope
 
 **Includes**:
-- Two-phase scan: Quick snapshot scan → Targeted recording scan
+- Two-phase scan: Quick snapshot scan => Targeted recording scan
 - YOLO-only detection endpoint for fast horse presence checking
 - Auto-scan progress dialog with real-time status
 - Per-location horse detection results display
@@ -28,14 +28,14 @@ Implement an intelligent auto-patrol mode for PTZ cameras that automatically cyc
 Due to HLS restreaming delay (~5-10 seconds), auto-scan operates in two phases:
 
 **Phase A: Snapshot Detection Scan (Fast)**
-1. Move to preset 1 → Take snapshot → YOLO detect → Record if horses found
-2. Move to preset 2 → Take snapshot → YOLO detect → Record which have horses
+1. Move to preset 1 => Take snapshot => YOLO detect => Record if horses found
+2. Move to preset 2 => Take snapshot => YOLO detect => Record which have horses
 3. ... Continue through all saved presets
 4. Build list of "locations with horses"
 
 **Phase B: Recording Scan (Targeted)**
 1. For each location with horses detected:
-2. Move to preset → Wait for HLS delay → Record chunk → Process with full ML pipeline
+2. Move to preset => Wait for HLS delay => Record chunk => Process with full ML pipeline
 3. Continue to next location with horses
 4. Complete scan
 
@@ -201,10 +201,10 @@ interface StreamConfig {
 │  ┌─────────────────────────────────────────────┐   │
 │  │ Location Results:                            │   │
 │  │                                              │   │
-│  │  ✓ Preset 1 "North Barn"     🐴 2 horses    │   │
-│  │  ✗ Preset 2 "Feed Area"      No horses      │   │
-│  │  ⏳ Preset 3 "South Paddock"  Checking...    │   │
-│  │  ○ Preset 4 "Arena"          Pending        │   │
+│  │   Preset 1 "North Barn"      2 horses    │   │
+│  │   Preset 2 "Feed Area"      No horses      │   │
+│  │   Preset 3 "South Paddock"  Checking...    │   │
+│  │  o Preset 4 "Arena"          Pending        │   │
 │  │  ...                                         │   │
 │  └─────────────────────────────────────────────┘   │
 │                                                     │
@@ -218,9 +218,9 @@ interface StreamConfig {
 │  Auto-Scan Settings                                 │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
-│  Recording Duration:  [====●=====] 10 seconds      │
-│  Frame Interval:      [==●=======] 5 frames        │
-│  Movement Delay:      [=====●====] 8 seconds       │
+│  Recording Duration:  [====*=====] 10 seconds      │
+│  Frame Interval:      [==*=======] 5 frames        │
+│  Movement Delay:      [=====*====] 8 seconds       │
 │                                                     │
 │  ℹ️ Movement delay accounts for HLS stream lag.     │
 │     Increase if recordings show previous location.  │
@@ -232,7 +232,7 @@ interface StreamConfig {
 
 - **Unit**: YOLO-only detection endpoint, auto-scan state machine, config persistence
 - **Integration**: Full scan cycle with mock PTZ commands, WebSocket event flow
-- **E2E**: Manual test with real camera (start scan → verify all phases → check chunks)
+- **E2E**: Manual test with real camera (start scan => verify all phases => check chunks)
 - **Performance**: Snapshot detection <500ms, full scan of 8 presets <5 minutes
 
 ## Success Metrics

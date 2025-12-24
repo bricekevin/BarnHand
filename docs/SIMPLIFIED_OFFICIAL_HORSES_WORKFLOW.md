@@ -9,8 +9,8 @@
 **Simple Rule**:
 - YOLO detects horses in frame
 - For each detection, find the closest matching official horse
-- If match found → Track it
-- If no match → Ignore it (don't create new horse)
+- If match found => Track it
+- If no match => Ignore it (don't create new horse)
 
 **No guest horses. No discovery mode. Just match against official horses.**
 
@@ -132,15 +132,15 @@ class ChunkProcessor:
         official_horses = await self.horse_db.load_official_horses(farm_id)
 
         if not official_horses:
-            logger.warning(f"⚠️ No official horses configured for farm {farm_id}")
-            logger.warning(f"⚠️ Process some chunks and mark horses as official to enable tracking")
+            logger.warning(f" No official horses configured for farm {farm_id}")
+            logger.warning(f" Process some chunks and mark horses as official to enable tracking")
             # Could either:
             # A) Process in discovery mode (create new horses)
             # B) Skip processing and return empty results
             # For now: process in discovery mode
             return await self.process_chunk_discovery(chunk_path, chunk_metadata)
 
-        logger.info(f"🐴 Tracking {len(official_horses)} official horses for barn")
+        logger.info(f" Tracking {len(official_horses)} official horses for barn")
 
         # Initialize chunk-level tracking
         chunk_tracks = {}  # {track_id: TrackData}
@@ -238,7 +238,7 @@ class ChunkProcessor:
                 official_id = best_match["official_id"]
                 similarity = best_match["similarity"]
 
-                logger.info(f"✓ Track {track_id} matched to official {official_id} (sim: {similarity:.2f})")
+                logger.info(f" Track {track_id} matched to official {official_id} (sim: {similarity:.2f})")
 
                 track_data["official_horse_id"] = official_id
                 track_data["similarity"] = similarity
@@ -246,7 +246,7 @@ class ChunkProcessor:
                 matched_results.append(track_data)
             else:
                 # All similarities below 0.3 - likely YOLO error (shadow, tree, etc.)
-                logger.debug(f"⚠️ Track {track_id} rejected as noise (all similarities < 0.3)")
+                logger.debug(f" Track {track_id} rejected as noise (all similarities < 0.3)")
                 # Don't save to database
                 # Don't add to results
 
@@ -368,7 +368,7 @@ def _match_to_official_horses(
     if best_match and best_similarity >= noise_threshold:
         return best_match
     else:
-        logger.debug(f"⚠️ Detection rejected as noise (best sim: {best_similarity:.2f} < {noise_threshold})")
+        logger.debug(f" Detection rejected as noise (best sim: {best_similarity:.2f} < {noise_threshold})")
         return None
 ```
 
@@ -413,7 +413,7 @@ async def load_official_horses(self, farm_id: str) -> Dict[str, Dict]:
             "last_seen": row["last_seen"]
         }
 
-    logger.info(f"🐴 Loaded {len(official_horses)} official horses for farm {farm_id}")
+    logger.info(f" Loaded {len(official_horses)} official horses for farm {farm_id}")
 
     return official_horses
 ```
@@ -421,8 +421,8 @@ async def load_official_horses(self, farm_id: str) -> Dict[str, Dict]:
 ### Cross-Stream Consistency
 
 **Example**:
-- Stream 1 detects Horse A → Matches to official horse_002
-- Stream 3 detects Horse A (same physical horse) → Also matches to horse_002
+- Stream 1 detects Horse A => Matches to official horse_002
+- Stream 3 detects Horse A (same physical horse) => Also matches to horse_002
 - Both streams use same tracking ID, same color
 - Horse appears in whichever stream it was most recently detected
 
@@ -732,12 +732,12 @@ const DetectedHorses = ({ stream }) => {
 - Multi-stream support (already implemented)
 
 ### Benefits
-- ✅ Stops over-detection automatically
-- ✅ Improves ReID accuracy (best quality features per chunk)
-- ✅ Simple logic (no mode transitions, no guest handling)
-- ✅ Better matching (closest official horse, not hard threshold)
-- ✅ Filters noise (similarity < 0.3 rejected as YOLO errors)
-- ✅ Useful thumbnails (one per chunk showing best shot)
-- ✅ Works with existing infrastructure
+-  Stops over-detection automatically
+-  Improves ReID accuracy (best quality features per chunk)
+-  Simple logic (no mode transitions, no guest handling)
+-  Better matching (closest official horse, not hard threshold)
+-  Filters noise (similarity < 0.3 rejected as YOLO errors)
+-  Useful thumbnails (one per chunk showing best shot)
+-  Works with existing infrastructure
 
 **Ready to implement!**

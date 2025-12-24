@@ -97,7 +97,7 @@ filteredHorses.filter(horse => {
 - New chunk is recorded with 3 new horse detections
 
 **DetectedHorses Tab Shows: 15, 6, 13**
-- Source: `streamHorseService.getStreamHorses()` → `HorseRepository.findAll(farmId)`
+- Source: `streamHorseService.getStreamHorses()` => `HorseRepository.findAll(farmId)`
 - Query: Returns ALL horses in the farm that exist in the horses table
 - These IDs come from the database `tracking_id` field
 

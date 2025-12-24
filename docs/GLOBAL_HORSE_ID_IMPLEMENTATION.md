@@ -2,7 +2,7 @@
 
 **Date**: 2025-10-28
 **Branch**: `feature/documentation`
-**Status**: ✅ Complete
+**Status**:  Complete
 
 ## Overview
 
@@ -204,7 +204,7 @@ interface Horse {
 │ Frontend (DetectionDataPanel + FrameInspector)              │
 ├─────────────────────────────────────────────────────────────┤
 │ Tracked Horses Section:                                     │
-│   ● brown fence                                             │
+│   * brown fence                                             │
 │     ID: 1_horse_001              ◄── Same global ID        │
 │     24 detections                                           │
 │     Avg Confidence: 88.0%                                   │
@@ -214,7 +214,7 @@ interface Horse {
 │   [Prev] [Play] [Next]                                      │
 │                                                             │
 │   Tracked Horses:                                           │
-│   ● brown fence                  ◄── Same name             │
+│   * brown fence                  ◄── Same name             │
 │     ID: 1_horse_001              ◄── Same ID               │
 │     Confidence: 88.0%                                       │
 │     ReID: 95.3%                  ◄── NEW: ReID confidence  │
@@ -230,31 +230,31 @@ interface Horse {
 ├─────────────────────────────────────────────────────────────┤
 │ From database query: /api/v1/streams/:id/horses             │
 │                                                             │
-│ ✓ brown fence                                               │
+│  brown fence                                               │
 │   ID: 1_horse_001                ◄── Same global ID        │
 │   577 detections (lifetime)                                 │
 │                                                             │
-│ ✓ Unnamed Horse                                             │
+│  Unnamed Horse                                             │
 │   ID: 1_horse_002                ◄── Consistent IDs        │
 │   209 detections                                            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Acceptance Criteria ✅
+## Acceptance Criteria 
 
-### 1. Global Horse Identity ✅
+### 1. Global Horse Identity 
 - [x] Single global unique ID used across entire system
 - [x] Same ID appears on video annotations, Tracked Horses, chunk JSON, and Detected Horses tab
 - [x] IDs are short and never reused (e.g., "1_horse_001")
 - [x] No GUIDs, using stream-scoped incrementing counter
 
-### 2. Names Everywhere ✅
+### 2. Names Everywhere 
 - [x] Horse names shown next to ID on Recorded Chunks tab if set
 - [x] Names appear in chunk JSON
 - [x] Video overlays show names
 - [x] "Unnamed Horse" + ID shown for horses without names
 
-### 3. Frame-by-Frame Inspector ✅
+### 3. Frame-by-Frame Inspector 
 - [x] Located after Tracked Horses and Frame Timeline sections
 - [x] Shows processed frame with annotations (via existing video player)
 - [x] YOLO detection details per box (class, confidence, geometry)
@@ -265,9 +265,9 @@ interface Horse {
 - [x] Jump to frame input
 - [x] Summary badges per frame (processed/skipped, matched horse)
 
-### 4. Data Alignment Rules ✅
+### 4. Data Alignment Rules 
 - [x] Tracked Horses list references global ID and resolved name
-- [x] Detected Horses tab is source of truth for ID→name mapping
+- [x] Detected Horses tab is source of truth for ID=>name mapping
 - [x] Chunk processing updates lifetime detection counts with same ID
 
 ### 5. Acceptance Checks (To Verify)

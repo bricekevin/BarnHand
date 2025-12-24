@@ -97,10 +97,10 @@ npm run docker:prod
 
 With PostgreSQL running (either mode 2 or 3), your streams will:
 
-- ✅ Persist through service restarts
-- ✅ Automatically restore active streams on startup
-- ✅ Track full stream history and metadata
-- ✅ Support multi-tenant farm isolation
+-  Persist through service restarts
+-  Automatically restore active streams on startup
+-  Track full stream history and metadata
+-  Support multi-tenant farm isolation
 
 ## Quick Start
 

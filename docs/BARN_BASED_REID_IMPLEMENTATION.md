@@ -1,7 +1,7 @@
 # Barn-Based RE-ID Implementation
 
 **Date**: October 16, 2025
-**Status**: ✅ Completed and Tested
+**Status**:  Completed and Tested
 
 ## Overview
 
@@ -74,9 +74,9 @@ async def load_barn_horse_registry(self, stream_id: str, farm_id: Optional[str] 
    - Ready for RE-ID matching
 
 **Benefits**:
-- ✅ PostgreSQL: Long-term persistence, survives restarts
-- ✅ Redis: Fresh tracking state for active sessions
-- ✅ Hybrid approach: Best of both worlds
+-  PostgreSQL: Long-term persistence, survives restarts
+-  Redis: Fresh tracking state for active sessions
+-  Hybrid approach: Best of both worlds
 
 ### 2. Updated Processor to Use Barn-Level Loading
 
@@ -93,22 +93,22 @@ known_horses = await self.horse_db.load_barn_horse_registry(stream_id)
 
 **Logging Added**:
 ```python
-logger.info(f"🐴 Loading known horses for stream {stream_id} (barn-scoped Re-ID)")
-logger.info(f"🐴 Loaded {len(known_horses)} known horses from barn registry")
+logger.info(f" Loading known horses for stream {stream_id} (barn-scoped Re-ID)")
+logger.info(f" Loaded {len(known_horses)} known horses from barn registry")
 
 # Show which streams contributed horses
 stream_sources = {}
 for horse_id, horse_state in known_horses.items():
     source_stream = horse_state.get("stream_id", "unknown")
     stream_sources[source_stream] = stream_sources.get(source_stream, 0) + 1
-logger.info(f"🐴 Horse sources by stream: {stream_sources}")
+logger.info(f" Horse sources by stream: {stream_sources}")
 ```
 
 **Example Log Output**:
 ```
-🐴 Loading known horses for stream stream_003 (barn-scoped Re-ID)
-🐴 Loaded 5 known horses from barn registry for stream stream_003
-🐴 Horse sources by stream: {'stream_001': 2, 'stream_003': 2, 'stream_004': 1}
+ Loading known horses for stream stream_003 (barn-scoped Re-ID)
+ Loaded 5 known horses from barn registry for stream stream_003
+ Horse sources by stream: {'stream_001': 2, 'stream_003': 2, 'stream_004': 1}
 ```
 
 ### 3. Fixed Webhook Validation
@@ -138,7 +138,7 @@ streamId: z.string().min(1)  // Accepts any non-empty string
 INSERT INTO horses (tracking_id, stream_id, farm_id, ...)
 VALUES (...)
 ON CONFLICT (tracking_id) DO UPDATE SET
-    stream_id = EXCLUDED.stream_id,  -- ✅ NEW: Update stream_id
+    stream_id = EXCLUDED.stream_id,  --  NEW: Update stream_id
     last_seen = to_timestamp(%s),
     total_detections = GREATEST(horses.total_detections, EXCLUDED.total_detections),
     ...
@@ -146,7 +146,7 @@ ON CONFLICT (tracking_id) DO UPDATE SET
 
 **Impact**:
 - Horse first detected in `stream_001` gets `tracking_id = horse_001`
-- Later detected in `stream_003`: keeps `horse_001` but `stream_id` → `stream_003`
+- Later detected in `stream_003`: keeps `horse_001` but `stream_id` => `stream_003`
 - Horse now appears in stream_003's "Detected Horses" tab
 - Tracking ID and color preserved for consistency
 
@@ -192,13 +192,13 @@ ON CONFLICT (tracking_id) DO UPDATE SET
 ┌─────────────────────────────────────────────┐
 │  5. RE-ID Matching:                         │
 │     Horse A: Match horse_002 (sim: 0.85)    │
-│     Horse B: No match → New horse_006       │
+│     Horse B: No match => New horse_006       │
 └──────────────┬──────────────────────────────┘
                │
                ▼
 ┌─────────────────────────────────────────────┐
 │  6. Save to Database:                       │
-│     - horse_002: stream_id → stream_003     │
+│     - horse_002: stream_id => stream_003     │
 │     - horse_006: NEW, stream_id = stream_003│
 │     - Both saved to PostgreSQL + Redis      │
 └──────────────┬──────────────────────────────┘
@@ -209,7 +209,7 @@ ON CONFLICT (tracking_id) DO UPDATE SET
 │     POST /api/internal/webhooks/             │
 │          horses-detected                     │
 │     Body: { streamId, horses: [...] }       │
-│     Result: 200 OK ✅                        │
+│     Result: 200 OK                         │
 └──────────────┬──────────────────────────────┘
                │
                ▼
@@ -222,12 +222,12 @@ ON CONFLICT (tracking_id) DO UPDATE SET
 
 ## Testing & Validation
 
-### ✅ Code Validation
-- **Python Syntax**: ✅ No errors (`python -m py_compile`)
-- **TypeScript Compilation**: ✅ No errors (`npx tsc --noEmit`)
-- **Docker Builds**: ✅ All services build successfully
+###  Code Validation
+- **Python Syntax**:  No errors (`python -m py_compile`)
+- **TypeScript Compilation**:  No errors (`npx tsc --noEmit`)
+- **Docker Builds**:  All services build successfully
 
-### ✅ Database Validation
+###  Database Validation
 **Before Implementation**:
 ```sql
 SELECT tracking_id, stream_id FROM horses;
@@ -246,9 +246,9 @@ SELECT tracking_id, stream_id, farm_id FROM horses ORDER BY last_seen DESC;
  horse_002   | stream_002 | 223e4567-e89b-12d3-a456-426614174020
 ```
 
-✅ **Webhook fix working**: stream_002 horses now being saved!
+ **Webhook fix working**: stream_002 horses now being saved!
 
-### ✅ Functionality Tests
+###  Functionality Tests
 
 1. **Barn-Level Loading**
    ```bash
@@ -259,7 +259,7 @@ SELECT tracking_id, stream_id, farm_id FROM horses ORDER BY last_seen DESC;
 2. **Cross-Stream Horse Sources**
    ```bash
    docker compose logs ml-service | grep "Horse sources"
-   # Expected: "🐴 Horse sources by stream: {'stream_001': 2, 'stream_003': 2, ...}"
+   # Expected: " Horse sources by stream: {'stream_001': 2, 'stream_003': 2, ...}"
    ```
 
 3. **Webhook Success**
@@ -294,7 +294,7 @@ SELECT tracking_id, stream_id, farm_id FROM horses ORDER BY last_seen DESC;
    - Loads horses from stream_001, stream_003, stream_004
    - Thunder available for matching even though currently in stream_003
 
-**Result**: Consistent tracking across all barn streams ✅
+**Result**: Consistent tracking across all barn streams 
 
 ### Scenario 2: Different Barns, Isolated
 
@@ -306,7 +306,7 @@ SELECT tracking_id, stream_id, farm_id FROM horses ORDER BY last_seen DESC;
 **Behavior**:
 - Lightning (in stream_002/North Barn) gets `horse_001`
 - Thunder (in stream_001/Default Farm) ALSO gets `horse_001`
-- ✅ No conflict: Different barns = independent horse registries
+-  No conflict: Different barns = independent horse registries
 - Each barn maintains its own tracking ID sequence
 
 ## Performance Considerations
@@ -380,7 +380,7 @@ WHERE status = 'active';
 
 **Horse Source Breakdown**:
 ```
-🐴 Horse sources by stream: {'stream_001': 2, 'stream_003': 2, 'stream_004': 1}
+ Horse sources by stream: {'stream_001': 2, 'stream_003': 2, 'stream_004': 1}
 ```
 
 **Webhook Success**:
@@ -448,7 +448,7 @@ docker compose logs ml-service | grep similarity
 
 The barn-based RE-ID implementation successfully enables cross-stream horse tracking within barns while maintaining isolation between different facilities. The hybrid PostgreSQL + Redis approach ensures both persistence and performance, and the webhook fix resolves the critical issue of horses not being saved to the database.
 
-**Status**: ✅ Production Ready
+**Status**:  Production Ready
 
 ---
 

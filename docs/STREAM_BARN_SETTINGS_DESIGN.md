@@ -28,19 +28,19 @@ Admin settings page for managing stream-to-barn (farm) assignments, providing a 
 ### 2. Farm Cards Grid (Responsive)
 ```
 ┌──────────────────────────────┐  ┌──────────────────────────────┐
-│ 🏛️ Default Farm              │  │ 🏛️ North Barn                │
+│  Default Farm              │  │  North Barn                │
 │ ──────────────────────────── │  │ ──────────────────────────── │
 │ 4 Streams │ 12 Horses        │  │ 2 Streams │ 5 Horses         │
 │                              │  │                              │
 │ Streams:                     │  │ Streams:                     │
 │ ┌──────────────────────────┐ │  │ ┌──────────────────────────┐ │
 │ │ 📹 Stream 1              │ │  │ │ 📹 Stream 5              │ │
-│ │ ● Active │ 3 horses      │ │  │ │ ○ Inactive │ 0 horses   │ │
+│ │ * Active │ 3 horses      │ │  │ │ o Inactive │ 0 horses   │ │
 │ │ [Edit] [Reassign]        │ │  │ │ [Edit] [Reassign]        │ │
 │ └──────────────────────────┘ │  │ └──────────────────────────┘ │
 │ ┌──────────────────────────┐ │  │                              │
 │ │ 📹 Stream 2              │ │  │                              │
-│ │ ● Active │ 2 horses      │ │  │                              │
+│ │ * Active │ 2 horses      │ │  │                              │
 │ │ [Edit] [Reassign]        │ │  │                              │
 │ └──────────────────────────┘ │  │                              │
 │ ...                          │  │                              │
@@ -63,7 +63,7 @@ Admin settings page for managing stream-to-barn (farm) assignments, providing a 
 │ │     • South Barn                        │ │
 │ └─────────────────────────────────────────┘ │
 │                                             │
-│ ⚠️  Warning: 3 horses will be reassigned    │
+│   Warning: 3 horses will be reassigned    │
 │                                             │
 │ [Cancel]           [Reassign Stream]        │
 └─────────────────────────────────────────────┘
@@ -143,7 +143,7 @@ interface StreamSettingsState {
 ## User Flows
 
 ### Flow 1: View Stream Assignments
-1. Navigate to Settings → Stream Management
+1. Navigate to Settings => Stream Management
 2. See all farms with their streams
 3. View status and horse counts
 
@@ -165,11 +165,11 @@ interface StreamSettingsState {
 
 ## Security & Validation
 
-- ✅ Require FARM_ADMIN or SUPER_ADMIN role
-- ✅ Verify user has access to both source and target farms
-- ✅ Prevent reassigning streams to non-existent farms
-- ✅ Show confirmation for operations affecting horses
-- ✅ Log all reassignment operations for audit trail
+-  Require FARM_ADMIN or SUPER_ADMIN role
+-  Verify user has access to both source and target farms
+-  Prevent reassigning streams to non-existent farms
+-  Show confirmation for operations affecting horses
+-  Log all reassignment operations for audit trail
 
 ## Styling
 

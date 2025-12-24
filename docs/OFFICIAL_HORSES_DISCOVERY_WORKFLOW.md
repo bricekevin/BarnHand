@@ -1,8 +1,7 @@
 # Official Horses: Discovery-to-Tracking Workflow Proposal
 
 **Date**: 2025-10-26
-**Status**: 🔍 Proposal for Review
-**Author**: Claude Code
+**Status**: Proposal for Review
 
 ## Executive Summary
 
@@ -62,9 +61,9 @@ This approach solves the problem of over-detection by using the initial discover
         │      MODE DECISION POINT             │
         │                                      │
         │  if mode == "discovery":             │
-        │    → Discovery ReID Logic            │
+        │    => Discovery ReID Logic            │
         │  else if mode == "tracking":         │
-        │    → Constrained ReID Logic          │
+        │    => Constrained ReID Logic          │
         └─────────┬───────────────┬────────────┘
                   │               │
         ┌─────────▼─────┐   ┌────▼──────────────┐
@@ -106,7 +105,7 @@ async def process_chunk(chunk_path, chunk_metadata):
     else:
         mode = "tracking"
 
-    logger.info(f"🔍 Detection mode: {mode} (official: {len(official_horses)}/{expected_count})")
+    logger.info(f" Detection mode: {mode} (official: {len(official_horses)}/{expected_count})")
 
     # Process frames with mode-aware ReID
     for frame in video_frames:
@@ -124,7 +123,7 @@ async def process_chunk(chunk_path, chunk_metadata):
 
 **Goal**: Build the complete horse registry for the barn
 
-1. **YOLO detects horses** → Extract features for all detections
+1. **YOLO detects horses** => Extract features for all detections
 2. **Match against ALL known horses** (official + guests) in barn
 3. **If no match (similarity < 0.7)**:
    - Create new horse ID (e.g., `horse_007`)
@@ -141,7 +140,7 @@ async def process_chunk(chunk_path, chunk_metadata):
 #### Detected Horses Tab
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  🔍 Discovery Mode (3/5 Official Horses Marked)          │
+│   Discovery Mode (3/5 Official Horses Marked)          │
 │                                                          │
 │  The system is discovering horses in this barn.          │
 │  Mark 2 more horses as official to enter tracking mode.  │
@@ -149,7 +148,7 @@ async def process_chunk(chunk_path, chunk_metadata):
 
   Horse Cards (All detected horses shown):
   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-  │ #1 ✓        │  │ #2 ✓        │  │ #3 ✓        │
+  │ #1         │  │ #2         │  │ #3         │
   │ Official    │  │ Official    │  │ Official    │
   └─────────────┘  └─────────────┘  └─────────────┘
 
@@ -214,7 +213,7 @@ def _update_tracks_constrained(self, detections, frame, timestamp, official_pool
 
         if best_match:
             # Matched to official horse - track it
-            logger.debug(f"✓ Matched to official horse {best_match} (sim: {best_similarity:.2f})")
+            logger.debug(f" Matched to official horse {best_match} (sim: {best_similarity:.2f})")
             tracked_horses.append({
                 "tracking_id": official_pool[best_match]["tracking_id"],
                 "horse_id": best_match,
@@ -225,7 +224,7 @@ def _update_tracks_constrained(self, detections, frame, timestamp, official_pool
             })
         else:
             # No match to any official horse - ignore this detection
-            logger.debug(f"⚠️ Detection ignored (no match to official horses, best sim: {best_similarity:.2f})")
+            logger.debug(f" Detection ignored (no match to official horses, best sim: {best_similarity:.2f})")
             # Do NOT create new horse ID
             # Do NOT save to database
             # This detection is discarded as likely false positive
@@ -249,7 +248,7 @@ def _update_tracks_constrained(self, detections, frame, timestamp, official_pool
 #### Detected Horses Tab
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  ✓ Tracking Mode (5/5 Official Horses)                   │
+│   Tracking Mode (5/5 Official Horses)                   │
 │                                                          │
 │  System is tracking only the 5 official barn horses.     │
 │  Other detections are automatically filtered.            │
@@ -258,13 +257,13 @@ def _update_tracks_constrained(self, detections, frame, timestamp, official_pool
 
   Horse Cards (Only official horses shown):
   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-  │ #1 ✓        │  │ #2 ✓        │  │ #3 ✓        │
+  │ #1         │  │ #2         │  │ #3         │
   │ Official    │  │ Official    │  │ Official    │
   │ 142 det.    │  │ 98 det.     │  │ 156 det.    │
   └─────────────┘  └─────────────┘  └─────────────┘
 
   ┌─────────────┐  ┌─────────────┐
-  │ #4 ✓        │  │ #5 ✓        │
+  │ #4         │  │ #5         │
   │ Official    │  │ Official    │
   │ 87 det.     │  │ 201 det.    │
   └─────────────┘  └─────────────┘
@@ -396,8 +395,8 @@ Use `start_time` (or midpoint between start_time and end_time) to determine barn
 **Scenario**: Admin accidentally marks wrong horse as official, unmarked it after entering tracking mode
 
 **Current State**:
-- 5 official horses marked → Tracking mode active
-- Admin unmarked `horse_003` → Now 4 official horses
+- 5 official horses marked => Tracking mode active
+- Admin unmarked `horse_003` => Now 4 official horses
 
 **Behavior**:
 - System immediately reverts to **Discovery mode**
@@ -408,8 +407,8 @@ Use `start_time` (or midpoint between start_time and end_time) to determine barn
 ```python
 # On unmark official horse
 if new_official_count < expected_horse_count:
-    logger.info(f"⚠️ Barn dropped below capacity ({new_official_count}/{expected_horse_count})")
-    logger.info(f"🔍 Reverting to discovery mode for future chunks")
+    logger.info(f" Barn dropped below capacity ({new_official_count}/{expected_horse_count})")
+    logger.info(f" Reverting to discovery mode for future chunks")
 ```
 
 ### 2. Adjusting Expected Horse Count
@@ -421,7 +420,7 @@ if new_official_count < expected_horse_count:
 **Behavior**:
 - System automatically reverts to **Discovery mode** (now 5/6 official)
 - Admin can mark 6th horse from detected horses
-- Once 6th horse marked → Re-enter tracking mode
+- Once 6th horse marked => Re-enter tracking mode
 
 ### 3. Guest Horse During Tracking Mode (Actual Visitor)
 
@@ -474,38 +473,38 @@ if new_official_count < expected_horse_count:
 
 ### Database Changes
 
-- [x] ✅ Already implemented: `horses.is_official` column
-- [x] ✅ Already implemented: `horses.made_official_at` column
-- [x] ✅ Already implemented: `horses.made_official_by` column
-- [x] ✅ Already implemented: `farms.expected_horse_count` column
-- [ ] 🆕 Add index: `idx_horses_official_time` on `(farm_id, made_official_at)` for time queries
-- [ ] 🆕 Add column: `horses.is_temp_guest` BOOLEAN DEFAULT FALSE (for Option B guest handling)
+- [x]  Already implemented: `horses.is_official` column
+- [x]  Already implemented: `horses.made_official_at` column
+- [x]  Already implemented: `horses.made_official_by` column
+- [x]  Already implemented: `farms.expected_horse_count` column
+- [ ]  Add index: `idx_horses_official_time` on `(farm_id, made_official_at)` for time queries
+- [ ]  Add column: `horses.is_temp_guest` BOOLEAN DEFAULT FALSE (for Option B guest handling)
 
 ### Backend API Changes
 
-- [x] ✅ Already implemented: `PATCH /horses/:id/official` endpoint
-- [x] ✅ Already implemented: Capacity enforcement in mark official
-- [ ] 🆕 Add endpoint: `GET /farms/:id/detection-mode` - Return current mode (discovery/tracking/unrestricted)
-- [ ] 🆕 Add endpoint: `GET /farms/:id/official-horses-at-time?timestamp=<iso>` - Get official horses at specific time
-- [ ] 🆕 Add to barn config API response: `detection_mode`, `official_horse_count`
+- [x]  Already implemented: `PATCH /horses/:id/official` endpoint
+- [x]  Already implemented: Capacity enforcement in mark official
+- [ ]  Add endpoint: `GET /farms/:id/detection-mode` - Return current mode (discovery/tracking/unrestricted)
+- [ ]  Add endpoint: `GET /farms/:id/official-horses-at-time?timestamp=<iso>` - Get official horses at specific time
+- [ ]  Add to barn config API response: `detection_mode`, `official_horse_count`
 
 ### ML Service Changes
 
-- [ ] 🆕 **processor.py**: Load barn config and determine detection mode per chunk
-- [ ] 🆕 **processor.py**: Pass `mode` and `official_pool` to `horse_tracker.update_tracks()`
-- [ ] 🆕 **horse_tracker.py**: Implement `_update_tracks_constrained()` method
-- [ ] 🆕 **horse_tracker.py**: Modify `_update_tracks_discovery()` to be explicitly named
-- [ ] 🆕 **horse_database.py**: Add method `get_official_horses_at_time(farm_id, timestamp)`
-- [ ] 🆕 **horse_database.py**: Add method `get_barn_detection_mode(farm_id, timestamp)`
+- [ ]  **processor.py**: Load barn config and determine detection mode per chunk
+- [ ]  **processor.py**: Pass `mode` and `official_pool` to `horse_tracker.update_tracks()`
+- [ ]  **horse_tracker.py**: Implement `_update_tracks_constrained()` method
+- [ ]  **horse_tracker.py**: Modify `_update_tracks_discovery()` to be explicitly named
+- [ ]  **horse_database.py**: Add method `get_official_horses_at_time(farm_id, timestamp)`
+- [ ]  **horse_database.py**: Add method `get_barn_detection_mode(farm_id, timestamp)`
 
 ### Frontend Changes
 
-- [ ] 🆕 **DetectedHorses Tab**: Show mode banner (Discovery/Tracking)
-- [ ] 🆕 **Mode Banner**: Display official horse count progress (e.g., "3/5 official")
-- [ ] 🆕 **Tracking Mode**: Hide guest horses from display (filter `is_official = FALSE`)
-- [ ] 🆕 **BarnModal**: Add explanation of detection modes
-- [ ] 🆕 **Settings**: Add "Enable Guest Detection" toggle for Option A (optional)
-- [ ] 🆕 **Settings**: Add "Temporary Guest Horses" management for Option B (optional)
+- [ ]  **DetectedHorses Tab**: Show mode banner (Discovery/Tracking)
+- [ ]  **Mode Banner**: Display official horse count progress (e.g., "3/5 official")
+- [ ]  **Tracking Mode**: Hide guest horses from display (filter `is_official = FALSE`)
+- [ ]  **BarnModal**: Add explanation of detection modes
+- [ ]  **Settings**: Add "Enable Guest Detection" toggle for Option A (optional)
+- [ ]  **Settings**: Add "Temporary Guest Horses" management for Option B (optional)
 
 ---
 
@@ -612,12 +611,12 @@ if new_official_count < expected_horse_count:
 
 This proposal provides a comprehensive solution to the over-detection problem by:
 
-1. ✅ Using discovery phase to seed the official horse pool
-2. ✅ Automatically transitioning to constrained tracking once capacity is met
-3. ✅ Filtering false positives in tracking mode by only matching against official horses
-4. ✅ Supporting multi-stream barns with barn-scoped official horses
-5. ✅ Handling out-of-order chunk processing with time-aware mode detection
-6. ✅ Providing clear UI feedback about current detection mode
+1.  Using discovery phase to seed the official horse pool
+2.  Automatically transitioning to constrained tracking once capacity is met
+3.  Filtering false positives in tracking mode by only matching against official horses
+4.  Supporting multi-stream barns with barn-scoped official horses
+5.  Handling out-of-order chunk processing with time-aware mode detection
+6.  Providing clear UI feedback about current detection mode
 
 The system is flexible (can revert to discovery if needed), transparent (clear UI indication of mode), and robust (handles edge cases like guest horses and mode transitions).
 

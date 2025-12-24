@@ -2,13 +2,13 @@
 
 **Date**: 2025-10-28
 **Branch**: `feature/documentation`
-**Status**: ✅ Complete (with one note about frame images)
+**Status**:  Complete (with one note about frame images)
 
 ---
 
 ## Issues Fixed (Latest Session)
 
-### Issue 1: Horse Names Not Showing ✅ FIXED
+### Issue 1: Horse Names Not Showing  FIXED
 **Problem**: Frame Inspector showed "Unnamed Horse" even though horses had names in the database.
 
 **Root Cause**: Frame-level `tracked_horses` data in chunk JSON doesn't include horse names (only IDs). The top-level `horses` array has the names.
@@ -27,7 +27,7 @@
 
 ---
 
-### Issue 2: Frame Path Double "frames/" Prefix ✅ FIXED
+### Issue 2: Frame Path Double "frames/" Prefix  FIXED
 **Problem**: API endpoint returned 404 because URL had duplicate "frames/" in path:
 - Wrong: `.../frames/frames/frame_0000.jpg`
 - Correct: `.../frames/frame_0000.jpg`
@@ -49,26 +49,26 @@
 
 ## Current Status
 
-### ✅ Working Features
+###  Working Features
 
 1. **Global Horse IDs**: Consistent IDs across all views
-   - Video overlays: ✅
-   - Chunk JSON: ✅
-   - Frame Inspector: ✅
-   - Detected Horses tab: ✅
+   - Video overlays: 
+   - Chunk JSON: 
+   - Frame Inspector: 
+   - Detected Horses tab: 
 
 2. **Horse Names**: Displayed everywhere
-   - Video overlays: ✅ (shows names or IDs)
-   - Tracked Horses section: ✅ (shows names)
-   - Frame Inspector: ✅ (shows names)
-   - Detected Horses tab: ✅ (shows names)
+   - Video overlays:  (shows names or IDs)
+   - Tracked Horses section:  (shows names)
+   - Frame Inspector:  (shows names)
+   - Detected Horses tab:  (shows names)
 
-3. **Color Consistency**: ✅
+3. **Color Consistency**: 
    - Overlays match UI colors
    - Border colors match bbox colors
    - Color dots match tracking colors
 
-4. **Frame Inspector UI**: ✅
+4. **Frame Inspector UI**: 
    - Navigation controls (prev/next/play/pause/jump)
    - Status badges (processed/skipped, timestamp, mode)
    - Detailed horse panels with all metadata
@@ -77,7 +77,7 @@
    - ReID details display
    - Pose estimation data
 
-### ⏳ Pending: Frame Images
+###  Pending: Frame Images
 
 **Status**: Requires NEW chunk to be processed
 
@@ -91,9 +91,9 @@
 
 **What Will Work**:
 - Chunks processed AFTER the latest deployment will have:
-  - ✅ Individual frame JPEG files in `frames/` directory
-  - ✅ Correct `frame_path` format in JSON
-  - ✅ Full frame inspector with images
+  -  Individual frame JPEG files in `frames/` directory
+  -  Correct `frame_path` format in JSON
+  -  Full frame inspector with images
 
 ---
 
@@ -132,7 +132,7 @@ a9b964b feat(frontend): add authenticated frame image loading to FrameInspector
 
 ## Testing Checklist
 
-### ✅ Can Test Now (With Existing Chunks)
+###  Can Test Now (With Existing Chunks)
 
 - [ ] Horse names appear in Frame Inspector Tracked Horses section
 - [ ] Horse names appear in Pose Estimation section
@@ -144,7 +144,7 @@ a9b964b feat(frontend): add authenticated frame image loading to FrameInspector
 - [ ] ML settings show proper values
 - [ ] ReID details show threshold and known horses count
 
-### ⏳ Requires New Chunk
+###  Requires New Chunk
 
 - [ ] Frame images load and display with overlays
 - [ ] Loading state shows while fetching frame
@@ -205,16 +205,16 @@ curl -X POST http://localhost:8001/api/process-chunk \
 ├─────────────────────────────────────────────────────────────┤
 │ 1. Process frames with YOLO + RTMPose                       │
 │ 2. Track horses with global IDs (e.g., "stream1_horse_001") │
-│ 3. Match horses via ReID → get names from database          │
+│ 3. Match horses via ReID => get names from database          │
 │ 4. Draw overlays with names/IDs on bounding boxes           │
 │ 5. Save frames to TWO locations:                            │
-│    - /tmp/frames/ → FFmpeg video assembly (temp)            │
-│    - output/frames/ → API access (persistent) ✅ NEW        │
+│    - /tmp/frames/ => FFmpeg video assembly (temp)            │
+│    - output/frames/ => API access (persistent)  NEW        │
 │ 6. Generate chunk JSON with:                                │
 │    - Top-level horses[] with names                          │
 │    - Frame-level tracked_horses[] with IDs                  │
 │    - Frame metadata with ML settings                        │
-│    - frame_path for each processed frame ✅ NEW             │
+│    - frame_path for each processed frame  NEW             │
 └─────────────────────────────────────────────────────────────┘
                            │
                            ▼
@@ -222,11 +222,11 @@ curl -X POST http://localhost:8001/api/process-chunk \
 │ API Gateway                                                  │
 ├─────────────────────────────────────────────────────────────┤
 │ GET /streams/:id/chunks/:chunkId/detections                 │
-│   → Returns chunk JSON with enriched horse names            │
+│   => Returns chunk JSON with enriched horse names            │
 │                                                             │
-│ GET /streams/:id/chunks/:chunkId/frames/frame_*.jpg ✅ NEW  │
-│   → Serves individual frame images with auth                │
-│   → Returns JPEG with cache headers (1 hour)                │
+│ GET /streams/:id/chunks/:chunkId/frames/frame_*.jpg  NEW  │
+│   => Serves individual frame images with auth                │
+│   => Returns JPEG with cache headers (1 hour)                │
 └─────────────────────────────────────────────────────────────┘
                            │
                            ▼
@@ -234,7 +234,7 @@ curl -X POST http://localhost:8001/api/process-chunk \
 │ Frontend - FrameInspector Component                          │
 ├─────────────────────────────────────────────────────────────┤
 │ 1. Receive chunk JSON with horses[] and frames[]            │
-│ 2. Create horse name lookup: ID → name                      │
+│ 2. Create horse name lookup: ID => name                      │
 │ 3. For current frame:                                       │
 │    - Fetch frame image via API (JWT auth)                   │
 │    - Create blob URL for display                            │
@@ -277,20 +277,20 @@ curl -X POST http://localhost:8001/api/process-chunk \
 ## Services Status
 
 All services rebuilt and running:
-- ✅ ML Service (8002) - Frame saving + global IDs
-- ✅ API Gateway (8000) - Frame endpoint
-- ✅ Frontend (3000) - Inspector with names
-- ✅ PostgreSQL (5432) - Horse registry
-- ✅ Redis (6379) - Caching
-- ⚠️  Stream Service (8001) - Existing health issue (unrelated)
+-  ML Service (8002) - Frame saving + global IDs
+-  API Gateway (8000) - Frame endpoint
+-  Frontend (3000) - Inspector with names
+-  PostgreSQL (5432) - Horse registry
+-  Redis (6379) - Caching
+-   Stream Service (8001) - Existing health issue (unrelated)
 
 ---
 
 **Ready for Production**: After validating frame images work with a new chunk! 🎉
 
 **User Experience**:
-- ✅ Consistent horse identity everywhere
-- ✅ Real horse names (not "Unnamed Horse")
-- ✅ Full ML transparency per frame
-- ✅ Beautiful UI with color coding
-- ⏳ Frame images (once new chunk processes)
+-  Consistent horse identity everywhere
+-  Real horse names (not "Unnamed Horse")
+-  Full ML transparency per frame
+-  Beautiful UI with color coding
+-  Frame images (once new chunk processes)

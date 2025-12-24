@@ -6,9 +6,9 @@
 
 All three major ML models are now fully operational:
 
-1. ✅ **YOLO Detection** - Horse detection with bounding boxes
-2. ✅ **RTMPose** - Real MMPose with 17 keypoints for pose estimation
-3. ✅ **MegaDescriptor ReID** - Horse re-identification across frames
+1.  **YOLO Detection** - Horse detection with bounding boxes
+2.  **RTMPose** - Real MMPose with 17 keypoints for pose estimation
+3.  **MegaDescriptor ReID** - Horse re-identification across frames
 
 ### System Fixes
 
@@ -23,7 +23,7 @@ All three major ML models are now fully operational:
 
 **Test Video**: `test_video.mp4` (893KB, 60 seconds, 1800 frames @ 30fps)
 
-**Processing Status**: ✅ WORKING
+**Processing Status**:  WORKING
 
 - Endpoint: `POST http://localhost:8002/api/process-chunk`
 - Processing speed: ~0.5 FPS on CPU (expected)
@@ -38,7 +38,7 @@ Saving frames to temporary directory: /tmp/chunk_processing_test_001
 Processing progress: 3.3% (60/1800)
 ```
 
-## 🔍 How to Review Changes
+##  How to Review Changes
 
 ### 1. View All Commits from Session 4
 
@@ -70,7 +70,7 @@ git diff fb0950d -- backend/api-gateway/Dockerfile
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.State}}"
 
 # ML service model loading
-docker compose logs ml-service | grep "✅"
+docker compose logs ml-service | grep ""
 
 # API gateway health
 curl http://localhost:8000/api/v1/health | jq
@@ -124,7 +124,7 @@ curl -X POST http://localhost:8002/api/process-chunk \
 
 ```bash
 # Check all models loaded successfully
-docker compose logs ml-service | grep -E "(✅|REAL|MegaDescriptor|YOLO)"
+docker compose logs ml-service | grep -E "(|REAL|MegaDescriptor|YOLO)"
 ```
 
 ### 3. Test API Gateway
@@ -158,14 +158,14 @@ git show 9e61892  # openmim mmcv installation
 ### After Fixes
 
 - video-streamer: <1% CPU (process cleanup working)
-- api-gateway: healthy ✅
-- RTMPose: **Real MMPose operational** ✅
-- MegaDescriptor: **Fully operational** ✅
+- api-gateway: healthy 
+- RTMPose: **Real MMPose operational** 
+- MegaDescriptor: **Fully operational** 
 
 ## 🚀 System Status
 
 ```
-All Services: ✅ HEALTHY
+All Services:  HEALTHY
 CPU Usage: Normal (<4% each)
 Memory: Stable
 Models: All operational
@@ -192,7 +192,7 @@ Pipeline: Tested and working
 
 - [ ] Review commits: `git log --oneline -10`
 - [ ] Check service health: `docker ps`
-- [ ] View model status: `docker compose logs ml-service | grep "✅"`
+- [ ] View model status: `docker compose logs ml-service | grep ""`
 - [ ] Test ML endpoint: Use curl command above
 - [ ] Review documentation: `cat p2.md`
 - [ ] Check system resources: `docker stats --no-stream`

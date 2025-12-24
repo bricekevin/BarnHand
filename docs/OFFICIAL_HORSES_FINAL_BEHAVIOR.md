@@ -1,7 +1,7 @@
 # Official Horses - Final Correct Behavior
 
 **Date**: 2025-10-27
-**Status**: ✅ FIXED AND WORKING
+**Status**:  FIXED AND WORKING
 
 ---
 
@@ -12,10 +12,10 @@
 
 **Behavior**:
 ```
-YOLO detects horses → Extract features → Try to match to known horses
-  - If match found → Reuse existing horse ID
-  - If NO match found → CREATE NEW horse (guest)
-  - Deleted horses → NEVER re-activate (they're duplicates/false positives)
+YOLO detects horses => Extract features => Try to match to known horses
+  - If match found => Reuse existing horse ID
+  - If NO match found => CREATE NEW horse (guest)
+  - Deleted horses => NEVER re-activate (they're duplicates/false positives)
 
 Result: All detected horses appear in UI (official + guests)
 ```
@@ -29,16 +29,16 @@ Result: All detected horses appear in UI (official + guests)
 
 **Behavior**:
 ```
-YOLO detects horses → Extract features → Find CLOSEST official horse
+YOLO detects horses => Extract features => Find CLOSEST official horse
   - For EVERY detection:
-    → Calculate similarity to ALL official horses
-    → Find the one with HIGHEST similarity
-    → Assign detection to that official horse
+    => Calculate similarity to ALL official horses
+    => Find the one with HIGHEST similarity
+    => Assign detection to that official horse
 
   - NO new horses created
   - NO guest horses
   - NO detections ignored/thrown out
-  - Deleted horses → NEVER re-activate
+  - Deleted horses => NEVER re-activate
 
 Result: Only 3 official horses in UI, each with detections assigned to closest match
 ```
@@ -76,10 +76,10 @@ Result: Only 3 official horses in UI, each with detections assigned to closest m
 ```
 12. Process more chunks
 13. Every YOLO detection assigned to closest official horse:
-    - Detection 1 → Horse #6 (similarity: 0.82)
-    - Detection 2 → Horse #13 (similarity: 0.91)
-    - Detection 3 → Horse #6 (similarity: 0.74)
-    - Detection 4 → Horse #15 (similarity: 0.88)
+    - Detection 1 => Horse #6 (similarity: 0.82)
+    - Detection 2 => Horse #13 (similarity: 0.91)
+    - Detection 3 => Horse #6 (similarity: 0.74)
+    - Detection 4 => Horse #15 (similarity: 0.88)
 
 14. NO new horses created
 15. Deleted horses (#18, #19) NEVER reappear
@@ -98,20 +98,20 @@ Result: Only 3 official horses in UI, each with detections assigned to closest m
 
 ## 🐛 Fixed Issues
 
-### Issue 1: Deleted Horses Coming Back ✅ FIXED
+### Issue 1: Deleted Horses Coming Back  FIXED
 **Problem**: Deleted horses (duplicates/false positives) were being re-activated
 **Solution**: Removed `status = 'active'` from ON CONFLICT clauses
 **Result**: Deleted horses stay deleted permanently
 
-### Issue 2: Guest Horses in Official Mode ✅ FIXED
+### Issue 2: Guest Horses in Official Mode  FIXED
 **Problem**: New horses created even when 3/3 official horses marked
 **Solution**:
 - Added `allow_new_horses` flag to tracker
-- When capacity reached → `allow_new_horses = False`
+- When capacity reached => `allow_new_horses = False`
 - Detections assigned to closest official horse via forced matching
 **Result**: No new horses, all detections go to one of the 3 officials
 
-### Issue 3: Invalid Timestamps ✅ FIXED
+### Issue 3: Invalid Timestamps  FIXED
 **Problem**: Horses showing "12/31/1969" (Unix epoch zero)
 **Solution**:
 - Added validation to reject timestamps <= 0
@@ -140,12 +140,12 @@ Created new horse track: stream_horse_022 (guest)
 
 ---
 
-## ✅ Testing Checklist
+##  Testing Checklist
 
 ### Test 1: Discovery Mode Works
 - [ ] Barn set to expect 3 horses
 - [ ] Only 1 marked as official
-- [ ] Process chunk → See multiple new horses created
+- [ ] Process chunk => See multiple new horses created
 - [ ] All horses (official + guests) visible in UI
 
 ### Test 2: Cleanup Works
@@ -155,7 +155,7 @@ Created new horse track: stream_horse_022 (guest)
 
 ### Test 3: Official Tracking Works
 - [ ] Mark 3 horses as official (total = 3)
-- [ ] Process chunk → Mode switches to Official Tracking
+- [ ] Process chunk => Mode switches to Official Tracking
 - [ ] Logs show "New horse creation DISABLED"
 - [ ] Logs show "Forced match" for each detection
 - [ ] NO new horses appear in UI

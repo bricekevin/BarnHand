@@ -51,23 +51,23 @@ This means each correction makes future ReID matching more accurate.
 
 ### Completed Work
 
-**Phase 0: Foundation (3/3 tasks) ✅**
-1. ✅ **Task 0.1**: Auto-scan types in shared package (`autoScan.types.ts`)
-2. ✅ **Task 0.2**: PTZ credentials moved from localStorage to stream config
-3. ✅ **Task 0.3**: PTZ presets moved from localStorage to stream config
+**Phase 0: Foundation (3/3 tasks) **
+1.  **Task 0.1**: Auto-scan types in shared package (`autoScan.types.ts`)
+2.  **Task 0.2**: PTZ credentials moved from localStorage to stream config
+3.  **Task 0.3**: PTZ presets moved from localStorage to stream config
 
-**Phase 1: Backend (6/6 tasks) ✅**
-4. ✅ **Task 1.1**: YOLO-only snapshot detection endpoint (`/detect-snapshot`)
-5. ✅ **Task 1.2**: Auto-scan service (`autoScanService.ts`)
-6. ✅ **Task 1.3**: Auto-scan API routes (start/stop/status)
-7. ✅ **Task 1.4**: Snapshot detection integrated with auto-scan
-8. ✅ **Task 1.5**: Recording integrated with auto-scan
-9. ✅ **Task 1.6**: WebSocket events for progress
+**Phase 1: Backend (6/6 tasks) **
+4.  **Task 1.1**: YOLO-only snapshot detection endpoint (`/detect-snapshot`)
+5.  **Task 1.2**: Auto-scan service (`autoScanService.ts`)
+6.  **Task 1.3**: Auto-scan API routes (start/stop/status)
+7.  **Task 1.4**: Snapshot detection integrated with auto-scan
+8.  **Task 1.5**: Recording integrated with auto-scan
+9.  **Task 1.6**: WebSocket events for progress
 
-**Phase 2: Frontend (4/5 tasks) ✅**
-10. ✅ **Task 2.1**: AutoScanDialog progress modal component
-11. ✅ **Task 2.3**: Auto-scan button in PrimaryVideoPlayer
-12. ✅ **Task 2.4**: WebSocket listeners in AutoScanDialog
+**Phase 2: Frontend (4/5 tasks) **
+10.  **Task 2.1**: AutoScanDialog progress modal component
+11.  **Task 2.3**: Auto-scan button in PrimaryVideoPlayer
+12.  **Task 2.4**: WebSocket listeners in AutoScanDialog
 
 ### New Frontend Files
 
@@ -115,11 +115,11 @@ b853915 p5(task-2.1): create AutoScanDialog progress modal component
 
 ### Completed Work
 
-1. ✅ **PTZ Controls Component** - Full pan/tilt/zoom control for HiPro cameras
-2. ✅ **Live Camera Preview** - Real-time snapshot-based preview in popup (1 second refresh)
-3. ✅ **Camera Authentication** - Support for username/password auth to camera web interface
-4. ✅ **Backend Proxy Endpoint** - CORS-safe snapshot fetching via API gateway
-5. ✅ **Preset Management** - Save and recall camera presets (1-8)
+1.  **PTZ Controls Component** - Full pan/tilt/zoom control for HiPro cameras
+2.  **Live Camera Preview** - Real-time snapshot-based preview in popup (1 second refresh)
+3.  **Camera Authentication** - Support for username/password auth to camera web interface
+4.  **Backend Proxy Endpoint** - CORS-safe snapshot fetching via API gateway
+5.  **Preset Management** - Save and recall camera presets (1-8)
 
 ### New Files & Endpoints
 
@@ -161,13 +161,13 @@ GET /api/v1/streams/:id/ptz/snapshot?usr=admin&pwd=Utah2025
 
 ## 📋 Previous Session: Phase 4 Detection Correction
 
-**Status**: Phase 4 Complete (Tasks 0.1 - 3.4) ✅
+**Status**: Phase 4 Complete (Tasks 0.1 - 3.4) 
 
 ---
 
-## ✅ Completed Work Summary
+##  Completed Work Summary
 
-### Phase 0: Foundation (✅ Complete)
+### Phase 0: Foundation ( Complete)
 
 **Task 0.1: Database Schema**
 - **File**: `backend/database/src/migrations/sql/008_detection_corrections.sql`
@@ -184,7 +184,7 @@ GET /api/v1/streams/:id/ptz/snapshot?usr=admin&pwd=Utah2025
     - `idx_corrections_chunk_id`
     - `idx_corrections_status`
     - `idx_corrections_chunk_status` (composite)
-- **Testing**: ✅ Migration applied successfully to PostgreSQL
+- **Testing**:  Migration applied successfully to PostgreSQL
 
 **Task 0.2: Shared TypeScript Types**
 - **File**: `shared/src/types/correction.types.ts`
@@ -200,9 +200,9 @@ GET /api/v1/streams/:id/ptz/snapshot?usr=admin&pwd=Utah2025
     - `reassign` requires `corrected_horse_id`
     - `new_guest` requires `corrected_horse_name`
   - Helper functions: `validateCorrection()`, `generateCorrectionSummary()`
-- **Testing**: ✅ Types compile without errors
+- **Testing**:  Types compile without errors
 
-### Phase 1: Backend Implementation (✅ Complete)
+### Phase 1: Backend Implementation ( Complete)
 
 **Task 1.1: Correction Repository**
 - **File**: `backend/database/src/repositories/CorrectionRepository.ts`
@@ -215,7 +215,7 @@ GET /api/v1/streams/:id/ptz/snapshot?usr=admin&pwd=Utah2025
     - `countByChunkId()`, `countPendingByChunkId()` - Statistics
     - `getUserStats()` - User correction metrics
   - Follows existing HorseRepository pattern
-- **Testing**: ✅ 13/13 unit tests passing
+- **Testing**:  13/13 unit tests passing
 
 **Task 1.2: Correction Service**
 - **File**: `backend/api-gateway/src/services/correctionService.ts`
@@ -237,7 +237,7 @@ GET /api/v1/streams/:id/ptz/snapshot?usr=admin&pwd=Utah2025
     - `triggerReprocessing()` - Call ML service endpoint
   - Uses native `fetch` API (Node 18+)
   - Redis integration for status tracking
-- **Testing**: ✅ 18/18 unit tests passing
+- **Testing**:  18/18 unit tests passing
   - Validation tests for all correction types
   - ML service integration tests
   - Error handling scenarios
@@ -254,15 +254,15 @@ GET /api/v1/streams/:id/ptz/snapshot?usr=admin&pwd=Utah2025
   - Authentication and authorization (FARM_ADMIN, FARM_USER, SUPER_ADMIN)
   - Proper error handling with specific status codes
   - Async processing pattern (202 Accepted with status URL)
-- **Testing**: ✅ Comprehensive integration tests created
+- **Testing**:  Comprehensive integration tests created
   - Created `corrections.test.ts` with 40+ test cases
   - Tests for all 4 endpoints with various scenarios
   - Validation edge cases (negative indexes, missing fields, batch limits)
   - Authentication and authorization tests
-  - ⚠️ Tests cannot run due to pre-existing Jest/ES module issues
+  -  Tests cannot run due to pre-existing Jest/ES module issues
   - Test structure is complete and ready when environment is fixed
 
-**Task 1.4: ML Re-Processing Service** ✅
+**Task 1.4: ML Re-Processing Service** 
 - **Files**:
   - `backend/ml-service/src/services/frame_renderer.py` (NEW)
   - `backend/ml-service/src/services/reprocessor.py` (NEW)
@@ -284,9 +284,9 @@ GET /api/v1/streams/:id/ptz/snapshot?usr=admin&pwd=Utah2025
   - Comprehensive error handling with rollback logic
   - Redis-based progress tracking
   - WebSocket event emission via API Gateway webhook
-- **Testing**: ⏳ Unit tests pending (Task 1.4 testing phase)
+- **Testing**:  Unit tests pending (Task 1.4 testing phase)
 
-**Task 1.5: ML API Endpoints** ✅
+**Task 1.5: ML API Endpoints** 
 - **File**: `backend/ml-service/src/main.py` (UPDATE)
 - **Changes**:
   - Added Pydantic models:
@@ -300,7 +300,7 @@ GET /api/v1/streams/:id/ptz/snapshot?usr=admin&pwd=Utah2025
   - Redis status tracking with automatic TTL (1 hour)
   - Database fallback for status queries
   - Proper validation and error handling
-- **Testing**: ⏳ Integration tests pending
+- **Testing**:  Integration tests pending
 
 ---
 
@@ -346,56 +346,56 @@ ab1ee6a  docs: add official horses workflow and Phase 4 documentation
 
 ## 🚀 Production Status
 
-**Completed - Phase 0 & 1 (Backend)** ✅:
-- ✅ Database schema applied (Task 0.1)
-- ✅ TypeScript types defined and exported (Task 0.2)
-- ✅ Repository layer with CRUD operations (Task 1.1)
-- ✅ Service layer with validation and ML integration (Task 1.2)
-- ✅ API endpoints with comprehensive tests (Task 1.3)
-- ✅ ML re-processing service (Task 1.4)
-- ✅ ML API endpoints (Task 1.5)
-- ✅ **Integration**: processor.py refactored to use shared FrameRenderer
+**Completed - Phase 0 & 1 (Backend)** :
+-  Database schema applied (Task 0.1)
+-  TypeScript types defined and exported (Task 0.2)
+-  Repository layer with CRUD operations (Task 1.1)
+-  Service layer with validation and ML integration (Task 1.2)
+-  API endpoints with comprehensive tests (Task 1.3)
+-  ML re-processing service (Task 1.4)
+-  ML API endpoints (Task 1.5)
+-  **Integration**: processor.py refactored to use shared FrameRenderer
 
-**Completed - Phase 2 (Frontend)** ✅:
-- ✅ DetectionCorrectionModal component (Task 2.1)
+**Completed - Phase 2 (Frontend)** :
+-  DetectionCorrectionModal component (Task 2.1)
   - 3 correction types: reassign, new_guest, mark_incorrect
   - Validation and confirmation flows
   - 20 unit tests
-- ✅ Edit buttons in Frame Inspector (Task 2.2)
+-  Edit buttons in Frame Inspector (Task 2.2)
   - Pencil icon next to each tracked horse
   - Opens modal with detection data
-- ✅ CorrectionBatchPanel component (Task 2.3)
+-  CorrectionBatchPanel component (Task 2.3)
   - Pending corrections display
   - Color-coded summaries
   - Zustand store integration
   - 20 unit tests
-- ✅ ReprocessingProgress indicator (Task 2.4)
+-  ReprocessingProgress indicator (Task 2.4)
   - Real-time progress bar
   - Step-by-step guide
   - Auto-hide on completion
   - 20 unit tests
-- ✅ Correction submission logic (Task 2.5)
+-  Correction submission logic (Task 2.5)
   - API client with 4 endpoints
   - useCorrections hook with polling
   - 12 unit tests
 
-**Completed - Phase 3 Integration (Nearly Complete)** ✅:
-- ✅ Task 3.1: WebSocket events for re-processing progress
+**Completed - Phase 3 Integration (Nearly Complete)** :
+-  Task 3.1: WebSocket events for re-processing progress
   - Webhook endpoint for ML service events
   - Real-time progress updates via WebSocket
   - Frontend integration with reprocessingStore
   - Chunk room subscription pattern
-- ✅ Task 3.2: Auto-reload after re-processing
+-  Task 3.2: Auto-reload after re-processing
   - reloadChunk() API function
   - Browser custom event dispatch
   - PrimaryVideoPlayer event listener
   - Success notification toast
-- ✅ Task 3.3: Correction count badge on chunk cards
+-  Task 3.3: Correction count badge on chunk cards
   - Amber-colored badge with pencil icon
   - Shows when correction_count > 0
   - Database enrichment via batch query
   - Tooltip: "This chunk has been manually corrected"
-- ✅ Task 3.4: Write E2E tests for correction workflow
+-  Task 3.4: Write E2E tests for correction workflow
   - 8 comprehensive Playwright test scenarios
   - Tests for all correction types (reassign, new_guest, mark_incorrect)
   - Batch corrections and error handling tests
@@ -413,44 +413,44 @@ ab1ee6a  docs: add official horses workflow and Phase 4 documentation
 
 During integration review, discovered that Phase 4 implementation created **FrameRenderer** class but did **NOT refactor** the original `processor.py` to use it. This resulted in:
 
-- ❌ 90+ lines of **duplicated** frame overlay code
-- ❌ Duplicate `POSE_SKELETON` constant definition
-- ❌ Risk of overlay rendering **diverging** between original processing and re-processing
-- ❌ "Tacked on" implementation instead of proper integration
+-  90+ lines of **duplicated** frame overlay code
+-  Duplicate `POSE_SKELETON` constant definition
+-  Risk of overlay rendering **diverging** between original processing and re-processing
+-  "Tacked on" implementation instead of proper integration
 
 ### Solution: Shared FrameRenderer
 
 **Commit**: `772f974` - p4(integration): refactor processor.py to use shared FrameRenderer
 
 **Changes**:
-1. ✅ Import `FrameRenderer` in `processor.py`
-2. ✅ Initialize `self.frame_renderer = FrameRenderer()` in `__init__`
-3. ✅ Replace inline `_draw_overlays()` implementation with delegation:
+1.  Import `FrameRenderer` in `processor.py`
+2.  Initialize `self.frame_renderer = FrameRenderer()` in `__init__`
+3.  Replace inline `_draw_overlays()` implementation with delegation:
    ```python
    def _draw_overlays(self, frame, tracked_horses, frame_poses):
        return self.frame_renderer.draw_overlays(frame, tracked_horses, frame_poses)
    ```
-4. ✅ Remove duplicate `POSE_SKELETON` constant (90 lines eliminated)
-5. ✅ **Bonus**: Fixed `UnboundLocalError` (initialize `official_count = 0`)
+4.  Remove duplicate `POSE_SKELETON` constant (90 lines eliminated)
+5.  **Bonus**: Fixed `UnboundLocalError` (initialize `official_count = 0`)
 
 **Impact**:
-- ✅ **Single source of truth** for frame rendering logic
-- ✅ Both `processor.py` and `reprocessor.py` use identical overlay rendering
-- ✅ Changes to overlay format automatically apply to both original and re-processing
-- ✅ Reduces maintenance burden and prevents drift
+-  **Single source of truth** for frame rendering logic
+-  Both `processor.py` and `reprocessor.py` use identical overlay rendering
+-  Changes to overlay format automatically apply to both original and re-processing
+-  Reduces maintenance burden and prevents drift
 
-### Official Horses Workflow (Included ✅)
+### Official Horses Workflow (Included )
 
 **Commits**: `9f9de31`, `ab1ee6a`
 
 Previously uncommitted changes for the **Official Horses Workflow** feature have been integrated:
 
-- ✅ `horse_database.py`: New methods `load_official_horses()`, `load_official_horses_at_time()`
-- ✅ `videoChunkService.ts`: RTSP stream support with TCP transport
-- ✅ `video-streamer`: Improved stream management and error handling
-- ✅ `StreamSettings.tsx`: Enhanced frontend component
-- ✅ Complete documentation suite (7 docs files)
-- ✅ Utility script: `fix-frame-paths.js`
+-  `horse_database.py`: New methods `load_official_horses()`, `load_official_horses_at_time()`
+-  `videoChunkService.ts`: RTSP stream support with TCP transport
+-  `video-streamer`: Improved stream management and error handling
+-  `StreamSettings.tsx`: Enhanced frontend component
+-  Complete documentation suite (7 docs files)
+-  Utility script: `fix-frame-paths.js`
 
 **Note**: These features were working before the integration review and are now properly committed alongside Phase 4.
 
@@ -493,17 +493,17 @@ Previously uncommitted changes for the **Official Horses Workflow** feature have
 ## 🧪 Testing Status
 
 ### Unit Tests
-- ✅ CorrectionRepository: 13/13 tests passing
-- ✅ CorrectionService: 18/18 tests passing
-- ✅ Shared types: Compile successfully
+-  CorrectionRepository: 13/13 tests passing
+-  CorrectionService: 18/18 tests passing
+-  Shared types: Compile successfully
 - **Total**: 31/31 tests passing
 
 ### Integration Tests
-- ✅ API endpoint tests (created, pending Jest environment fix)
-- ⏳ ML re-processing pipeline (pending manual testing)
+-  API endpoint tests (created, pending Jest environment fix)
+-  ML re-processing pipeline (pending manual testing)
 
 ### E2E Tests
-- ⏳ Full correction workflow (pending Phase 3)
+-  Full correction workflow (pending Phase 3)
 
 ---
 
@@ -523,15 +523,15 @@ Previously uncommitted changes for the **Official Horses Workflow** feature have
 
 ## 📋 Next Steps
 
-### ✅ Completed: Task 3.3 - Correction Count Badge
+###  Completed: Task 3.3 - Correction Count Badge
 
 All correction count badge functionality implemented:
-- ✅ Schema update: Added `correction_count` and `last_corrected` to VideoChunkSchema
-- ✅ Backend enrichment: `enrichChunksWithCorrectionData()` method in videoChunkService
-- ✅ Database query: Batch query to video_chunks table using `ANY($1::uuid[])`
-- ✅ Frontend badge: Amber-colored badge with pencil icon in PrimaryVideoPlayer
-- ✅ Conditional display: Badge only shows when `correction_count > 0`
-- ✅ Tooltip: "This chunk has been manually corrected"
+-  Schema update: Added `correction_count` and `last_corrected` to VideoChunkSchema
+-  Backend enrichment: `enrichChunksWithCorrectionData()` method in videoChunkService
+-  Database query: Batch query to video_chunks table using `ANY($1::uuid[])`
+-  Frontend badge: Amber-colored badge with pencil icon in PrimaryVideoPlayer
+-  Conditional display: Badge only shows when `correction_count > 0`
+-  Tooltip: "This chunk has been manually corrected"
 
 **Implementation Details**:
 1. **Shared Types**: Updated `VideoChunkSchema` in `stream.types.ts` to include correction fields
@@ -551,18 +551,18 @@ All correction count badge functionality implemented:
 - Layout: Flex row with 4px gap between icon and count
 - Tooltip: "This chunk has been manually corrected"
 
-### ✅ Completed: Task 3.4 - E2E Tests for Correction Workflow
+###  Completed: Task 3.4 - E2E Tests for Correction Workflow
 
 Complete Playwright test suite implemented:
-- ✅ **8 comprehensive test scenarios** (5 required + 3 bonus)
-- ✅ **Test 1**: Reassign detection to existing horse (complete workflow)
-- ✅ **Test 2**: Create new guest horse (with custom name)
-- ✅ **Test 3**: Mark detection as incorrect (deletion workflow)
-- ✅ **Test 4**: Batch corrections (3+ corrections at once)
-- ✅ **Test 5**: Error handling (invalid horse ID, validation)
-- ✅ **Test 6**: Correction count badge verification (BONUS)
-- ✅ **Test 7**: Clear pending corrections (BONUS)
-- ✅ **Test 8**: Real-time re-processing progress (BONUS)
+-  **8 comprehensive test scenarios** (5 required + 3 bonus)
+-  **Test 1**: Reassign detection to existing horse (complete workflow)
+-  **Test 2**: Create new guest horse (with custom name)
+-  **Test 3**: Mark detection as incorrect (deletion workflow)
+-  **Test 4**: Batch corrections (3+ corrections at once)
+-  **Test 5**: Error handling (invalid horse ID, validation)
+-  **Test 6**: Correction count badge verification (BONUS)
+-  **Test 7**: Clear pending corrections (BONUS)
+-  **Test 8**: Real-time re-processing progress (BONUS)
 
 **Implementation Details**:
 1. **Test Files**:
