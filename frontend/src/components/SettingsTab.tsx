@@ -11,13 +11,66 @@ interface CleanupStats {
   errorCount?: number;
 }
 
+// Helper to decode JWT and extract payload
+const decodeJWT = (token: string): { farmId?: string; exp?: number } | null => {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const decoded = JSON.parse(atob(payload));
+    return decoded;
+  } catch (error) {
+    console.error('Failed to decode JWT:', error);
+    return null;
+  }
+};
+
+// Check if JWT token is expired
+const isTokenExpired = (token: string): boolean => {
+  const decoded = decodeJWT(token);
+  if (!decoded || !decoded.exp) return true;
+  // Add 60 second buffer before expiry
+  return Date.now() >= (decoded.exp * 1000) - 60000;
+};
+
 export const SettingsTab: React.FC = () => {
   const [loading, setLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<CleanupStats | null>(null);
 
-  const getAuthToken = () => localStorage.getItem('authToken');
+  const getAuthToken = async (): Promise<string | null> => {
+    let token = localStorage.getItem('authToken');
+
+    // Check if token exists and is not expired
+    if (token && !isTokenExpired(token)) {
+      return token;
+    }
+
+    // Clear expired token
+    if (token) {
+      console.log('🔄 Token expired, refreshing...');
+      localStorage.removeItem('authToken');
+    }
+
+    // Auto-login for development
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'admin@barnhand.com', password: 'admin123' }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        token = data.accessToken;
+        localStorage.setItem('authToken', token!);
+        console.log('✅ New token obtained');
+        return token;
+      }
+    } catch (err) {
+      console.error('Auto-login failed:', err);
+    }
+    return null;
+  };
 
   const handleDeleteChunks = async () => {
     if (!confirm('Delete ALL recorded chunks and related detections? This cannot be undone.')) {
@@ -30,7 +83,7 @@ export const SettingsTab: React.FC = () => {
     setStats(null);
 
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
       if (!token) throw new Error('Not authenticated');
 
       const response = await fetch(
@@ -70,7 +123,7 @@ export const SettingsTab: React.FC = () => {
     setStats(null);
 
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
       if (!token) throw new Error('Not authenticated');
 
       const response = await fetch(
@@ -112,7 +165,7 @@ export const SettingsTab: React.FC = () => {
     const combinedStats: CleanupStats = {};
 
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
       if (!token) throw new Error('Not authenticated');
 
       // Step 1: Delete all chunks

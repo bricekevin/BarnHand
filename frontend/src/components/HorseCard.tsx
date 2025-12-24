@@ -39,13 +39,14 @@ export const HorseCard: React.FC<HorseCardProps> = ({ horse, onClick }) => {
   };
 
   // Extract tracking number from tracking_id (e.g., "horse_003" -> "3")
-  const getTrackingNumber = (trackingId: string): string => {
+  const getTrackingNumber = (trackingId: string | null): string => {
+    if (!trackingId) return '?';
     const match = trackingId.match(/\d+$/);
     return match ? parseInt(match[0], 10).toString() : trackingId;
   };
 
   const trackingNumber = getTrackingNumber(horse.tracking_id);
-  const horseName = horse.name || `Unnamed Horse #${trackingNumber}`;
+  const horseName = horse.name || `Unnamed Horse ${trackingNumber !== '?' ? '#' + trackingNumber : ''}`;
   const lastSeenText = formatRelativeTime(horse.last_seen);
   const hasAvatar = Boolean(horse.avatar_thumbnail);
 

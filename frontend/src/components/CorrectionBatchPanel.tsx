@@ -16,6 +16,7 @@ interface ChunkHorse {
 }
 
 interface CorrectionBatchPanelProps {
+  chunkId: string | null;
   horses: ChunkHorse[];
   onProcessCorrections: () => void;
   isProcessing?: boolean;
@@ -28,16 +29,21 @@ interface CorrectionBatchPanelProps {
  * Shows summary of each correction with ability to remove individual corrections.
  */
 export const CorrectionBatchPanel: React.FC<CorrectionBatchPanelProps> = ({
+  chunkId,
   horses,
   onProcessCorrections,
   isProcessing = false,
 }) => {
   const {
-    pendingCorrections,
     removeCorrection,
-    clearCorrections,
-    getCorrectionCount,
+    clearCorrectionsForChunk,
+    getCorrectionsForChunk,
+    getCorrectionCountForChunk,
   } = useCorrectionStore();
+
+  // Get corrections for this specific chunk
+  const pendingCorrections = chunkId ? getCorrectionsForChunk(chunkId) : [];
+  const correctionCount = chunkId ? getCorrectionCountForChunk(chunkId) : 0;
 
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -105,8 +111,10 @@ export const CorrectionBatchPanel: React.FC<CorrectionBatchPanelProps> = ({
   };
 
   const handleClearAll = () => {
-    if (confirm('Are you sure you want to discard all pending corrections?')) {
-      clearCorrections();
+    if (confirm('Are you sure you want to discard all pending corrections for this chunk?')) {
+      if (chunkId) {
+        clearCorrectionsForChunk(chunkId);
+      }
     }
   };
 
@@ -122,7 +130,7 @@ export const CorrectionBatchPanel: React.FC<CorrectionBatchPanelProps> = ({
             Pending Corrections
           </h4>
           <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs font-bold">
-            {getCorrectionCount()}
+            {correctionCount}
           </span>
         </div>
         <button
@@ -219,8 +227,8 @@ export const CorrectionBatchPanel: React.FC<CorrectionBatchPanelProps> = ({
           <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500 rounded-lg">
             <p className="text-white font-medium mb-2">Confirm Processing</p>
             <p className="text-sm text-slate-300">
-              This will apply {getCorrectionCount()} correction
-              {getCorrectionCount() > 1 ? 's' : ''} and regenerate affected
+              This will apply {correctionCount} correction
+              {correctionCount > 1 ? 's' : ''} and regenerate affected
               frames. This may take 10-30 seconds.
             </p>
           </div>

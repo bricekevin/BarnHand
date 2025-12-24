@@ -26,15 +26,31 @@ COPY requirements-dev.txt ./
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
-RUN pip install --no-cache-dir numpy
+RUN pip install --no-cache-dir numpy cython
+
+# Install xtcocotools separately (needs numpy at build time)
+RUN pip install --no-cache-dir --no-build-isolation xtcocotools==1.14.3 || \
+    pip install --no-cache-dir pycocotools
 
 # Install all dependencies (includes torch, which mim needs to detect version)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install mmcv with compiled extensions using mim (recommended by OpenMMLab)
-# Must be installed AFTER torch so mim can detect the version
-# This will compile from source on ARM (15-20 min), use pre-built wheels on x86
-RUN mim install "mmcv>=2.0.0,<2.2.0"
+# Install mmcv-full with compiled extensions
+# mim install on ARM64 gets mmcv-lite without extensions, so we MUST build from source
+# FORCE_CUDA=0 ensures CPU-only build, MMCV_WITH_OPS=1 compiles C++ extensions
+ENV FORCE_CUDA=0
+ENV MMCV_WITH_OPS=1
+# Install build dependencies for C++ extension compilation
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir ninja
+# Install mmcv dependencies first (mmengine, addict, yapf)
+RUN pip install --no-cache-dir mmengine addict yapf
+# Build from source with setup.py to compile C++ ops - this WILL compile extensions
+# This takes ~15-20 min on ARM64 but is REQUIRED for MMPose to work
+RUN git clone --depth 1 --branch v2.1.0 https://github.com/open-mmlab/mmcv.git /tmp/mmcv && \
+    cd /tmp/mmcv && \
+    MMCV_WITH_OPS=1 FORCE_CUDA=0 python setup.py develop && \
+    rm -rf /tmp/mmcv/.git
 
 # Install mmpose without dependencies to skip chumpy (broken setup.py, only needed for SMPL models)
 RUN pip install --no-cache-dir --no-deps mmpose==1.2.0

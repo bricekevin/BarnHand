@@ -40,6 +40,27 @@ interface BarnModalData {
   farm?: FarmSummary;
 }
 
+// Helper to decode JWT and extract payload
+const decodeJWT = (token: string): { farmId?: string; exp?: number } | null => {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const decoded = JSON.parse(atob(payload));
+    return decoded;
+  } catch (error) {
+    console.error('Failed to decode JWT:', error);
+    return null;
+  }
+};
+
+// Check if JWT token is expired
+const isTokenExpired = (token: string): boolean => {
+  const decoded = decodeJWT(token);
+  if (!decoded || !decoded.exp) return true;
+  // Add 60 second buffer before expiry
+  return Date.now() >= (decoded.exp * 1000) - 60000;
+};
+
 export const StreamBarnManagement: React.FC = () => {
   const [overview, setOverview] = useState<StreamManagementOverview>({ farms: [], unassignedStreams: [] });
   const [loading, setLoading] = useState(true);
@@ -52,12 +73,46 @@ export const StreamBarnManagement: React.FC = () => {
     fetchStreamManagementOverview();
   }, []);
 
+  const getAuthToken = async (): Promise<string | null> => {
+    let token = localStorage.getItem('authToken');
+
+    // Check if token exists and is not expired
+    if (token && !isTokenExpired(token)) {
+      return token;
+    }
+
+    // Clear expired token
+    if (token) {
+      console.log('🔄 Token expired, refreshing...');
+      localStorage.removeItem('authToken');
+    }
+
+    // Auto-login for development
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'admin@barnhand.com', password: 'admin123' }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        token = data.accessToken;
+        localStorage.setItem('authToken', token!);
+        console.log('✅ New token obtained');
+        return token;
+      }
+    } catch (error) {
+      console.error('Auto-login failed:', error);
+    }
+    return null;
+  };
+
   const fetchStreamManagementOverview = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const token = localStorage.getItem('authToken');
+      const token = await getAuthToken();
       if (!token) {
         setError('Authentication required - please log in');
         setLoading(false);
@@ -152,7 +207,7 @@ export const StreamBarnManagement: React.FC = () => {
     e.preventDefault(); // Allow drop
   };
 
-  const handleDrop = async (farmId: string, farmName: string) => {
+  const handleDrop = async (farmId: string, _farmName: string) => {
     if (!draggedStream) return;
 
     try {

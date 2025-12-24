@@ -1,4 +1,5 @@
 import { exec } from 'child_process';
+import { promises as dns } from 'dns';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
@@ -174,6 +175,57 @@ export class VideoChunkService {
     }
   }
 
+  /**
+   * Resolve hostname to IP address to work around Docker DNS issues with child processes
+   * FFmpeg spawned via exec() doesn't inherit Docker DNS configuration properly
+   */
+  private async resolveHostnameInUrl(url: string): Promise<string> {
+    try {
+      // Parse URL to extract hostname
+      const urlMatch = url.match(/^(rtsp:\/\/|http:\/\/|https:\/\/)([^:/]+)(.*)/);
+      if (!urlMatch) {
+        // Not a URL we can parse, return as-is
+        return url;
+      }
+
+      const [, protocol, hostname, rest] = urlMatch;
+
+      // Check if hostname is already an IP address
+      const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
+      if (isIpAddress) {
+        // Already an IP, no need to resolve
+        return url;
+      }
+
+      // Resolve hostname to IP
+      logger.debug('Resolving hostname for FFmpeg', { hostname });
+      const addresses = await dns.resolve4(hostname);
+
+      if (addresses.length === 0) {
+        logger.warn('No DNS resolution results, using original URL', { hostname });
+        return url;
+      }
+
+      const ipAddress = addresses[0];
+      const resolvedUrl = `${protocol}${ipAddress}${rest}`;
+
+      logger.info('Resolved hostname to IP for FFmpeg', {
+        original: url,
+        resolved: resolvedUrl,
+        hostname,
+        ipAddress,
+      });
+
+      return resolvedUrl;
+    } catch (error) {
+      logger.warn('Failed to resolve hostname, using original URL', {
+        error,
+        url,
+      });
+      return url;
+    }
+  }
+
   async recordChunk(
     streamId: string,
     farmId: string,
@@ -251,12 +303,16 @@ export class VideoChunkService {
     const { source_url, file_path, duration, id } = chunk;
 
     try {
+      // Resolve hostname to IP address to work around Docker DNS issues
+      // FFmpeg spawned via exec() doesn't inherit Docker DNS configuration
+      const resolvedUrl = await this.resolveHostnameInUrl(source_url);
+
       // FFmpeg command to record chunk from live stream
       // For HLS streams, we capture the live edge and record for specified duration
       const ffmpegArgs = [this.ffmpegPath, '-y']; // Overwrite output files without asking
 
       // Detect if source is RTSP and add required transport settings
-      const isRTSP = source_url.toLowerCase().startsWith('rtsp://');
+      const isRTSP = resolvedUrl.toLowerCase().startsWith('rtsp://');
       if (isRTSP) {
         // Add RTSP-specific flags BEFORE the input
         ffmpegArgs.push(
@@ -267,15 +323,23 @@ export class VideoChunkService {
         );
       }
 
-      // Add input source
-      ffmpegArgs.push('-i', source_url);
+      // Add input source (use resolved URL)
+      ffmpegArgs.push('-i', resolvedUrl);
 
       // Add duration and output settings
+      // Re-encode to H.264 to ensure proper frame counts/durations that OpenCV can read
+      // HEVC streams with -c:v copy often result in corrupted metadata (duration=0, nb_frames=1)
       ffmpegArgs.push(
         '-t',
         duration.toString(),
         '-c:v',
-        'copy', // Copy video stream without re-encoding
+        'libx264', // Re-encode to H.264 for better compatibility
+        '-preset',
+        'ultrafast', // Fastest encoding preset for low latency
+        '-crf',
+        '23', // Good quality/size balance
+        '-r',
+        '30', // Force 30fps output for consistent frame timing
         '-an', // Skip audio (ML processing only needs video)
         '-avoid_negative_ts',
         'make_zero',
@@ -494,8 +558,10 @@ export class VideoChunkService {
             // Use file creation time as timestamp
             const timestamp = stats.birthtimeMs;
 
-            // Extract video duration using ffprobe
-            const videoDuration = await this.getVideoDuration(filePath);
+            // Use a default duration of 10 seconds (our standard chunk size)
+            // This avoids expensive ffprobe calls on every request
+            // The actual duration is extracted once during recording in extractMetadata()
+            const videoDuration = 10;
 
             const chunk: VideoChunk = {
               id: chunkId,
@@ -567,8 +633,9 @@ export class VideoChunkService {
     // TODO: Replace with database query
     // return await VideoChunkRepository.findById(chunkId, farmId);
 
-    // Since we don't have a database yet, we need to search through all stream directories
-    // The farmId directory contains stream subdirectories
+    // Optimized filesystem search:
+    // Instead of calling getChunksForStream (expensive), we search for the file directly
+    // Chunk filename format: chunk_{streamId}_{chunkId}.mp4
     const farmDir = path.join(this.chunkStoragePath, farmId);
 
     try {
@@ -581,13 +648,38 @@ export class VideoChunkService {
         // Check if it's a directory
         try {
           const stats = await fs.stat(streamDirPath);
-          if (stats.isDirectory()) {
-            // Get chunks for this stream
-            const chunks = await this.getChunksForStream(streamId, farmId);
-            const chunk = chunks.find(c => c.id === chunkId);
-            if (chunk) {
-              return chunk;
-            }
+          if (!stats.isDirectory()) continue;
+
+          // Look for chunk file directly by pattern: chunk_*_{chunkId}.mp4
+          const files = await fs.readdir(streamDirPath);
+          const chunkFile = files.find(
+            file =>
+              file.endsWith('.mp4') &&
+              file.includes(`_${chunkId}.mp4`)
+          );
+
+          if (chunkFile) {
+            const filePath = path.join(streamDirPath, chunkFile);
+            const fileStats = await fs.stat(filePath);
+
+            // Return minimal chunk info without expensive operations
+            return {
+              id: chunkId,
+              stream_id: streamId,
+              farm_id: farmId,
+              user_id: 'user-1',
+              filename: chunkFile,
+              file_path: filePath,
+              file_size: fileStats.size,
+              duration: 10, // Default chunk duration
+              start_timestamp: fileStats.birthtime,
+              end_timestamp: new Date(fileStats.birthtimeMs + 10000),
+              source_url: `http://localhost:8003/${streamId}`,
+              status: 'completed',
+              metadata: {},
+              created_at: fileStats.birthtime,
+              updated_at: fileStats.mtime,
+            };
           }
         } catch (statError) {
           // Skip if can't stat directory
@@ -604,7 +696,7 @@ export class VideoChunkService {
         error.code === 'ENOENT'
       ) {
         // Farm directory doesn't exist, no chunks yet
-        logger.info(`No farm directory found for chunks`, { farmId });
+        logger.debug(`No farm directory found for chunks`, { farmId });
         return null;
       }
 
@@ -623,7 +715,48 @@ export class VideoChunkService {
     forceRaw: boolean = false
   ): Promise<string | null> {
     const chunk = await this.getChunkById(chunkId, farmId);
-    if (!chunk || chunk.status !== 'completed') {
+    if (!chunk) {
+      return null;
+    }
+
+    // Allow serving raw video even when chunk is still processing
+    // This enables playback while ML processing is in progress
+    const isRecordingOrCompleted =
+      chunk.status === 'completed' ||
+      chunk.status === 'processing' ||
+      chunk.status === 'recording';
+
+    if (!isRecordingOrCompleted) {
+      logger.warn('Chunk not ready for streaming', {
+        chunkId,
+        status: chunk.status,
+      });
+      return null;
+    }
+
+    // Check if the raw video file exists before attempting to serve it
+    const rawVideoPath = path.join(
+      this.chunkStoragePath,
+      farmId,
+      chunk.stream_id,
+      chunk.filename
+    );
+
+    try {
+      const rawStats = await fs.stat(rawVideoPath);
+      if (!rawStats.isFile() || rawStats.size === 0) {
+        logger.warn('Raw video file missing or empty', {
+          chunkId,
+          rawVideoPath,
+        });
+        return null;
+      }
+    } catch (error) {
+      logger.error('Raw video file not accessible', {
+        chunkId,
+        rawVideoPath,
+        error,
+      });
       return null;
     }
 
@@ -662,6 +795,11 @@ export class VideoChunkService {
     // For Docker deployment, we'll serve chunks through a dedicated endpoint
     // This URL will be handled by the video-streamer service
     // Serve raw video (original recording)
+    logger.info('Serving raw video', {
+      chunkId,
+      filename: chunk.filename,
+      status: chunk.status,
+    });
     return `http://localhost:8003/chunks/${farmId}/${chunk.stream_id}/${chunk.filename}`;
   }
 
@@ -1150,6 +1288,7 @@ export class VideoChunkService {
           output_video_path: outputVideoPath,
           output_json_path: outputJsonPath,
           frame_interval: chunk.metadata?.frame_interval || 1,
+          start_time: chunk.start_timestamp ? Math.floor(chunk.start_timestamp.getTime() / 1000) : Math.floor(Date.now() / 1000),
         }),
       })
         .then(response => {

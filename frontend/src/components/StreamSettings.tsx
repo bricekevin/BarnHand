@@ -22,11 +22,17 @@ interface StreamFormData {
         savedAt: string;
       };
     };
+    // Auto-scan settings
+    autoScan?: {
+      movementDelay: number; // Time for camera to physically move (seconds)
+      hlsDelay: number; // HLS pipeline delay (seconds)
+      recordingDuration: number; // Recording duration per location (seconds)
+    };
   };
 }
 
-// Helper to decode JWT and extract farmId
-const decodeJWT = (token: string): { farmId?: string } | null => {
+// Helper to decode JWT and extract payload
+const decodeJWT = (token: string): { farmId?: string; exp?: number } | null => {
   try {
     const payload = token.split('.')[1];
     if (!payload) return null;
@@ -38,12 +44,21 @@ const decodeJWT = (token: string): { farmId?: string } | null => {
   }
 };
 
+// Check if JWT token is expired
+const isTokenExpired = (token: string): boolean => {
+  const decoded = decodeJWT(token);
+  if (!decoded || !decoded.exp) return true;
+  // Add 60 second buffer before expiry
+  return Date.now() >= (decoded.exp * 1000) - 60000;
+};
+
 export const StreamSettings: React.FC = () => {
   const streams = useStreams();
-  const { addStream, updateStream, removeStream, setStreams } = useAppStore();
+  const { updateStream, removeStream, setStreams } = useAppStore();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingStream, setEditingStream] = useState<string | null>(null);
-  const [loadingStreams, setLoadingStreams] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_loadingStreams, setLoadingStreams] = useState(true);
   const [formData, setFormData] = useState<StreamFormData>({
     name: '',
     url: '',
@@ -55,53 +70,6 @@ export const StreamSettings: React.FC = () => {
     },
   });
 
-  // Load streams from database on mount
-  useEffect(() => {
-    const loadStreamsFromDatabase = async () => {
-      try {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          console.warn('No auth token - skipping stream load');
-          setLoadingStreams(false);
-          return;
-        }
-
-        const response = await fetch('http://localhost:8000/api/v1/streams', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ Loaded streams from database:', data.streams);
-
-          // Map database streams to Zustand format
-          const mappedStreams = data.streams.map((dbStream: any) => ({
-            id: dbStream.id,
-            name: dbStream.name,
-            url: dbStream.source_url,
-            type: dbStream.source_type,
-            status: dbStream.status,
-            config: dbStream.config || {},
-          }));
-
-          // Replace Zustand streams with database streams
-          setStreams(mappedStreams);
-        } else {
-          console.error('❌ Failed to load streams:', response.status);
-        }
-      } catch (error) {
-        console.error('❌ Error loading streams:', error);
-      } finally {
-        setLoadingStreams(false);
-      }
-    };
-
-    loadStreamsFromDatabase();
-  }, []); // Run once on mount
-
   const resetForm = () => {
     setFormData({
       name: '',
@@ -112,6 +80,11 @@ export const StreamSettings: React.FC = () => {
         password: '',
         useAuth: false,
         ptzCredentials: undefined,
+        autoScan: {
+          movementDelay: 5,
+          hlsDelay: 6,
+          recordingDuration: 10,
+        },
       },
     });
     setShowAddForm(false);
@@ -120,7 +93,17 @@ export const StreamSettings: React.FC = () => {
 
   const getAuthToken = async (): Promise<string | null> => {
     let token = localStorage.getItem('authToken');
-    if (token) return token;
+
+    // Check if token exists and is not expired
+    if (token && !isTokenExpired(token)) {
+      return token;
+    }
+
+    // Clear expired token
+    if (token) {
+      console.log('🔄 Token expired, refreshing...');
+      localStorage.removeItem('authToken');
+    }
 
     // Auto-login for development
     try {
@@ -132,7 +115,8 @@ export const StreamSettings: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         token = data.accessToken;
-        localStorage.setItem('authToken', token);
+        localStorage.setItem('authToken', token!);
+        console.log('✅ New token obtained');
         return token;
       }
     } catch (error) {
@@ -140,6 +124,76 @@ export const StreamSettings: React.FC = () => {
     }
     return null;
   };
+
+  // Load streams from database and sync with video-streamer status
+  useEffect(() => {
+    const loadStreamsFromDatabase = async () => {
+      try {
+        // Get valid token (will auto-refresh if expired)
+        const token = await getAuthToken();
+        if (!token) {
+          console.warn('No auth token - skipping stream load');
+          setLoadingStreams(false);
+          return;
+        }
+
+        // Fetch both database streams and video-streamer status in parallel
+        const [dbResponse, videoStreamerResponse] = await Promise.all([
+          fetch('http://localhost:8000/api/v1/streams', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }),
+          fetch('http://localhost:8003/api/streams').catch(() => null),
+        ]);
+
+        if (dbResponse.ok) {
+          const dbData = await dbResponse.json();
+          console.log('✅ Loaded streams from database:', dbData.streams);
+
+          // Get video-streamer active stream IDs
+          const activeStreamIds = new Set<string>();
+          if (videoStreamerResponse?.ok) {
+            const vsData = await videoStreamerResponse.json();
+            vsData.streams?.forEach((s: { id: string; status: string }) => {
+              if (s.status === 'active') {
+                activeStreamIds.add(s.id);
+              }
+            });
+            console.log('✅ Video-streamer active streams:', Array.from(activeStreamIds));
+          }
+
+          // Map database streams to Zustand format, using video-streamer status as truth
+          const mappedStreams = dbData.streams.map((dbStream: any) => ({
+            id: dbStream.id,
+            name: dbStream.name,
+            url: dbStream.source_url,
+            type: dbStream.source_type,
+            // Use video-streamer status if available, otherwise use database status
+            status: activeStreamIds.has(dbStream.id) ? 'active' :
+                    (activeStreamIds.size > 0 ? 'inactive' : dbStream.status),
+            config: dbStream.config || {},
+          }));
+
+          // Replace Zustand streams with database streams
+          setStreams(mappedStreams);
+        } else {
+          console.error('❌ Failed to load streams:', dbResponse.status);
+        }
+      } catch (error) {
+        console.error('❌ Error loading streams:', error);
+      } finally {
+        setLoadingStreams(false);
+      }
+    };
+
+    loadStreamsFromDatabase();
+
+    // Refresh status every 10 seconds to stay in sync with video-streamer
+    const interval = setInterval(loadStreamsFromDatabase, 10000);
+    return () => clearInterval(interval);
+  }, []); // Run once on mount
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,6 +319,11 @@ export const StreamSettings: React.FC = () => {
         useAuth: config.useAuth || false,
         ptzCredentials: config.ptzCredentials,
         ptzPresets: config.ptzPresets,
+        autoScan: config.autoScan || {
+          movementDelay: 5,
+          hlsDelay: 6,
+          recordingDuration: 10,
+        },
       },
     });
     setEditingStream(stream.id);
@@ -273,29 +332,49 @@ export const StreamSettings: React.FC = () => {
 
   const handleDelete = async (streamId: string) => {
     if (confirm('Are you sure you want to delete this stream?')) {
-      const stream = streams.find(s => s.id === streamId);
+      // Stop the stream in video-streamer first
+      console.log(`🔄 Stopping stream ${streamId} in video-streamer`);
+      try {
+        await fetch(`http://localhost:8003/api/streams/stop/${streamId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        console.log(`✅ Stream ${streamId} stopped in video-streamer`);
+      } catch (error) {
+        console.warn(`⚠️ Could not stop stream in video-streamer:`, error);
+      }
 
-      // If it's a local stream, stop it in Stream Control first
-      if (stream && stream.type === 'local' && streamId.startsWith('stream_')) {
-        console.log(`🔄 Stopping local stream ${streamId} via Stream Control API`);
+      // Delete from database
+      const token = await getAuthToken();
+      if (token) {
         try {
-          const response = await fetch(`http://localhost:8003/api/streams/stop/${streamId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
+          const response = await fetch(`http://localhost:8000/api/v1/streams/${streamId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
           });
 
           if (response.ok) {
-            console.log(`✅ Local stream ${streamId} stopped successfully`);
+            console.log(`✅ Stream ${streamId} deleted from database`);
           } else {
-            console.warn(`⚠️ Failed to stop local stream ${streamId}:`, response.status);
+            const errorData = await response.json().catch(() => ({}));
+            console.error(`❌ Failed to delete stream from database:`, errorData);
+            alert(`Failed to delete stream: ${errorData.error || response.statusText}`);
+            return; // Don't remove from local store if database delete failed
           }
         } catch (error) {
-          console.warn(`⚠️ Network error stopping local stream ${streamId}:`, error);
+          console.error(`❌ Network error deleting stream:`, error);
+          alert('Network error - could not delete stream');
+          return;
         }
       }
 
+      // Remove from local Zustand store
       removeStream(streamId);
+      console.log(`✅ Stream ${streamId} removed from local store`);
     }
   };
 
@@ -545,6 +624,97 @@ export const StreamSettings: React.FC = () => {
                       </p>
                     </div>
                   )}
+
+                  {/* Auto-Scan Settings */}
+                  <div className="mt-4 pt-4 border-t border-slate-600/50">
+                    <h5 className="text-sm font-medium text-slate-200 mb-3 flex items-center">
+                      <span className="mr-2">⏱️</span>
+                      Auto-Scan Timing Settings
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Movement Delay (sec)
+                        </label>
+                        <input
+                          type="number"
+                          min="2"
+                          max="15"
+                          value={formData.config.autoScan?.movementDelay ?? 5}
+                          onChange={e => setFormData({
+                            ...formData,
+                            config: {
+                              ...formData.config,
+                              autoScan: {
+                                ...formData.config.autoScan,
+                                movementDelay: parseInt(e.target.value) || 5,
+                                hlsDelay: formData.config.autoScan?.hlsDelay ?? 6,
+                                recordingDuration: formData.config.autoScan?.recordingDuration ?? 10,
+                              }
+                            }
+                          })}
+                          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-cyan-500"
+                        />
+                        <p className="text-xs text-slate-500 mt-1">
+                          Time for camera to physically move
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          HLS Delay (sec)
+                        </label>
+                        <input
+                          type="number"
+                          min="3"
+                          max="20"
+                          value={formData.config.autoScan?.hlsDelay ?? 6}
+                          onChange={e => setFormData({
+                            ...formData,
+                            config: {
+                              ...formData.config,
+                              autoScan: {
+                                ...formData.config.autoScan,
+                                movementDelay: formData.config.autoScan?.movementDelay ?? 5,
+                                hlsDelay: parseInt(e.target.value) || 6,
+                                recordingDuration: formData.config.autoScan?.recordingDuration ?? 10,
+                              }
+                            }
+                          })}
+                          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-cyan-500"
+                        />
+                        <p className="text-xs text-slate-500 mt-1">
+                          HLS pipeline delay
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Recording Duration (sec)
+                        </label>
+                        <input
+                          type="number"
+                          min="5"
+                          max="30"
+                          value={formData.config.autoScan?.recordingDuration ?? 10}
+                          onChange={e => setFormData({
+                            ...formData,
+                            config: {
+                              ...formData.config,
+                              autoScan: {
+                                ...formData.config.autoScan,
+                                movementDelay: formData.config.autoScan?.movementDelay ?? 5,
+                                hlsDelay: formData.config.autoScan?.hlsDelay ?? 6,
+                                recordingDuration: parseInt(e.target.value) || 10,
+                              }
+                            }
+                          })}
+                          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-cyan-500"
+                        />
+                        <p className="text-xs text-slate-500 mt-1">
+                          Recording time per location
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -646,9 +816,23 @@ export const StreamSettings: React.FC = () => {
 
                         if (response.ok) {
                           console.log(`✅ Stream ${stream.id} ${isStarting ? 'started' : 'stopped'} successfully`);
-                          updateStream(stream.id, {
-                            status: isStarting ? 'active' : 'inactive'
-                          });
+                          const newStatus = isStarting ? 'active' : 'inactive';
+
+                          // Update local Zustand store
+                          updateStream(stream.id, { status: newStatus });
+
+                          // Also sync database status
+                          const token = await getAuthToken();
+                          if (token) {
+                            fetch(`http://localhost:8000/api/v1/streams/${stream.id}`, {
+                              method: 'PUT',
+                              headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({ status: newStatus }),
+                            }).catch(err => console.warn('Failed to sync database status:', err));
+                          }
                         } else {
                           const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
                           console.error(`❌ Failed to ${isStarting ? 'start' : 'stop'} stream ${stream.id}:`, errorData);

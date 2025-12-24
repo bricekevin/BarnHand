@@ -71,42 +71,64 @@ export const StreamManagement: React.FC = () => {
 
   // Combine local streams and custom streams
   // Use URL-based deduplication since video-streamer IDs (stream_001) don't match database UUIDs
+  const usedDatabaseIds = new Set<string>();
+
   const combinedStreams: StreamData[] = [
     ...localStreams.map(local => {
       // Try to find matching database stream by URL to get the correct name
       const dbStream = customStreams.find(custom => {
-        // Match by comparing the stream number in the URL (e.g., stream1, stream2)
+        // Method 1: Match by UUID in local stream URL path (e.g., /streams/{uuid}/playlist.m3u8)
+        const localUuid = local.url.match(/\/streams\/([a-f0-9-]{36})\//)?.[1];
+        if (localUuid && localUuid === custom.id) {
+          return true;
+        }
+
+        // Method 2: Match by stream number pattern (e.g., stream1, stream2)
         const localStreamNum = local.url.match(/stream(\d+)/)?.[1];
         const customStreamNum = custom.url.match(/stream(\d+)/)?.[1];
         return localStreamNum && customStreamNum && localStreamNum === customStreamNum;
       });
 
-      // Prefer database name if found, otherwise use video-streamer name
+      // Track which database IDs we've used
+      if (dbStream) {
+        usedDatabaseIds.add(dbStream.id);
+      }
+
+      // Prefer database name and ID if found, otherwise use video-streamer values
       return {
         ...local,
         name: dbStream?.name || local.name,
-        id: dbStream?.id || local.id, // Use database ID if available
+        id: dbStream?.id || local.id,
       };
     }),
     // Add any custom streams that don't have a corresponding local stream
-    ...customStreams.filter(stream => {
-      const streamNum = stream.url.match(/stream(\d+)/)?.[1];
-      return !localStreams.find(local => {
-        const localNum = local.url.match(/stream(\d+)/)?.[1];
-        return streamNum && localNum && streamNum === localNum;
-      });
-    }).map(stream => ({
+    // (i.e., streams that weren't already matched and used above)
+    // These are marked as 'inactive' because they don't have an HLS stream to play
+    // The url from database is the raw source URL (RTSP/RTMP) which browsers can't play directly
+    ...customStreams.filter(stream => !usedDatabaseIds.has(stream.id)).map(stream => ({
       id: stream.id,
       name: stream.name,
-      url: stream.url,
-      status: stream.status,
+      url: stream.url, // This is the source URL (RTSP/RTMP), not playable in browser
+      status: 'inactive' as const, // Force inactive - no video-streamer processing this stream
     }))
   ];
 
   // Debug logging
   console.log('Local streams:', localStreams);
   console.log('Custom streams:', customStreams);
+  console.log('Used database IDs:', Array.from(usedDatabaseIds));
   console.log('Combined streams:', combinedStreams);
+
+  // Check for duplicate IDs
+  const idCounts = new Map<string, number>();
+  combinedStreams.forEach(s => {
+    idCounts.set(s.id, (idCounts.get(s.id) || 0) + 1);
+  });
+  const duplicates = Array.from(idCounts.entries()).filter(([_, count]) => count > 1);
+  if (duplicates.length > 0) {
+    console.warn('⚠️ DUPLICATE STREAM IDs DETECTED:', duplicates.map(([id, count]) => ({ id, count })));
+    console.warn('Streams with duplicates:', combinedStreams.filter(s => duplicates.some(([dupId]) => dupId === s.id)));
+  }
 
   const displayStreams = combinedStreams;
   const selectedStreamData = selectedStream ? displayStreams.find(s => s.id === selectedStream) : null;

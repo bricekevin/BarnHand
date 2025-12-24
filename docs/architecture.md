@@ -488,9 +488,51 @@ api:
     - path: /models/{id}/activate
       methods:
         POST: Activate model for stream
+
+    # PTZ Camera Controls
+    - path: /streams/{id}/ptz/snapshot
+      methods:
+        GET:
+          description: Proxy camera snapshot (avoids CORS)
+          params:
+            - usr: Camera username
+            - pwd: Camera password
+          response: Binary JPEG image
 ```
 
-### 4.2 WebSocket Events
+### 4.2 PTZ Camera Control
+
+```yaml
+# HiPro Camera PTZ API (frontend calls directly via no-cors)
+ptz_control:
+  base_url: http://{camera_hostname}:8080
+
+  endpoints:
+    # Pan/Tilt/Zoom Movement
+    - path: /web/cgi-bin/hi3510/ptzctrl.cgi
+      params:
+        - step: 0 (continuous mode)
+        - act: up|down|left|right|zoomin|zoomout|stop
+        - speed: 1-63
+        - usr: username
+        - pwd: password
+
+    # Preset Management
+    - path: /web/cgi-bin/hi3510/param.cgi
+      params:
+        - cmd: preset
+        - act: set|goto
+        - status: 1
+        - number: 1-8
+        - usr: username
+        - pwd: password
+
+    # Snapshot (proxied through API gateway)
+    - path: /web/tmpfs/auto.jpg
+      notes: Must be proxied to avoid CORS - use /api/v1/streams/{id}/ptz/snapshot
+```
+
+### 4.3 WebSocket Events
 
 ```javascript
 // WebSocket Event Structure

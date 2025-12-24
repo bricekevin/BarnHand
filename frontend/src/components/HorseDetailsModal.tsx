@@ -1,6 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 import type { Horse } from '../../../shared/src/types/horse.types';
+
+// Helper to decode JWT and extract payload
+const decodeJWT = (token: string): { farmId?: string; exp?: number } | null => {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const decoded = JSON.parse(atob(payload));
+    return decoded;
+  } catch (error) {
+    console.error('Failed to decode JWT:', error);
+    return null;
+  }
+};
+
+// Check if JWT token is expired
+const isTokenExpired = (token: string): boolean => {
+  const decoded = decodeJWT(token);
+  if (!decoded || !decoded.exp) return true;
+  // Add 60 second buffer before expiry
+  return Date.now() >= (decoded.exp * 1000) - 60000;
+};
 
 interface HorseDetailsModalProps {
   horse: Horse;
@@ -42,10 +63,12 @@ export const HorseDetailsModal: React.FC<HorseDetailsModalProps> = ({
   const [isOfficial, setIsOfficial] = useState(horse.is_official || false);
   const [updatingOfficial, setUpdatingOfficial] = useState(false);
 
-  // Sync isOfficial state when horse prop changes
+  // Sync state when horse prop changes (after refresh)
   useEffect(() => {
     setIsOfficial(horse.is_official || false);
-  }, [horse.is_official]);
+    setName(horse.name || '');
+    setNotes(typeof horse.metadata?.notes === 'string' ? horse.metadata.notes : '');
+  }, [horse.is_official, horse.name, horse.metadata?.notes]);
 
   // Streams state
   const [streams, setStreams] = useState<StreamAppearance[]>([]);
@@ -58,14 +81,46 @@ export const HorseDetailsModal: React.FC<HorseDetailsModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const getAuthToken = () => localStorage.getItem('authToken');
+  const getAuthToken = useCallback(async (): Promise<string | null> => {
+    let token = localStorage.getItem('authToken');
+
+    // Check if token exists and is not expired
+    if (token && !isTokenExpired(token)) {
+      return token;
+    }
+
+    // Clear expired token
+    if (token) {
+      console.log('🔄 Token expired, refreshing...');
+      localStorage.removeItem('authToken');
+    }
+
+    // Auto-login for development
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'admin@barnhand.com', password: 'admin123' }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        token = data.accessToken;
+        localStorage.setItem('authToken', token!);
+        console.log('✅ New token obtained');
+        return token;
+      }
+    } catch (err) {
+      console.error('Auto-login failed:', err);
+    }
+    return null;
+  }, []);
 
   // Fetch streams featuring this horse
   useEffect(() => {
     const fetchStreams = async () => {
       setLoadingStreams(true);
       try {
-        const token = getAuthToken();
+        const token = await getAuthToken();
         if (!token) throw new Error('Authentication required');
 
         const response = await fetch(
@@ -98,16 +153,44 @@ export const HorseDetailsModal: React.FC<HorseDetailsModalProps> = ({
     }
   }, [success, error]);
 
-  // Handle official status toggle
+  // Handle official status toggle - also saves any pending name/notes changes
   const handleOfficialToggle = async () => {
     const newStatus = !isOfficial;
     setUpdatingOfficial(true);
     setError(null);
 
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
       if (!token) throw new Error('Authentication required');
 
+      // Check if there are pending name/notes changes to save
+      const hasNameChange = name.trim() && name.trim() !== (horse.name || '');
+      const hasNotesChange = notes.trim() !== ((horse.metadata?.notes as string) || '');
+
+      // Save name/notes first if there are changes
+      if (hasNameChange || hasNotesChange) {
+        const updates: Record<string, string> = {};
+        if (hasNameChange) updates.name = name.trim();
+        if (hasNotesChange) updates.notes = notes.trim();
+
+        const saveResponse = await fetch(
+          `http://localhost:8000/api/v1/streams/${horse.stream_id}/horses/${horse.id}`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updates),
+          }
+        );
+
+        if (!saveResponse.ok) {
+          throw new Error('Failed to save horse details');
+        }
+      }
+
+      // Then update official status
       const response = await fetch(
         `http://localhost:8000/api/v1/horses/${horse.id}/official`,
         {
@@ -126,7 +209,8 @@ export const HorseDetailsModal: React.FC<HorseDetailsModalProps> = ({
       }
 
       setIsOfficial(newStatus);
-      setSuccess(newStatus ? 'Marked as official horse' : 'Unmarked as official');
+      const savedMsg = (hasNameChange || hasNotesChange) ? ' and saved details' : '';
+      setSuccess(newStatus ? `Marked as official horse${savedMsg}` : `Unmarked as official${savedMsg}`);
       onUpdate();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update');
@@ -146,7 +230,7 @@ export const HorseDetailsModal: React.FC<HorseDetailsModalProps> = ({
     setError(null);
 
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
       if (!token) throw new Error('Authentication required');
 
       const updates: any = {};
@@ -177,11 +261,10 @@ export const HorseDetailsModal: React.FC<HorseDetailsModalProps> = ({
 
       if (!response.ok) throw new Error('Failed to save');
 
-      setSuccess('Horse details updated successfully!');
       onUpdate();
+      onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save');
-    } finally {
       setSaving(false);
     }
   };
@@ -192,7 +275,7 @@ export const HorseDetailsModal: React.FC<HorseDetailsModalProps> = ({
     setError(null);
 
     try {
-      const token = getAuthToken();
+      const token = await getAuthToken();
       if (!token) throw new Error('Authentication required');
 
       const response = await fetch(
@@ -231,7 +314,8 @@ export const HorseDetailsModal: React.FC<HorseDetailsModalProps> = ({
     return date.toLocaleDateString();
   };
 
-  const getTrackingNumber = (trackingId: string): string => {
+  const getTrackingNumber = (trackingId: string | null): string => {
+    if (!trackingId) return '?';
     const match = trackingId.match(/\d+$/);
     return match ? parseInt(match[0], 10).toString() : trackingId;
   };
@@ -356,14 +440,24 @@ export const HorseDetailsModal: React.FC<HorseDetailsModalProps> = ({
               </p>
             </div>
 
-            {/* Save Button */}
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full px-4 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
+            {/* Save Button - only visible when there are changes */}
+            {(() => {
+              const hasChanges = (name.trim() && name.trim() !== (horse.name || '')) ||
+                                 (notes.trim() !== ((horse.metadata?.notes as string) || ''));
+              return (
+                <button
+                  onClick={handleSave}
+                  disabled={saving || !hasChanges}
+                  className={`w-full px-4 py-3 rounded-lg transition-colors font-medium ${
+                    hasChanges
+                      ? 'bg-cyan-600 text-white hover:bg-cyan-700'
+                      : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {saving ? 'Saving...' : hasChanges ? 'Save Changes' : 'No Changes'}
+                </button>
+              );
+            })()}
           </div>
 
           {/* Streams Section */}

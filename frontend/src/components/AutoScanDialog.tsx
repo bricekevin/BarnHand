@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
+import { websocketService } from '../services/websocketService';
+
 // Auto-scan types (local definition to avoid module resolution issues)
 type AutoScanPhase =
   | 'idle'
@@ -40,6 +42,8 @@ interface AutoScanResult {
 interface AutoScanDialogProps {
   isOpen: boolean;
   streamId: string;
+  sourceUrl?: string; // RTSP URL for extracting camera hostname
+  ptzCredentials?: { username: string; password: string };
   onClose: () => void;
   onStop: () => void;
 }
@@ -59,6 +63,8 @@ interface AutoScanDialogProps {
 export const AutoScanDialog: React.FC<AutoScanDialogProps> = ({
   isOpen,
   streamId,
+  sourceUrl: _sourceUrl,
+  ptzCredentials,
   onClose,
   onStop,
 }) => {
@@ -66,26 +72,112 @@ export const AutoScanDialog: React.FC<AutoScanDialogProps> = ({
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState('Initializing...');
   const [currentPreset, setCurrentPreset] = useState<number | null>(null);
-  const [totalPresets, setTotalPresets] = useState(0);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_totalPresets, setTotalPresets] = useState(0);
+  const [presetList, setPresetList] = useState<number[]>([]); // Actual preset numbers to scan
   const [results, setResults] = useState<PresetScanResult[]>([]);
   const [scanResult, setScanResult] = useState<AutoScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [liveSnapshot, setLiveSnapshot] = useState<string | null>(null);
 
-  // Subscribe to WebSocket events
+  // State to track if socket is ready
+  const [socketReady, setSocketReady] = useState(false);
+
+  // Connect WebSocket when dialog opens
   useEffect(() => {
-    if (!isOpen || !streamId) return;
+    if (!isOpen) return;
 
-    // Get socket from window (set up by parent)
-    const socket = (
-      window as {
-        socket?: {
-          on: (event: string, callback: (data: unknown) => void) => void;
-          off: (event: string) => void;
-        };
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      console.error('AutoScanDialog: No auth token available');
+      return;
+    }
+
+    // Connect if not already connected
+    if (!websocketService.isConnected()) {
+      console.log('AutoScanDialog: Connecting WebSocket...');
+      websocketService.connect('http://localhost:8000', token);
+    }
+
+    // Poll for socket availability (gives time for async connection)
+    let attempts = 0;
+    const maxAttempts = 20;
+    const pollInterval = setInterval(() => {
+      attempts++;
+      const socket = (window as { socket?: unknown }).socket;
+      if (socket) {
+        console.log('AutoScanDialog: Socket connected!');
+        setSocketReady(true);
+        clearInterval(pollInterval);
+      } else if (attempts >= maxAttempts) {
+        console.error('AutoScanDialog: Socket connection timeout');
+        clearInterval(pollInterval);
       }
-    ).socket;
+    }, 100);
+
+    return () => clearInterval(pollInterval);
+  }, [isOpen]);
+
+  // Fetch live camera snapshots while scanning
+  useEffect(() => {
+    if (!isOpen || !streamId || !ptzCredentials) return;
+
+    const isRunning = phase === 'detection' || phase === 'recording';
+    if (!isRunning) return;
+
+    const fetchLiveSnapshot = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const url = `http://localhost:8000/api/v1/streams/${streamId}/ptz/snapshot?usr=${encodeURIComponent(ptzCredentials.username)}&pwd=${encodeURIComponent(ptzCredentials.password)}&t=${Date.now()}`;
+
+        const response = await fetch(url, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const dataUrl = URL.createObjectURL(blob);
+          setLiveSnapshot(prev => {
+            // Revoke previous URL to prevent memory leak
+            if (prev && prev.startsWith('blob:')) {
+              URL.revokeObjectURL(prev);
+            }
+            return dataUrl;
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to fetch live snapshot:', err);
+      }
+    };
+
+    // Fetch immediately and then every 500ms
+    fetchLiveSnapshot();
+    const interval = setInterval(fetchLiveSnapshot, 500);
+
+    return () => {
+      clearInterval(interval);
+      // Clean up blob URL
+      setLiveSnapshot(prev => {
+        if (prev && prev.startsWith('blob:')) {
+          URL.revokeObjectURL(prev);
+        }
+        return null;
+      });
+    };
+  }, [isOpen, streamId, ptzCredentials, phase]);
+
+  // Subscribe to WebSocket events once socket is ready
+  useEffect(() => {
+    if (!isOpen || !streamId || !socketReady) return;
+
+    // Subscribe to the stream room
+    console.log('AutoScanDialog: Subscribing to stream', streamId);
+    websocketService.subscribeToStream(streamId);
+
+    // Get socket from window
+    const socket = (window as { socket?: { on: (event: string, callback: (data: unknown) => void) => void; off: (event: string) => void } }).socket;
     if (!socket) {
-      console.warn('AutoScanDialog: No socket available');
+      console.error('AutoScanDialog: Socket disappeared unexpectedly');
       return;
     }
 
@@ -94,6 +186,7 @@ export const AutoScanDialog: React.FC<AutoScanDialogProps> = ({
       streamId: string;
       scanId: string;
       totalPresets: number;
+      presets?: number[]; // Actual preset numbers to scan
       phase: string;
     }
     interface PositionPayload {
@@ -147,6 +240,13 @@ export const AutoScanDialog: React.FC<AutoScanDialogProps> = ({
       if (data.streamId !== streamId) return;
       setPhase('detection');
       setTotalPresets(data.totalPresets);
+      // Store actual preset numbers (not just count)
+      if (data.presets) {
+        setPresetList(data.presets);
+      } else {
+        // Fallback to sequential if not provided
+        setPresetList(Array.from({ length: data.totalPresets }, (_, i) => i));
+      }
       setProgress(0);
       setCurrentStep('Starting detection scan...');
       setResults([]);
@@ -243,18 +343,23 @@ export const AutoScanDialog: React.FC<AutoScanDialogProps> = ({
       socket.off('autoScan:stopped');
       socket.off('autoScan:error');
     };
-  }, [isOpen, streamId]);
+  }, [isOpen, streamId, socketReady]);
 
-  // Reset state when dialog opens
+  // Reset state when dialog opens/closes
   useEffect(() => {
     if (isOpen) {
       setPhase('detection');
       setProgress(0);
       setCurrentStep('Initializing...');
       setCurrentPreset(null);
+      setTotalPresets(0);
+      setPresetList([]);
       setResults([]);
       setScanResult(null);
       setError(null);
+    } else {
+      // Reset socket ready state when dialog closes
+      setSocketReady(false);
     }
   }, [isOpen]);
 
@@ -343,11 +448,9 @@ export const AutoScanDialog: React.FC<AutoScanDialogProps> = ({
     );
   };
 
-  // Get current preset being processed (not yet in results)
-  const pendingPresets = Array.from(
-    { length: totalPresets },
-    (_, i) => i + 1
-  ).filter(p => !results.find(r => r.preset === p));
+  // Get presets not yet in results (pending)
+  // Uses actual preset list from autoScan:started event
+  const pendingPresets = presetList.filter(p => !results.find(r => r.preset === p));
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
@@ -409,6 +512,30 @@ export const AutoScanDialog: React.FC<AutoScanDialogProps> = ({
             </button>
           )}
         </div>
+
+        {/* Live Camera View */}
+        {isRunning && liveSnapshot && (
+          <div className="mb-4">
+            <div className="relative rounded-lg overflow-hidden bg-slate-800 border border-slate-700">
+              <img
+                src={liveSnapshot}
+                alt="Live camera view"
+                className="w-full h-48 object-cover"
+              />
+              <div className="absolute top-2 left-2 flex items-center gap-2 bg-black/60 px-2 py-1 rounded">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                <span className="text-xs text-white font-medium">LIVE</span>
+              </div>
+              {currentPreset !== null && (
+                <div className="absolute top-2 right-2 bg-black/60 px-2 py-1 rounded">
+                  <span className="text-xs text-white">
+                    Preset {currentPreset}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Progress Bar */}
         <div className="mb-6">

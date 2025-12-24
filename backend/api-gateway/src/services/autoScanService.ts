@@ -15,9 +15,10 @@ import { VideoChunkService } from './videoChunkService';
 
 // Types for auto-scan
 export interface AutoScanConfig {
-  recordingDuration: number; // 5-30 seconds
-  frameInterval: number; // 1-30
-  movementDelay: number; // 3-15 seconds (HLS delay compensation)
+  recordingDuration: number; // 5-30 seconds per location
+  frameInterval: number; // 1-30 (frame extraction interval)
+  movementDelay: number; // 3-10 seconds - time for camera to physically move between positions
+  hlsDelay: number; // 5-15 seconds - delay between camera movement and HLS stream update
   presetSequence?: number[]; // Which presets to scan
 }
 
@@ -68,9 +69,10 @@ export interface AutoScanResult {
 
 // Default configuration
 const DEFAULT_CONFIG: AutoScanConfig = {
-  recordingDuration: 10,
-  frameInterval: 5,
-  movementDelay: 8,
+  recordingDuration: 10, // 10 seconds recording per location
+  frameInterval: 5, // Extract every 5th frame
+  movementDelay: 5, // 5 seconds for camera to physically move between positions
+  hlsDelay: 6, // 6 seconds for HLS pipeline to catch up after movement
 };
 
 export class AutoScanService {
@@ -163,6 +165,7 @@ export class AutoScanService {
       streamId,
       scanId,
       totalPresets: presetSequence.length,
+      presets: presetSequence.map(p => p.number), // Send actual preset numbers
       phase: 'detection',
       config: mergedConfig,
     });
@@ -339,8 +342,11 @@ export class AutoScanService {
         // Move PTZ to preset
         await this.movePTZToPreset(cameraHostname, preset.number, ptzCredentials);
 
-        // Wait for camera to settle
-        await this.delay(1500);
+        // Wait for camera to physically move to position
+        // Use movementDelay config (default 5 seconds) to ensure camera has settled
+        const moveDelay = state.config.movementDelay * 1000;
+        logger.info(`Waiting ${moveDelay}ms for camera to move to preset ${preset.number}`);
+        await this.delay(moveDelay);
 
         // Fetch snapshot
         const snapshotBytes = await this.fetchSnapshot(cameraHostname, ptzCredentials);
@@ -395,6 +401,13 @@ export class AutoScanService {
 
   /**
    * Phase B: Recording Scan
+   *
+   * Timing logic:
+   * 1. Move camera to position
+   * 2. Wait movementDelay (camera physically moves)
+   * 3. Wait hlsDelay (HLS pipeline catches up)
+   * 4. Start recording
+   * 5. Partway through recording, can send next move command (recording will finish before HLS updates)
    */
   private async runRecordingPhase(
     state: AutoScanState,
@@ -408,7 +421,11 @@ export class AutoScanService {
       state.locationsWithHorses.includes(p.number)
     );
 
-    logger.info(`Starting recording phase for ${locationsToRecord.length} locations`);
+    logger.info(`Starting recording phase for ${locationsToRecord.length} locations`, {
+      movementDelay: state.config.movementDelay,
+      hlsDelay: state.config.hlsDelay,
+      recordingDuration: state.config.recordingDuration,
+    });
 
     // Get the stream's source URL for recording
     const StreamRepository = require('@barnhand/database').StreamRepository;
@@ -426,20 +443,35 @@ export class AutoScanService {
       }
 
       const preset = locationsToRecord[i];
+      const isFirstLocation = i === 0;
       const baseProgress = 50 + Math.round((i / locationsToRecord.length) * 50); // 50-100%
       state.currentPreset = preset.number;
       state.progress = baseProgress;
-      state.currentStep = `Recording at preset ${preset.number}${preset.name ? ` "${preset.name}"` : ''}`;
-      await this.saveStateToRedis(state);
 
       try {
-        // Move PTZ to preset
+        // Step 1: Move PTZ to preset
+        state.currentStep = `Moving to preset ${preset.number}`;
+        await this.saveStateToRedis(state);
         await this.movePTZToPreset(cameraHostname, preset.number, ptzCredentials);
 
-        // Wait for HLS delay to catch up
-        state.currentStep = `Waiting for stream sync (${state.config.movementDelay}s)`;
+        // Step 2: Wait for camera to physically move
+        state.currentStep = `Camera moving (${state.config.movementDelay}s)`;
         await this.saveStateToRedis(state);
+        logger.info(`Waiting ${state.config.movementDelay}s for camera to move to preset ${preset.number}`);
         await this.delay(state.config.movementDelay * 1000);
+
+        // Step 3: Wait for HLS pipeline delay (only needed for first location,
+        // subsequent locations benefit from the recording time of previous location)
+        if (isFirstLocation) {
+          state.currentStep = `Waiting for HLS sync (${state.config.hlsDelay}s)`;
+          await this.saveStateToRedis(state);
+          logger.info(`Waiting ${state.config.hlsDelay}s for HLS pipeline to catch up (first location)`);
+          await this.delay(state.config.hlsDelay * 1000);
+        }
+
+        // Step 4: Start recording
+        state.currentStep = `Recording at preset ${preset.number} (${state.config.recordingDuration}s)`;
+        await this.saveStateToRedis(state);
 
         this.emitEvent('autoScan:position', {
           streamId: state.streamId,
@@ -450,6 +482,8 @@ export class AutoScanService {
           progress: state.progress,
           currentStep: 'Recording...',
         });
+
+        logger.info(`Starting ${state.config.recordingDuration}s recording at preset ${preset.number}`);
 
         // Record chunk using existing videoChunkService
         const chunk = await this.videoChunkService.recordChunk(
@@ -636,13 +670,17 @@ export class AutoScanService {
    */
   private emitEvent(event: string, data: Record<string, unknown>): void {
     if (!this.io) {
-      logger.debug(`No Socket.IO server configured, skipping event: ${event}`);
+      logger.warn(`No Socket.IO server configured, skipping event: ${event}`);
       return;
     }
 
     const streamId = data.streamId as string;
     if (streamId) {
-      this.io.to(`stream:${streamId}`).emit(event, data);
+      const room = `stream:${streamId}`;
+      logger.info(`📡 Emitting ${event} to room ${room}`, { event, streamId });
+      this.io.to(room).emit(event, data);
+    } else {
+      logger.warn(`No streamId in event data, skipping emit: ${event}`);
     }
   }
 
@@ -668,5 +706,12 @@ export function getAutoScanService(videoChunkService: VideoChunkService): AutoSc
   if (!autoScanServiceInstance) {
     autoScanServiceInstance = new AutoScanService(videoChunkService);
   }
+
+  // Ensure Socket.IO is connected (may not have been available at startup)
+  if (globalThis.wsServer && !autoScanServiceInstance['io']) {
+    const wsServer = globalThis.wsServer as { getIO: () => SocketServer };
+    autoScanServiceInstance.setSocketServer(wsServer.getIO());
+  }
+
   return autoScanServiceInstance;
 }

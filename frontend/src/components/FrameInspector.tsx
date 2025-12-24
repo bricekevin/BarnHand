@@ -1,5 +1,5 @@
-import type { CorrectionPayload } from '@barnhand/shared';
-import React, { useState, useEffect } from 'react';
+import type { CorrectionPayload, CorrectionType } from '@barnhand/shared';
+import React, { useState, useEffect, useRef } from 'react';
 
 import { BulkCorrectionModal } from './BulkCorrectionModal';
 import { DetectionCorrectionModal } from './DetectionCorrectionModal';
@@ -41,7 +41,7 @@ interface Detection {
 interface TrackedHorse {
   id: string;
   name?: string;
-  color: [number, number, number];
+  color?: [number, number, number] | null;
   bbox: {
     x: number;
     y: number;
@@ -78,6 +78,7 @@ interface FrameData {
   tracked_horses: TrackedHorse[];
   poses: Pose[];
   processed: boolean;
+  frame_path?: string;
   ml_settings?: MLSettings;
   reid_details?: ReidDetails;
 }
@@ -85,7 +86,7 @@ interface FrameData {
 interface ChunkHorse {
   id: string;
   name?: string;
-  color: [number, number, number];
+  color?: [number, number, number] | null;
   first_detected_frame: number;
   last_detected_frame: number;
   total_detections: number;
@@ -117,6 +118,8 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [jumpToFrame, setJumpToFrame] = useState('');
   const [frameImageUrl, setFrameImageUrl] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   // Correction modal state
   const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
@@ -131,9 +134,76 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
   );
 
   // Correction store
-  const { addCorrection } = useCorrectionStore();
+  const { addCorrection, getCorrectionsForChunk } = useCorrectionStore();
 
-  const currentFrame = frames[currentFrameIndex];
+  // Get pending corrections from store (filtered by current chunk)
+  const pendingCorrections = chunkId ? getCorrectionsForChunk(chunkId) : [];
+
+  // Apply pending corrections to frame data for preview
+  const applyPendingCorrections = React.useCallback(
+    (frameData: FrameData) => {
+      // Find corrections for this frame
+      const frameCorrections = pendingCorrections.filter(
+        c => c.frame_index === frameData.frame_index
+      );
+
+      if (frameCorrections.length === 0) {
+        return frameData;
+      }
+
+      // Deep clone frame data
+      const correctedFrame = JSON.parse(JSON.stringify(frameData)) as FrameData;
+
+      // Apply corrections to tracked horses
+      const updatedHorses: TrackedHorse[] = [];
+
+      correctedFrame.tracked_horses.forEach((horse, index) => {
+        // Check if there's a correction for this detection
+        const correction = frameCorrections.find(
+          c => c.detection_index === index
+        );
+
+        if (correction) {
+          if (correction.correction_type === 'mark_incorrect') {
+            // Skip this horse (marked as incorrect)
+            return;
+          } else if (correction.correction_type === 'reassign') {
+            // Reassign to different horse
+            const correctedHorse = { ...horse };
+            correctedHorse.id = correction.corrected_horse_id!;
+
+            // Try to find the name from the horses list
+            const targetHorse = horses.find(h => h.id === correction.corrected_horse_id);
+            if (targetHorse?.name) {
+              correctedHorse.name = targetHorse.name;
+            }
+
+            updatedHorses.push(correctedHorse);
+          } else if (correction.correction_type === 'new_guest') {
+            // Create new guest horse
+            const correctedHorse = { ...horse };
+            correctedHorse.id = `guest_${Date.now()}_${index}`; // Temporary ID
+            correctedHorse.name = correction.corrected_horse_name;
+            updatedHorses.push(correctedHorse);
+          }
+        } else {
+          // No correction, keep original
+          updatedHorses.push(horse);
+        }
+      });
+
+      correctedFrame.tracked_horses = updatedHorses;
+      return correctedFrame;
+    },
+    [pendingCorrections, horses]
+  );
+
+  // Get current frame with corrections applied
+  const currentFrame = React.useMemo(() => {
+    const rawFrame = frames[currentFrameIndex];
+    if (!rawFrame) return rawFrame;
+    return applyPendingCorrections(rawFrame);
+  }, [frames, currentFrameIndex, applyPendingCorrections]);
 
   // Fetch barn horses for dropdown
   useEffect(() => {
@@ -160,16 +230,26 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
     fetchBarnHorses();
   }, []);
 
-  // Create lookup map for horse names by ID
+  // Create lookup map for horse names by ID (includes both chunk horses and barn horses)
   const horseNameMap = React.useMemo(() => {
     const map = new Map<string, string>();
+
+    // Add chunk horses
     horses.forEach(horse => {
       if (horse.name) {
         map.set(horse.id, horse.name);
       }
     });
+
+    // Add barn horses (in case they're referenced but not in chunk yet)
+    barnHorses.forEach(horse => {
+      if (horse.name && !map.has(horse.id)) {
+        map.set(horse.id, horse.name);
+      }
+    });
+
     return map;
-  }, [horses]);
+  }, [horses, barnHorses]);
 
   // Helper to get horse name by ID
   const getHorseName = (horseId: string): string => {
@@ -223,6 +303,79 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
     };
   }, [currentFrame?.frame_path, streamId, chunkId]);
 
+  // Draw corrected overlays on canvas when frame or corrections change
+  useEffect(() => {
+    if (!canvasRef.current || !imgRef.current || !frameImageUrl) return;
+
+    const canvas = canvasRef.current;
+    const img = imgRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Wait for image to load
+    const drawOverlays = () => {
+      // Set canvas size to match image
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Only draw if there are pending corrections for this frame
+      const frameCorrections = pendingCorrections.filter(
+        c => c.frame_index === currentFrame?.frame_index
+      );
+
+      if (frameCorrections.length === 0) {
+        // No corrections, canvas stays transparent
+        return;
+      }
+
+      // Draw bounding boxes for corrected horses
+      currentFrame?.tracked_horses.forEach((horse, _index) => {
+        const bbox = horse.bbox;
+        const color = horse.color;
+
+        // Skip if color is invalid
+        if (!color || !Array.isArray(color) || color.length !== 3) {
+          console.warn('Invalid color for horse:', horse.id, color);
+          return;
+        }
+
+        // Set styling
+        ctx.strokeStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+        ctx.lineWidth = 3;
+        ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.2)`;
+
+        // Draw rectangle
+        ctx.fillRect(bbox.x, bbox.y, bbox.width, bbox.height);
+        ctx.strokeRect(bbox.x, bbox.y, bbox.width, bbox.height);
+
+        // Draw label background
+        const horseName = getHorseName(horse.id);
+        const label = `${horseName} (${(horse.confidence * 100).toFixed(0)}%)`;
+
+        ctx.font = '16px Inter, sans-serif';
+        const textMetrics = ctx.measureText(label);
+        const labelWidth = textMetrics.width + 12;
+        const labelHeight = 24;
+
+        ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+        ctx.fillRect(bbox.x, bbox.y - labelHeight, labelWidth, labelHeight);
+
+        // Draw label text
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(label, bbox.x + 6, bbox.y - 6);
+      });
+    };
+
+    if (img.complete) {
+      drawOverlays();
+    } else {
+      img.onload = drawOverlays;
+    }
+  }, [frameImageUrl, currentFrame, pendingCorrections, getHorseName]);
+
   // Auto-play functionality
   useEffect(() => {
     if (!isPlaying || currentFrameIndex >= frames.length - 1) {
@@ -265,7 +418,8 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
     }
   };
 
-  const rgbToString = (color: [number, number, number]): string => {
+  const rgbToString = (color: [number, number, number] | null | undefined): string => {
+    if (!color) return 'rgb(128, 128, 128)'; // Default gray for horses without color
     return `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
   };
 
@@ -280,35 +434,52 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
   };
 
   const handleSubmitCorrection = (correction: CorrectionPayload) => {
-    // Add correction to the store
-    addCorrection(correction);
-    console.log('Correction queued:', correction);
+    // Add correction to the store (scoped by chunkId)
+    if (chunkId) {
+      addCorrection(chunkId, correction);
+      console.log('Correction queued for chunk', chunkId, ':', correction);
+    }
   };
 
-  const handleSubmitBulkCorrection = (targetHorseId: string) => {
-    if (!selectedBulkHorse) return;
+  const handleSubmitBulkCorrection = (
+    correctionType: CorrectionType,
+    targetHorseIdOrName?: string
+  ) => {
+    if (!selectedBulkHorse || !chunkId) return;
 
     // Find all frames where this horse appears and create corrections
     let correctionsAdded = 0;
     frames.forEach(frame => {
-      const horseInFrame = frame.tracked_horses?.find(
+      // Find the horse's position in the tracked_horses array for this frame
+      const detectionIndex = frame.tracked_horses?.findIndex(
         h => h.id === selectedBulkHorse.id
       );
-      if (horseInFrame) {
+
+      if (detectionIndex !== undefined && detectionIndex >= 0) {
         const correction: CorrectionPayload = {
-          detection_index: parseInt(horseInFrame.id.split('_').pop() || '0'),
+          detection_index: detectionIndex,
           frame_index: frame.frame_index,
-          correction_type: 'reassign',
+          correction_type: correctionType,
           original_horse_id: selectedBulkHorse.id,
-          corrected_horse_id: targetHorseId,
         };
-        addCorrection(correction);
+
+        // Add type-specific fields
+        if (correctionType === 'reassign') {
+          correction.corrected_horse_id = targetHorseIdOrName;
+        } else if (correctionType === 'new_guest') {
+          correction.corrected_horse_name = targetHorseIdOrName;
+        }
+        // For 'mark_incorrect', no additional fields needed
+
+        addCorrection(chunkId, correction);
         correctionsAdded++;
       }
     });
 
     console.log(
-      `Bulk reassignment: ${correctionsAdded} corrections queued for ${selectedBulkHorse.id} -> ${targetHorseId}`
+      `Bulk ${correctionType}: ${correctionsAdded} corrections queued for chunk ${chunkId}, horse ${selectedBulkHorse.id}${
+        targetHorseIdOrName ? ` -> ${targetHorseIdOrName}` : ''
+      }`
     );
     setBulkCorrectionModalOpen(false);
     setSelectedBulkHorse(null);
@@ -459,16 +630,31 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
       {/* Frame Image Display */}
       {currentFrame.frame_path && (
         <div className="mb-4 bg-slate-800/50 rounded-lg p-4">
-          <h4 className="text-xs font-semibold text-cyan-400 uppercase mb-3">
-            Processed Frame with Overlays
-          </h4>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-xs font-semibold text-cyan-400 uppercase">
+              Processed Frame with Overlays
+            </h4>
+            {pendingCorrections.some(c => c.frame_index === currentFrame.frame_index) && (
+              <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded text-xs font-semibold">
+                ⚡ Preview Mode
+              </span>
+            )}
+          </div>
           <div className="relative">
             {frameImageUrl ? (
-              <img
-                src={frameImageUrl}
-                alt={`Frame ${currentFrame.frame_index}`}
-                className="w-full h-auto rounded border border-slate-700"
-              />
+              <div className="relative w-full">
+                <img
+                  ref={imgRef}
+                  src={frameImageUrl}
+                  alt={`Frame ${currentFrame.frame_index}`}
+                  className="w-full h-auto rounded border border-slate-700"
+                />
+                <canvas
+                  ref={canvasRef}
+                  className="absolute top-0 left-0 w-full h-full pointer-events-none"
+                  style={{ imageRendering: 'crisp-edges' }}
+                />
+              </div>
             ) : (
               <div className="w-full aspect-video bg-slate-900 rounded border border-slate-700 flex items-center justify-center">
                 <div className="text-center">
@@ -493,28 +679,39 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
             Tracked Horses ({currentFrame.tracked_horses.length})
           </h4>
           <div className="space-y-2">
-            {currentFrame.tracked_horses.map(horse => (
-              <div
-                key={horse.id}
-                className="p-2 bg-slate-900/50 rounded border-l-4"
-                style={{ borderColor: rgbToString(horse.color) }}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2 flex-1">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: rgbToString(horse.color) }}
-                    ></div>
-                    <span className="text-slate-100 font-semibold text-sm">
-                      {getHorseName(horse.id)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {horse.is_official && (
-                      <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">
-                        Official
+            {currentFrame.tracked_horses.map((horse, index) => {
+              // Check if this detection has a pending correction
+              const hasPendingCorrection = pendingCorrections.some(
+                c => c.frame_index === currentFrame.frame_index && c.detection_index === index
+              );
+
+              return (
+                <div
+                  key={`${horse.id}-${index}`}
+                  className={`p-2 bg-slate-900/50 rounded border-l-4 ${hasPendingCorrection ? 'ring-2 ring-cyan-400/50' : ''}`}
+                  style={{ borderColor: rgbToString(horse.color) }}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2 flex-1">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: rgbToString(horse.color) }}
+                      ></div>
+                      <span className="text-slate-100 font-semibold text-sm">
+                        {getHorseName(horse.id)}
                       </span>
-                    )}
+                      {hasPendingCorrection && (
+                        <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded text-xs font-semibold">
+                          Corrected
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {horse.is_official && (
+                        <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">
+                          Official
+                        </span>
+                      )}
                     <button
                       onClick={() => {
                         const chunkHorse = horses.find(h => h.id === horse.id);
@@ -592,7 +789,8 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
             {currentFrame.tracked_horses.length === 0 && (
               <p className="text-slate-500 text-sm text-center py-2">
                 No horses tracked
@@ -770,6 +968,7 @@ export const FrameInspector: React.FC<FrameInspectorProps> = ({
           }}
           detection={selectedDetection}
           frameIndex={currentFrame.frame_index}
+          detectionIndex={currentFrame.tracked_horses?.findIndex(h => h.id === selectedDetection.id) ?? 0}
           allHorses={horses}
           barnHorses={barnHorses}
           onSubmit={handleSubmitCorrection}

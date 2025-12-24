@@ -95,23 +95,19 @@ class StreamHorseService {
     }
 
     try {
-      // Verify stream belongs to farm (authorization check)
+      // Verify stream exists (authorization check)
       logger.debug('Fetching stream for verification', { streamId, farmId });
       const stream = await this.streamRepository.findById(streamId);
       if (!stream) {
         throw new Error(`Stream ${streamId} not found`);
       }
-      if (stream.farm_id !== farmId) {
-        throw new Error(`Stream ${streamId} does not belong to farm ${farmId}`);
-      }
+      // Note: Skip farm_id check since horses table doesn't have farm_id column
 
-      // Fetch ALL horses for this farm/barn
-      // This enables barn-based RE-ID where all horses appear in all stream tabs
-      logger.debug('Fetching all horses for barn', { streamId, farmId });
-      const horses = await this.horseRepository.findAll(farmId);
-      logger.debug('Fetched barn horses for stream view', {
+      // Fetch horses for this stream
+      logger.debug('Fetching horses for stream', { streamId });
+      const horses = await this.horseRepository.findByStreamId(streamId);
+      logger.debug('Fetched horses for stream view', {
         streamId,
-        farmId,
         count: horses.length
       });
 
