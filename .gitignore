@@ -169,3 +169,24 @@ docker-compose.override.yml
 
 # Misc
 .husky/_
+
+# Playwright MCP screenshots
+.playwright-mcp/
+
+# Debug/test images and videos
+*.mp4
+*.mov
+*.avi
+debug_*.jpg
+debug_*.png
+FINAL_*.jpg
+FINAL_*.png
+
+# ML debug output
+backend/ml-service/uploads/
+backend/ml-service/debug_crops/
+backend/ml-service/timeline_*.json
+
+# Claude/AI assistant files
+.claude/
+CLAUDE.md

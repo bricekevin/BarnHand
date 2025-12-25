@@ -2,32 +2,32 @@
 
 **Intelligent horse streaming platform with real-time detection, tracking, and behavioral analysis using advanced ML models.**
 
-[![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)](https://github.com/yourusername/barnhand)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/bricekevin/BarnHand)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-18%2B-brightgreen.svg)](https://nodejs.org/)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org/)
 
-## 🎯 Overview
+## Overview
 
-BarnHand processes video streams in 10-second chunks to deliver real-time horse detection, pose analysis, and **advanced behavioral analysis** with a 10-30 second processing delay. The platform serves processed video with overlays back to the frontend for comprehensive equine monitoring.
+BarnHand processes video streams in 10-second chunks to deliver real-time horse detection, pose analysis, and advanced behavioral analysis with a 10-30 second processing delay. The platform serves processed video with overlays back to the frontend for comprehensive equine monitoring.
 
-### 🆕 Phase 2: Behavioral Analysis Integration
+### Key Features
 
-**Now featuring advanced behavioral analysis capabilities:**
 - **MegaDescriptor ReID**: Wildlife-grade re-identification with 768-dimensional features
-- **Real-time State Detection**: Hierarchical and advanced behavioral state analysis  
+- **Real-time State Detection**: Hierarchical and advanced behavioral state analysis
 - **Cross-chunk Continuity**: Persistent horse tracking across video segments
 - **Behavioral Timeline**: Interactive visualization of horse activities and states
 - **Alert System**: Configurable alerts for significant behavioral changes
+- **PTZ Auto-Scan**: Intelligent camera patrol with snapshot-based detection
 - **Comprehensive API**: RESTful endpoints for behavioral data access
 
-## 🏗️ Architecture
+## Architecture
 
 ```
-Frontend (React) → API Gateway → Stream Service → ML Service → Processed Video + Overlays
-                               ↓
+Frontend (React) => API Gateway => Stream Service => ML Service => Processed Video + Overlays
+                                |
                     Behavioral Analysis Engine
-                               ↓
+                                |
                     PostgreSQL + TimescaleDB + Redis
 ```
 
@@ -41,7 +41,7 @@ Frontend (React) → API Gateway → Stream Service → ML Service → Processed
 - **Database**: PostgreSQL + TimescaleDB for behavioral time-series data
 - **Cache**: Redis for real-time data and cross-chunk horse persistence
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -55,8 +55,8 @@ Frontend (React) → API Gateway → Stream Service → ML Service → Processed
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/barnhand.git
-   cd barnhand
+   git clone https://github.com/bricekevin/BarnHand.git
+   cd BarnHand
    ```
 
 2. **Environment setup**
@@ -91,7 +91,7 @@ Frontend (React) → API Gateway → Stream Service → ML Service → Processed
 ```bash
 # Individual services
 npm run api:dev          # API Gateway
-npm run ml:dev           # ML Service  
+npm run ml:dev           # ML Service
 npm run frontend:dev     # React Frontend
 
 # Database operations
@@ -99,9 +99,9 @@ npm run db:migrate       # Run migrations
 npm run db:seed         # Seed test data
 ```
 
-## 🧠 Behavioral Analysis Features
+## Behavioral Analysis Features
 
-### 🔬 Advanced State Detection
+### Advanced State Detection
 
 - **Hierarchical State Detection**: Multi-level behavioral analysis
   - Body states: grazing, standing, walking, running, lying
@@ -114,7 +114,7 @@ npm run db:seed         # Seed test data
   - Activity intensity scoring: low, medium, high
   - Alert generation for significant behavioral changes
 
-### 🎯 Horse Re-identification
+### Horse Re-identification
 
 - **MegaDescriptor Model**: State-of-the-art wildlife ReID
   - 768-dimensional feature vectors
@@ -123,11 +123,11 @@ npm run db:seed         # Seed test data
   - Similarity threshold: 0.6 (optimized for horses)
 
 - **Fallback CNN Model**: Traditional approach
-  - 512-dimensional features  
+  - 512-dimensional features
   - Similarity threshold: 0.7
   - Automatic model switching
 
-### 📊 Real-time Data Processing
+### Real-time Data Processing
 
 - **Cross-chunk Continuity**: Redis-based horse registry with TTL
 - **Behavioral Storage**: TimescaleDB hypertables for time-series data
@@ -136,22 +136,15 @@ npm run db:seed         # Seed test data
   - `behavioral:alert` - Significant behavioral events
   - `behavioral:summary` - Periodic insights
 
-### 📈 Behavioral Timeline Interface
+### Behavioral Timeline Interface
 
 - **Interactive Timeline**: Duration bars with color-coded states
-- **Event Details**: Comprehensive behavioral event information  
+- **Event Details**: Comprehensive behavioral event information
 - **Confidence Scoring**: ML confidence levels for all detections
 - **Alert Visualization**: Visual indicators for significant events
 - **Time Range Controls**: 1 hour, 6 hours, 24 hours views
 
-### 🧪 Testing Framework
-
-- **Manual Chunk Processing**: "Process Next 10 Seconds" testing interface
-- **Layer-by-layer Validation**: Detection → Pose → Behavioral analysis results
-- **Performance Metrics**: FPS, memory usage, processing times
-- **Error Reporting**: Detailed error and warning tracking
-
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -164,7 +157,7 @@ BEHAVIORAL_CONFIDENCE_THRESHOLD=0.7
 ENABLE_HIERARCHICAL_STATE_DETECTION=true
 ENABLE_ADVANCED_STATE_DETECTION=true
 
-# Cross-Chunk Persistence  
+# Cross-Chunk Persistence
 HORSE_REGISTRY_TTL=300
 CROSS_CHUNK_CONTINUITY=true
 
@@ -183,17 +176,17 @@ See `.env.example` for complete configuration options.
 ### ML Models
 
 - **Primary**: YOLO11 (yolo11m.pt) - confidence threshold 0.5
-- **Fallback**: YOLOv5 (yolov5m.pt) - performance comparison  
+- **Fallback**: YOLOv5 (yolov5m.pt) - performance comparison
 - **Pose**: RTMPose-M AP10K - 17 keypoints, confidence 0.3
 - **ReID**: MegaDescriptor-T-224 via Hugging Face Hub
 
-## 📡 API Reference
+## API Reference
 
 ### Behavioral Analysis Endpoints
 
 ```http
 GET /api/v1/behavioral/horses/{id}/timeline
-GET /api/v1/behavioral/horses/{id}/current-action  
+GET /api/v1/behavioral/horses/{id}/current-action
 GET /api/v1/behavioral/horses/{id}/summary
 POST /api/v1/behavioral/horses/{id}/moments
 POST /api/v1/behavioral/horses/{id}/actions
@@ -212,7 +205,7 @@ socket.on('behavioral:update', (data) => {
 });
 ```
 
-## 🧪 Testing
+## Testing
 
 ### Test Suites
 
@@ -220,7 +213,7 @@ socket.on('behavioral:update', (data) => {
 # Frontend unit tests (Vitest)
 npm run test:unit
 
-# Backend API tests (Jest)  
+# Backend API tests (Jest)
 npm run test:api
 
 # E2E tests (Playwright)
@@ -237,16 +230,16 @@ cd backend/ml-service && python -m pytest
 - **ML**: Pose analysis, horse tracking, behavioral analysis
 - **Integration**: Cross-service communication testing
 
-## 📊 Performance Targets
+## Performance Targets
 
 - **Detection**: >50 FPS processing speed
 - **Behavioral Analysis**: >30 FPS with state detection
-- **API Response**: <100ms for behavioral endpoints  
+- **API Response**: <100ms for behavioral endpoints
 - **State Change Latency**: <2 seconds for real-time updates
 - **ReID Accuracy**: >95% horse re-identification
 - **Cross-chunk Continuity**: <5% ID switching
 
-## 🏠 Data Storage
+## Data Storage
 
 ### Database Schema
 
@@ -265,7 +258,7 @@ cd backend/ml-service && python -m pytest
 - **Historical**: TimescaleDB with 90-day retention
 - **Features**: PostgreSQL with pgvector indexes for similarity search
 
-## 🎨 Design System
+## Design System
 
 The UI uses a forest/nature theme optimized for equine monitoring:
 
@@ -274,7 +267,7 @@ The UI uses a forest/nature theme optimized for equine monitoring:
 - **Horse Tracking**: 10 distinctive colors for multi-horse identification
 - **Animations**: Subtle micro-animations with smooth transitions
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -317,7 +310,7 @@ psql postgresql://admin:password@localhost:5432/barnhand
 - **High Memory**: Reduce `BATCH_SIZE` or `MAX_CONCURRENT_STREAMS`
 - **Slow Behavioral Analysis**: Adjust `BEHAVIORAL_CONFIDENCE_THRESHOLD`
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -332,23 +325,19 @@ psql postgresql://admin:password@localhost:5432/barnhand
 - Update documentation for API changes
 - Use TypeScript for frontend, Python type hints for backend
 
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **MegaDescriptor**: Advanced wildlife re-identification model
 - **RTMPose**: Real-time multi-person pose estimation
 - **TimescaleDB**: Time-series database for behavioral data
 - **YOLO**: Object detection framework
 
-## 📞 Support
+## Support
 
 - **Documentation**: Check `/docs` folder for detailed guides
 - **Issues**: Report bugs via GitHub Issues
 - **Discussions**: Use GitHub Discussions for questions
-
----
-
-**Built with ❤️ for equine enthusiasts and researchers**
