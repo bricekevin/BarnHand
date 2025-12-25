@@ -1,10 +1,10 @@
 # Test Progress Tracking - Quick Guide
 
-##  Services Restarted
+## Services Restarted
 
 Both API Gateway and ML Service have been restarted with the new code.
 
-## 🎯 How to Test (Step-by-Step)
+## How to Test (Step-by-Step)
 
 ### Step 1: Open Browser
 
@@ -23,7 +23,7 @@ Both API Gateway and ML Service have been restarted with the new code.
 **In the Browser Console** you should see:
 
 ```javascript
-📊 Chunk status poll: {
+ Chunk status poll: {
   chunk_id: '296a368b-e9f8-416f-8069-13a8d1d812c4',  ← UUID format!
   status: 'processing',
   frames_processed: 31,      ← Should increase!
@@ -32,7 +32,7 @@ Both API Gateway and ML Service have been restarted with the new code.
   has_detections: false
 }
 
-📊 Chunk status poll: {
+ Chunk status poll: {
   chunk_id: '296a368b-e9f8-416f-8069-13a8d1d812c4',
   status: 'processing',
   frames_processed: 61,      ← Increasing!
@@ -44,9 +44,9 @@ Both API Gateway and ML Service have been restarted with the new code.
 **In the UI** you should see (near the detection panel):
 
 ```
-🔄 Processing: 31/126 frames
-🔄 Processing: 61/126 frames
-🔄 Processing: 91/126 frames
+ Processing: 31/126 frames
+ Processing: 61/126 frames
+ Processing: 91/126 frames
 ...
 ```
 
@@ -61,12 +61,12 @@ When processing completes, you should see:
 
 And in the UI:
 
--  Video automatically switches from raw to processed
--  Detection summary panel appears
--  Overlays (boxes, keypoints) are visible
--  Badge shows " Processed"
+- Video automatically switches from raw to processed
+- Detection summary panel appears
+- Overlays (boxes, keypoints) are visible
+- Badge shows " Processed"
 
-## 🐛 If It Doesn't Work
+## If It Doesn't Work
 
 ### Check 1: Is the chunk ID a UUID?
 
@@ -123,20 +123,20 @@ chunk_stream_002_296a368b-e9f8-416f-8069-13a8d1d812c4.mp4  ← CORRECT!
 chunk_stream_002_1759976289373.mp4  ← OLD (won't work)
 ```
 
-##  Watch Docker Logs (Optional)
+## Watch Docker Logs (Optional)
 
 **Terminal 1: ML Service**
 
 ```bash
-docker compose logs -f ml-service | grep -E " Initialized|📊 Redis progress"
+docker compose logs -f ml-service | grep -E " Initialized| Redis progress"
 ```
 
 You should see:
 
 ```
  Initialized Redis progress: chunk:296a368b-...:progress = 0/126
-📊 Redis progress update: chunk:296a368b-...:progress = 31/126
-📊 Redis progress update: chunk:296a368b-...:progress = 61/126
+ Redis progress update: chunk:296a368b-...:progress = 31/126
+ Redis progress update: chunk:296a368b-...:progress = 61/126
 ```
 
 **Terminal 2: API Gateway**
@@ -151,7 +151,7 @@ You should see:
  Sending chunk_id to ML service { chunk_id: '296a368b-...' }
 ```
 
-##  Important Notes
+## Important Notes
 
 1. **Old chunks won't work!** Only NEW chunks recorded after the restart will have the UUID format.
 
@@ -159,13 +159,13 @@ You should see:
 
 3. **The fix only applies to newly recorded chunks** - Existing chunks in the list won't work for progress tracking.
 
-##  Success Criteria
+## Success Criteria
 
 You'll know it's working when you see ALL of these:
 
 1.  Browser console shows chunk_id as UUID (not timestamp)
 2.  Browser console shows frames_processed increasing (31, 61, 91...)
-3.  UI badge shows "🔄 Processing: X/Y frames"
+3.  UI badge shows " Processing: X/Y frames"
 4.  Video auto-switches when complete
 5.  Detection summary appears automatically
 6.  NO manual refresh needed!

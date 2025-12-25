@@ -1,8 +1,9 @@
 # 🐴 Horse State Detection Web Viewer Guide
 
-## 🎯 Quick Start
+## Quick Start
 
 ### 1. **Launch the Web Viewer**
+
 ```bash
 python launch_viewer.py
 # or
@@ -10,11 +11,13 @@ python launch_viewer.py
 ```
 
 ### 2. **Load Your Data**
+
 - **Video File**: Select `output_clean_states.mp4` (clean version)
-- **Timeline File**: Select `timeline_clean_states.json` 
+- **Timeline File**: Select `timeline_clean_states.json`
 - Click **"Load & Analyze"**
 
 ### 3. **Analyze Results**
+
 - View synchronized video playback with timeline charts
 - Toggle horses on/off to focus analysis
 - Jump between state change events
@@ -24,20 +27,21 @@ python launch_viewer.py
 
 The processed video now shows **clean, reviewable overlays**:
 
-✅ **Horse Detection**: Color-coded bounding boxes
-✅ **Horse ID**: Simple horse number labels  
-✅ **Basic State Info**: Body state, head position
-✅ **Pose Quality**: Color-coded confidence indicator
-✅ **Head Direction**: Yellow arrow showing orientation
-✅ **Alert Notifications**: Red alerts for concerning behaviors
+**Horse Detection**: Color-coded bounding boxes
+**Horse ID**: Simple horse number labels  
+ **Basic State Info**: Body state, head position
+**Pose Quality**: Color-coded confidence indicator
+**Head Direction**: Yellow arrow showing orientation
+**Alert Notifications**: Red alerts for concerning behaviors
 
-❌ **Removed**: Detailed detection logic text overlays
-❌ **Removed**: RTMPose text at top of frame
-❌ **Removed**: Verbose confidence explanations
+**Removed**: Detailed detection logic text overlays
+**Removed**: RTMPose text at top of frame
+**Removed**: Verbose confidence explanations
 
-## 📊 **Web Viewer Features**
+## **Web Viewer Features**
 
 ### **Synchronized Playback**
+
 - **Video player** with timeline data overlay
 - **Frame-accurate synchronization** with pose data
 - **Progress tracking** with visual indicators
@@ -50,7 +54,7 @@ The processed video now shows **clean, reviewable overlays**:
    - Color-coded by state type
    - Filterable by horse selection
 
-2. **Head Position Timeline** 
+2. **Head Position Timeline**
    - Tracks head angle changes
    - Shows looking back patterns
    - Separate line for each horse
@@ -73,7 +77,7 @@ The processed video now shows **clean, reviewable overlays**:
 - **Export Reports**: Generate detailed HTML analysis reports
 - **Event Navigation**: Jump between significant state changes
 
-## 📈 **Timeline Data Structure**
+## **Timeline Data Structure**
 
 The JSON timeline contains comprehensive frame-by-frame data:
 
@@ -85,10 +89,10 @@ The JSON timeline contains comprehensive frame-by-frame data:
   "body_state": {
     "state": "kneeling",
     "confidence": 0.75,
-    "raw_scores": {"kneeling": 0.75, "standing": 0.20}
+    "raw_scores": { "kneeling": 0.75, "standing": 0.2 }
   },
   "head_position": {
-    "state": "head_down", 
+    "state": "head_down",
     "confidence": 0.85,
     "angle": -25.3
   },
@@ -109,9 +113,10 @@ The JSON timeline contains comprehensive frame-by-frame data:
 }
 ```
 
-## 🔧 **Configuration & Tuning**
+## **Configuration & Tuning**
 
 ### **Generate Different Analysis**
+
 ```bash
 # Process with custom config
 LOG_LEVEL=INFO python test_advanced_state_pipeline.py your_video.mp4 \
@@ -127,44 +132,50 @@ LOG_LEVEL=INFO python test_advanced_state_pipeline.py your_video.mp4 \
 ```
 
 ### **Tune Detection Parameters**
+
 Edit `config/state_tracking_config.yaml`:
 
 ```yaml
 single_frame:
   body_state:
-    movement_threshold_pixels: 3    # More sensitive movement
-    lying_aspect_ratio: 1.2         # Easier lying detection
+    movement_threshold_pixels: 3 # More sensitive movement
+    lying_aspect_ratio: 1.2 # Easier lying detection
   head_position:
-    head_angle_threshold: 90        # Easier "looking back"
+    head_angle_threshold: 90 # Easier "looking back"
 ```
 
-## 🎨 **Visual Indicators**
+## **Visual Indicators**
 
 ### **Horse Bounding Box Colors**
-- 🟢 **Green**: Standing Still
-- 🔵 **Blue**: Moving/Walking  
+
+- **Green**: Standing Still
+- 🔵 **Blue**: Moving/Walking
 - 🟠 **Orange**: Running
 - 🟣 **Purple**: Lying Down
 - ⚫ **Gray**: Kneeling
 - 🌸 **Pink**: Jumping
 
 ### **Quality Indicators**
-- 🟢 **Green Circle**: High pose confidence (>70%)
-- 🟡 **Yellow Circle**: Medium confidence (50-70%) 
-- 🔴 **Red Circle**: Low confidence (<50%)
+
+- **Green Circle**: High pose confidence (>70%)
+- **Yellow Circle**: Medium confidence (50-70%)
+- **Red Circle**: Low confidence (<50%)
 
 ### **Head Direction**
-- 🟡 **Yellow Arrow**: Shows nose-to-neck direction
+
+- **Yellow Arrow**: Shows nose-to-neck direction
 - **Arrow Length**: Proportional to head extension
 
-## 📋 **Analysis Workflow**
+## **Analysis Workflow**
 
 1. **Process Video**
+
    ```bash
    LOG_LEVEL=INFO python test_advanced_state_pipeline.py your_video.mp4
    ```
 
 2. **Launch Viewer**
+
    ```bash
    python launch_viewer.py
    ```
@@ -184,21 +195,24 @@ single_frame:
    - Re-process video
    - Compare results in viewer
 
-## 🎯 **Use Cases**
+## **Use Cases**
 
 ### **Behavioral Research**
+
 - Track state transitions over time
 - Identify unusual behavior patterns
 - Compare horses within same environment
 - Generate quantitative behavior reports
 
 ### **Health Monitoring**
+
 - Detect concerning behaviors (looking back + lying)
 - Monitor activity levels
 - Track changes in movement patterns
 - Alert on potential colic signs
 
 ### **Training Analysis**
+
 - Assess horse movement quality
 - Track confidence levels during exercises
 - Compare before/after training states
@@ -214,7 +228,7 @@ The web viewer generates comprehensive HTML reports including:
 - **Quality Assessment**: Pose detection reliability
 - **Alert Summary**: Concerning behavior incidents
 
-## 🚀 **Performance**
+## **Performance**
 
 - **Real-time Analysis**: 15+ FPS processing on CPU
 - **Memory Efficient**: Streaming timeline data

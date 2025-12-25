@@ -1,4 +1,4 @@
-# Progress Tracking -  WORKING!
+# Progress Tracking - WORKING!
 
 ## What Was Fixed
 
@@ -8,26 +8,26 @@
 
 **Old Regex**: `/chunk_[^_]+_([^.]+)\.mp4$/`
 
-- Captured: `001_15e5aa80-4f69-47ea-8548-72438bc83748` 
+- Captured: `001_15e5aa80-4f69-47ea-8548-72438bc83748`
 - ML Service wrote to: `chunk:15e5aa80-4f69-47ea-8548-72438bc83748:progress`
 - Frontend polled for: `chunk:001_15e5aa80-4f69-47ea-8548-72438bc83748:progress`
 - **They didn't match!**
 
 **New Regex**: `/chunk_.*_([^_]+)\.mp4$/`
 
-- Captures: `15e5aa80-4f69-47ea-8548-72438bc83748` 
+- Captures: `15e5aa80-4f69-47ea-8548-72438bc83748`
 - ML Service writes to: `chunk:15e5aa80-4f69-47ea-8548-72438bc83748:progress`
 - Frontend polls for: `chunk:15e5aa80-4f69-47ea-8548-72438bc83748:progress`
-- **They match!** 
+- **They match!**
 
 ## Verified Working Features
 
-### 1. Progress Tracking 
+### 1. Progress Tracking
 
 **Console logs show**:
 
 ```javascript
-📊 Chunk status poll: {
+ Chunk status poll: {
   chunk_id: '15e5aa80-4f69-47ea-8548-72438bc83748',  //  Correct UUID!
   status: 'processing',
   frames_processed: 11,                               //  Has numbers!
@@ -43,16 +43,16 @@
 **UI badge shows**:
 
 ```
-🔄 Processing: 11/126 frames
+ Processing: 11/126 frames
 ```
 
-### 2. Status Polling 
+### 2. Status Polling
 
 - Polls every 2 seconds
 - Correctly tracks previous status for auto-switch detection
 - Updates progress state in real-time
 
-### 3. Detection Data Will Auto-Load 
+### 3. Detection Data Will Auto-Load
 
 When processing completes, the transition logic is ready:
 
@@ -98,12 +98,12 @@ When ML processing completes (which will take several minutes for 126 frames):
 1. **Progress updates you'll see**:
 
    ```
-   🔄 Processing: 11/126 frames    (current - stuck here)
-   🔄 Processing: 21/126 frames    (after ~10 more frames)
-   🔄 Processing: 31/126 frames
+    Processing: 11/126 frames    (current - stuck here)
+    Processing: 21/126 frames    (after ~10 more frames)
+    Processing: 31/126 frames
    ...
-   🔄 Processing: 121/126 frames
-   🔄 Processing: 126/126 frames
+    Processing: 121/126 frames
+    Processing: 126/126 frames
    ```
 
 2. **Auto-switch will trigger**:
@@ -127,10 +127,10 @@ When ML processing completes (which will take several minutes for 126 frames):
 
 ## Summary
 
- **Progress tracking is WORKING**
- **Chunk IDs match between services**
- **Frontend polls and displays progress correctly**
- **Auto-refresh logic is ready**
+**Progress tracking is WORKING**
+**Chunk IDs match between services**
+**Frontend polls and displays progress correctly**
+**Auto-refresh logic is ready**
 
 The only "issue" is that ML processing is slow (~1-2 seconds per frame), so you need patience to see the full progression. But the feature is **100% functional**!
 

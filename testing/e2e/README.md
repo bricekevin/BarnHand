@@ -335,14 +335,14 @@ test.describe('Feature Name', () => {
 
 E2E tests cover:
 
-- ✅ User authentication flows
-- ✅ Stream management
-- ✅ Horse detection and tracking
-- ✅ Detection correction workflow (Phase 4)
-- ✅ Re-processing with progress tracking
-- ✅ Error handling and validation
-- ✅ Real-time WebSocket updates
-- ✅ Data export
+- User authentication flows
+- Stream management
+- Horse detection and tracking
+- Detection correction workflow (Phase 4)
+- Re-processing with progress tracking
+- Error handling and validation
+- Real-time WebSocket updates
+- Data export
 
 Target: 80%+ coverage of critical user journeys.
 

@@ -2,7 +2,7 @@
 
 **Date**: 2025-10-28 to 2025-10-29
 **Branch**: `feature/documentation`
-**Status**:  Production Ready
+**Status**: Production Ready
 **Version**: Backed up as milestone
 
 ---
@@ -28,27 +28,31 @@ Successfully implemented a comprehensive frame-by-frame inspector with global ho
 **Problem Solved**: Three different ID systems caused confusion across views
 
 **Solution**:
+
 - ML service now uses global tracking IDs (e.g., "38c34368_2b4f_4b18_be47_2dd061d35e7a_horse_013")
 - Video overlays, chunk JSON, and all UI views reference the same ID
 - Short, human-readable format instead of UUIDs
 
 **Impact**:
--  Same horse ID in video overlays
--  Same horse ID in Tracked Horses section
--  Same horse ID in Frame Inspector
--  Same horse ID in Detected Horses tab
+
+- Same horse ID in video overlays
+- Same horse ID in Tracked Horses section
+- Same horse ID in Frame Inspector
+- Same horse ID in Detected Horses tab
 
 ### 2. Horse Name Everywhere
 
 **Problem Solved**: Names existed in database but didn't propagate to chunk data
 
 **Solution**:
+
 - ML service includes horse names from ReID matching in chunk JSON
 - Video overlays display names (or "Unnamed Horse" + ID)
 - Frame Inspector uses name lookup from top-level horses array
 - DetectionDataPanel shows names prominently
 
 **Impact**:
+
 - Users see "brown fence" instead of "Unnamed Horse"
 - Consistent naming across all views
 - Names update when renamed in Detected Horses tab
@@ -60,12 +64,14 @@ Successfully implemented a comprehensive frame-by-frame inspector with global ho
 **Solution**: Complete inspector component with:
 
 **Navigation Controls**:
+
 - Previous/Next frame buttons
 - Play/Pause functionality
 - Frame slider for quick scrubbing
 - Jump to specific frame number
 
 **Display Panels**:
+
 - **Frame Image**: Actual processed frame with all overlays
 - **Tracked Horses**: ID, name, confidence, ReID score, bbox
 - **YOLO Detections**: Raw detection data per box
@@ -74,11 +80,13 @@ Successfully implemented a comprehensive frame-by-frame inspector with global ho
 - **Pose Estimation**: Keypoint confidence per horse
 
 **Status Badges**:
+
 - Processed vs Skipped indicator
 - Timestamp display
 - Mode indicator (official/discovery)
 
 **Impact**:
+
 - Complete ML transparency
 - Debug capability for poor matches
 - Understand why decisions were made
@@ -89,12 +97,14 @@ Successfully implemented a comprehensive frame-by-frame inspector with global ho
 **Problem Solved**: Frame Inspector had metadata but no visual
 
 **Solution**:
+
 - ML service saves individual frames to persistent storage
 - API endpoint serves frame images with authentication
 - Frontend fetches and displays with loading states
 - Auto-cleanup of blob URLs to prevent memory leaks
 
 **Technical Details**:
+
 - Frames saved as JPEG (85% quality) to `detections/.../frames/`
 - API route: `GET /streams/:id/chunks/:chunkId/frames/frame_*.jpg`
 - JWT authentication required
@@ -102,6 +112,7 @@ Successfully implemented a comprehensive frame-by-frame inspector with global ho
 - ~15-45MB storage per chunk
 
 **Impact**:
+
 - Visual confirmation of detection quality
 - See actual overlays (names, bboxes, poses)
 - Compare frame quality across interval
@@ -112,10 +123,12 @@ Successfully implemented a comprehensive frame-by-frame inspector with global ho
 **Problem Solved**: System showed "discovery mode" when official horses were defined
 
 **Solution**: Changed mode detection logic
+
 - **Old**: Official mode only when all expected horses detected
 - **New**: Official mode whenever ANY official horses defined
 
 **Impact**:
+
 - No more confusing "allow new horses" when barn is configured
 - Force-matching to official horses as expected
 - Accurate Frame Inspector mode display
@@ -128,35 +141,40 @@ Successfully implemented a comprehensive frame-by-frame inspector with global ho
 ### Backend Changes
 
 **ML Service** (`backend/ml-service/src/services/processor.py`):
--  Use global horse IDs in chunk JSON (not numeric counters)
--  Include horse names from ReID matching
--  Save individual frames to persistent storage
--  Add ML settings metadata to each frame
--  Add ReID details metadata to each frame
--  Fix official mode detection logic
--  Draw horse names in video overlays
+
+- Use global horse IDs in chunk JSON (not numeric counters)
+- Include horse names from ReID matching
+- Save individual frames to persistent storage
+- Add ML settings metadata to each frame
+- Add ReID details metadata to each frame
+- Fix official mode detection logic
+- Draw horse names in video overlays
 
 **API Gateway** (`backend/api-gateway/`):
--  New endpoint: `GET /streams/:id/chunks/:chunkId/frames/*`
--  Frame retrieval service method
--  Proper authentication and caching
--  Error handling for missing frames
+
+- New endpoint: `GET /streams/:id/chunks/:chunkId/frames/*`
+- Frame retrieval service method
+- Proper authentication and caching
+- Error handling for missing frames
 
 ### Frontend Changes
 
 **New Components**:
--  `FrameInspector.tsx` - Complete frame analysis component (500+ lines)
+
+- `FrameInspector.tsx` - Complete frame analysis component (500+ lines)
 
 **Updated Components**:
--  `DetectionDataPanel.tsx` - Horse name display, inspector integration
--  Horse interface updates for names and official status
+
+- `DetectionDataPanel.tsx` - Horse name display, inspector integration
+- Horse interface updates for names and official status
 
 **Features**:
--  Name lookup from top-level horses array
--  Authenticated frame image fetching
--  Loading states and error handling
--  Color consistency with video overlays
--  Responsive layout and design
+
+- Name lookup from top-level horses array
+- Authenticated frame image fetching
+- Loading states and error handling
+- Color consistency with video overlays
+- Responsive layout and design
 
 ### Data Flow
 
@@ -238,6 +256,7 @@ cf28203 fix(ml): save frames to detections directory to match API endpoint
 ## Files Changed
 
 ### Backend
+
 ```
 backend/ml-service/src/services/processor.py          [Modified - Core logic]
 backend/api-gateway/src/routes/streams.ts             [Modified - New endpoint]
@@ -245,12 +264,14 @@ backend/api-gateway/src/services/videoChunkService.ts [Modified - Frame serving]
 ```
 
 ### Frontend
+
 ```
 frontend/src/components/FrameInspector.tsx          [New - 500+ lines]
 frontend/src/components/DetectionDataPanel.tsx      [Modified - Integration]
 ```
 
 ### Documentation
+
 ```
 docs/GLOBAL_HORSE_ID_IMPLEMENTATION.md    [New - Technical guide]
 docs/HANDOFF_NOTES.md                     [Updated - Session notes]
@@ -263,7 +284,8 @@ docs/MILESTONE_FRAME_INSPECTOR_V1.md      [New - This document]
 
 ## Testing Checklist
 
-###  Completed
+### Completed
+
 - [x] Global IDs consistent across all views
 - [x] Horse names display in Frame Inspector
 - [x] Horse names display in Tracked Horses
@@ -278,7 +300,8 @@ docs/MILESTONE_FRAME_INSPECTOR_V1.md      [New - This document]
 - [x] Authentication on frame images
 - [x] Memory cleanup (blob URLs)
 
-### 📋 User Acceptance Testing
+### User Acceptance Testing
+
 - [ ] Process new chunk and verify all features
 - [ ] Rename horse and verify propagation
 - [ ] Navigate through frames smoothly
@@ -291,21 +314,25 @@ docs/MILESTONE_FRAME_INSPECTOR_V1.md      [New - This document]
 ## Performance Metrics
 
 ### Storage Impact
+
 - **Per Chunk**: ~15-45MB for frame images
 - **Format**: JPEG at 85% quality
 - **Location**: `detections/.../frames/` (deleted with chunk)
 
 ### Network Impact
+
 - **Frame Size**: ~50-150KB per frame
 - **Caching**: 1-hour browser cache
 - **Loading**: On-demand (not preloaded)
 
 ### Memory Impact
+
 - **Blob URLs**: One at a time
 - **Cleanup**: Automatic on frame change/unmount
 - **No leaks**: Verified with proper cleanup
 
 ### Processing Impact
+
 - **Minimal**: ~200 bytes metadata per frame
 - **No slowdown**: Frame saving is fast (~46ms/frame)
 - **Total overhead**: <5% of chunk processing time
@@ -324,18 +351,21 @@ docs/MILESTONE_FRAME_INSPECTOR_V1.md      [New - This document]
 ## Future Enhancements
 
 ### Short Term (Nice to Have)
+
 - Frame preloading (load next frame in background)
 - Thumbnail indicator (show which frame used)
 - Zoom/pan controls for frame images
 - Bbox highlight on hover
 
 ### Medium Term (Value Add)
+
 - Side-by-side frame comparison
 - CSV export of frame analysis
 - ReID similarity heatmap
 - Confidence threshold slider
 
 ### Long Term (Advanced)
+
 - Real-time inspector during processing
 - Manual ReID override interface
 - Frame quality scoring
@@ -380,27 +410,31 @@ docs/MILESTONE_FRAME_INSPECTOR_V1.md      [New - This document]
 
 ## Production Readiness
 
-###  Ready for Production
+### Ready for Production
 
 **Code Quality**:
+
 - Clean, well-structured code
 - Proper error handling
 - Memory leak prevention
 - Performance optimized
 
 **Documentation**:
+
 - Complete technical docs
 - User testing guides
 - Troubleshooting tips
 - Architecture diagrams
 
 **Testing**:
+
 - Manual testing completed
 - Edge cases handled
 - Error states covered
 - Performance validated
 
 **Deployment**:
+
 - Docker-ready
 - No breaking changes (except mode logic - intentional)
 - Backward compatible
@@ -411,21 +445,24 @@ docs/MILESTONE_FRAME_INSPECTOR_V1.md      [New - This document]
 ## Success Metrics
 
 ### Before This Milestone
--  Horse IDs inconsistent across views
--  Names missing from chunk data
--  No frame-level inspection
--  No ML transparency
--  Confusing mode indicators
+
+- Horse IDs inconsistent across views
+- Names missing from chunk data
+- No frame-level inspection
+- No ML transparency
+- Confusing mode indicators
 
 ### After This Milestone
--  Single global horse ID system
--  Names propagated everywhere
--  Complete frame inspector
--  Full ML visibility
--  Accurate mode display
--  Professional UX
+
+- Single global horse ID system
+- Names propagated everywhere
+- Complete frame inspector
+- Full ML visibility
+- Accurate mode display
+- Professional UX
 
 ### User Impact
+
 - **Confusion Reduced**: Clear, consistent horse identification
 - **Confidence Increased**: See exactly what ML detected
 - **Debugging Enabled**: Understand poor matches
@@ -436,6 +473,7 @@ docs/MILESTONE_FRAME_INSPECTOR_V1.md      [New - This document]
 ## Acknowledgments
 
 This milestone represents:
+
 - **2 days of focused development**
 - **12 commits** with clear messages
 - **~1500 lines of new code**
@@ -449,12 +487,14 @@ The collaboration was excellent, with clear requirements, good feedback loops, a
 ## Next Steps
 
 ### Immediate
+
 1. Process new chunks to verify all features
 2. User acceptance testing
 3. Monitor for any issues
 4. Gather user feedback
 
 ### Future Milestones
+
 1. **Behavioral Analysis** - Add state detection display
 2. **Performance Dashboard** - Aggregate statistics
 3. **Export Features** - CSV/PDF reports
@@ -462,7 +502,7 @@ The collaboration was excellent, with clear requirements, good feedback loops, a
 
 ---
 
-**Status**:  Milestone Complete - Production Ready
+**Status**: Milestone Complete - Production Ready
 
 **Backup Note**: Version backed up as significant milestone
 
@@ -470,4 +510,4 @@ The collaboration was excellent, with clear requirements, good feedback loops, a
 
 ---
 
-*This milestone document serves as a comprehensive record of the Frame Inspector V1 implementation for future reference and onboarding.*
+_This milestone document serves as a comprehensive record of the Frame Inspector V1 implementation for future reference and onboarding._

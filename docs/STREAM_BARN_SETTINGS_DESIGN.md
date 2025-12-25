@@ -7,6 +7,7 @@ Admin settings page for managing stream-to-barn (farm) assignments, providing a 
 ## User Story
 
 **As a farm administrator**, I want to:
+
 - View all my farms (barns) and their assigned streams
 - See which streams are active/inactive
 - See how many horses are detected per stream
@@ -16,6 +17,7 @@ Admin settings page for managing stream-to-barn (farm) assignments, providing a 
 ## Page Layout
 
 ### 1. Header Section
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ Stream & Barn Management                                │
@@ -26,6 +28,7 @@ Admin settings page for managing stream-to-barn (farm) assignments, providing a 
 ```
 
 ### 2. Farm Cards Grid (Responsive)
+
 ```
 ┌──────────────────────────────┐  ┌──────────────────────────────┐
 │  Default Farm              │  │  North Barn                │
@@ -34,12 +37,12 @@ Admin settings page for managing stream-to-barn (farm) assignments, providing a 
 │                              │  │                              │
 │ Streams:                     │  │ Streams:                     │
 │ ┌──────────────────────────┐ │  │ ┌──────────────────────────┐ │
-│ │ 📹 Stream 1              │ │  │ │ 📹 Stream 5              │ │
+│ │  Stream 1              │ │  │ │  Stream 5              │ │
 │ │ * Active │ 3 horses      │ │  │ │ o Inactive │ 0 horses   │ │
 │ │ [Edit] [Reassign]        │ │  │ │ [Edit] [Reassign]        │ │
 │ └──────────────────────────┘ │  │ └──────────────────────────┘ │
 │ ┌──────────────────────────┐ │  │                              │
-│ │ 📹 Stream 2              │ │  │                              │
+│ │  Stream 2              │ │  │                              │
 │ │ * Active │ 2 horses      │ │  │                              │
 │ │ [Edit] [Reassign]        │ │  │                              │
 │ └──────────────────────────┘ │  │                              │
@@ -48,6 +51,7 @@ Admin settings page for managing stream-to-barn (farm) assignments, providing a 
 ```
 
 ### 3. Stream Reassignment Modal
+
 ```
 ┌─────────────────────────────────────────────┐
 │ Reassign Stream to Different Barn           │
@@ -72,7 +76,9 @@ Admin settings page for managing stream-to-barn (farm) assignments, providing a 
 ## API Endpoints
 
 ### GET /api/v1/settings/stream-management
+
 Response:
+
 ```json
 {
   "farms": [
@@ -96,13 +102,17 @@ Response:
 ```
 
 ### PATCH /api/v1/streams/:streamId/farm
+
 Request:
+
 ```json
 {
   "farmId": "new-farm-uuid"
 }
 ```
+
 Response:
+
 ```json
 {
   "stream": {...},
@@ -143,11 +153,13 @@ interface StreamSettingsState {
 ## User Flows
 
 ### Flow 1: View Stream Assignments
+
 1. Navigate to Settings => Stream Management
 2. See all farms with their streams
 3. View status and horse counts
 
 ### Flow 2: Reassign Stream
+
 1. Click "Reassign" on a stream
 2. Modal opens showing current and available farms
 3. Select new farm from dropdown
@@ -157,6 +169,7 @@ interface StreamSettingsState {
 7. UI updates to reflect changes
 
 ### Flow 3: Add New Stream
+
 1. Click "+ Add New Stream"
 2. Modal opens with stream configuration form
 3. Fill in stream URL, name, and farm assignment
@@ -165,11 +178,11 @@ interface StreamSettingsState {
 
 ## Security & Validation
 
--  Require FARM_ADMIN or SUPER_ADMIN role
--  Verify user has access to both source and target farms
--  Prevent reassigning streams to non-existent farms
--  Show confirmation for operations affecting horses
--  Log all reassignment operations for audit trail
+- Require FARM_ADMIN or SUPER_ADMIN role
+- Verify user has access to both source and target farms
+- Prevent reassigning streams to non-existent farms
+- Show confirmation for operations affecting horses
+- Log all reassignment operations for audit trail
 
 ## Styling
 

@@ -2,7 +2,7 @@
 
 This guide covers common issues and solutions for the BarnHand behavioral analysis system.
 
-##  Quick Diagnostics
+## Quick Diagnostics
 
 ### Health Check Commands
 
@@ -26,18 +26,19 @@ wscat -c ws://localhost:8000 -s "echo-protocol"
 # ML Service behavioral logs
 docker-compose logs ml-service | grep -i behavioral
 
-# API Gateway behavioral route logs  
+# API Gateway behavioral route logs
 docker-compose logs api-gateway | grep behavioral
 
 # Database behavioral query logs
 docker-compose logs postgres | grep -E "(horse_moments|horse_actions|horse_pose_frames)"
 ```
 
-## ⚡ Common Issues & Solutions
+## Common Issues & Solutions
 
 ### 1. Behavioral Analysis Not Working
 
 **Symptoms:**
+
 - No behavioral events in timeline
 - Empty behavioral API responses
 - ML service errors about state detection
@@ -70,6 +71,7 @@ curl -X POST http://localhost:8000/api/v1/horses/123/moments \
 ### 2. MegaDescriptor ReID Issues
 
 **Symptoms:**
+
 - Horse IDs changing frequently
 - Low re-identification accuracy
 - ReID model loading errors
@@ -106,6 +108,7 @@ print(f'Feature dims: {reid.feature_dims}')
 ### 3. Cross-Chunk Continuity Problems
 
 **Symptoms:**
+
 - Horses losing identity between chunks
 - Redis connection errors
 - High ID switching rate
@@ -136,6 +139,7 @@ curl http://localhost:8002/health | jq '.cross_chunk_stats'
 ### 4. Database Performance Issues
 
 **Symptoms:**
+
 - Slow behavioral API responses
 - Database connection timeouts
 - High memory usage
@@ -145,16 +149,16 @@ curl http://localhost:8002/health | jq '.cross_chunk_stats'
 ```bash
 # 1. Check database performance
 psql postgresql://admin:password@localhost:5432/barnhand -c "
-SELECT schemaname, tablename, n_tup_ins, n_tup_upd, n_tup_del 
-FROM pg_stat_user_tables 
+SELECT schemaname, tablename, n_tup_ins, n_tup_upd, n_tup_del
+FROM pg_stat_user_tables
 WHERE schemaname = 'public' AND tablename LIKE 'horse%';
 "
 
 # 2. Analyze slow queries
 psql postgresql://admin:password@localhost:5432/barnhand -c "
-SELECT query, mean_time, calls 
-FROM pg_stat_statements 
-WHERE query LIKE '%horse%' 
+SELECT query, mean_time, calls
+FROM pg_stat_statements
+WHERE query LIKE '%horse%'
 ORDER BY mean_time DESC LIMIT 10;
 "
 
@@ -173,6 +177,7 @@ SELECT * FROM timescaledb_information.hypertables;
 ### 5. WebSocket Behavioral Events Not Working
 
 **Symptoms:**
+
 - No real-time behavioral updates
 - WebSocket connection failures
 - Missing event subscriptions
@@ -206,6 +211,7 @@ curl -X POST http://localhost:8000/api/v1/horses/123/actions \
 ### 6. Frontend Behavioral Components Issues
 
 **Symptoms:**
+
 - Timeline not displaying
 - Empty behavioral data
 - Component rendering errors
@@ -235,7 +241,7 @@ curl http://localhost:8000/api/v1/behavioral/horses/123/timeline \
 # BehavioralTimeline component includes mock data when no real data available
 ```
 
-## 🔧 Advanced Diagnostics
+## Advanced Diagnostics
 
 ### Performance Profiling
 
@@ -245,7 +251,7 @@ curl http://localhost:8002/metrics
 
 # 2. Database query analysis
 psql postgresql://admin:password@localhost:5432/barnhand -c "
-EXPLAIN ANALYZE 
+EXPLAIN ANALYZE
 SELECT * FROM get_horse_timeline(
   '123e4567-e89b-12d3-a456-426614174000'::UUID,
   NOW() - INTERVAL '24 hours',
@@ -278,11 +284,11 @@ redis-cli info memory
 
 # 3. PostgreSQL memory usage
 psql postgresql://admin:password@localhost:5432/barnhand -c "
-SELECT 
-  setting, 
-  unit, 
-  context 
-FROM pg_settings 
+SELECT
+  setting,
+  unit,
+  context
+FROM pg_settings
 WHERE name IN ('shared_buffers', 'work_mem', 'maintenance_work_mem');
 "
 ```
@@ -317,7 +323,7 @@ print(f'Pose analyzer keypoints: {len(analyzer.keypoint_names)}')
 "
 ```
 
-## 📊 Monitoring & Alerts
+## Monitoring & Alerts
 
 ### Health Monitoring Setup
 

@@ -149,7 +149,7 @@ For each frame:
 
 - Before: 3 × 800ms RTMPose + 3 × 50ms ReID = 2550ms/frame
 - After: 300ms RTMPose batch + 15ms ReID (occasional) = ~315ms/frame
-- **Improvement**: **8x faster** 🎉
+- **Improvement**: **8x faster**
 
 ### Real-World (147 frames, 1-3 horses avg)
 
@@ -228,9 +228,9 @@ docker compose up -d --build ml-service
 
 Implemented **non-disruptive performance optimizations** that achieve:
 
--  **3-8x faster** processing for multi-horse scenarios
--  **Maintained functionality** with comprehensive fallbacks
--  **Production-ready** with error handling and logging
--  **Tested in Docker** environment
+- **3-8x faster** processing for multi-horse scenarios
+- **Maintained functionality** with comprehensive fallbacks
+- **Production-ready** with error handling and logging
+- **Tested in Docker** environment
 
 The biggest win is **RTMPose batch inference** which eliminates the sequential bottleneck for multi-horse frames.

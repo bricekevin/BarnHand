@@ -1,12 +1,13 @@
 # Simplified Official Horses Workflow
 
 **Date**: 2025-10-26
-**Status**: 🎯 Implementation Ready
+**Status**: Implementation Ready
 **Approach**: Match-to-Official-Only (No Guest Horses)
 
 ## Core Principle
 
 **Simple Rule**:
+
 - YOLO detects horses in frame
 - For each detection, find the closest matching official horse
 - If match found => Track it
@@ -67,11 +68,13 @@
 ## Phase 1: Initial Setup (Discovery)
 
 ### Goal
+
 Build the official horse registry for the barn.
 
 ### Steps
 
 1. **Admin configures barn**:
+
    ```
    Barn Settings:
    - Expected Horse Count: 5
@@ -83,6 +86,7 @@ Build the official horse registry for the barn.
    - May detect 6-8 horses (some duplicates/false positives)
 
 3. **Admin reviews detected horses**:
+
    ```
    Detected Horses (8 total):
    ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐
@@ -104,13 +108,16 @@ Build the official horse registry for the barn.
 ## Phase 2: Chunk-Level Feature Aggregation
 
 ### Problem
+
 First frame detection might not be the best quality:
+
 - Horse partially occluded
 - Horse at bad angle
 - Blurry motion
 - Poor lighting
 
 ### Solution
+
 Accumulate features across all frames in chunk, use the best ones for ReID matching.
 
 ### Implementation
@@ -421,6 +428,7 @@ async def load_official_horses(self, farm_id: str) -> Dict[str, Dict]:
 ### Cross-Stream Consistency
 
 **Example**:
+
 - Stream 1 detects Horse A => Matches to official horse_002
 - Stream 3 detects Horse A (same physical horse) => Also matches to horse_002
 - Both streams use same tracking ID, same color
@@ -431,9 +439,11 @@ async def load_official_horses(self, farm_id: str) -> Dict[str, Dict]:
 ## Time-Based Chunk Processing
 
 ### Challenge
+
 Chunks may be processed out of order.
 
 ### Solution
+
 Use chunk timestamp to determine which official horses were available at that time:
 
 ```python
@@ -478,6 +488,7 @@ official_horses = await self.horse_db.load_official_horses_at_time(
 ## Saving Chunk Thumbnails
 
 ### Strategy
+
 Save the best frame from each chunk as a thumbnail for that horse appearance.
 
 ### Implementation
@@ -663,14 +674,19 @@ const DetectedHorses = ({ stream }) => {
           ) : (
             <div className="flex items-center gap-2">
               <AlertCircle className="text-amber-400" size={20} />
-              <span>Setup: Mark {expectedCount - officialCount} more horses as official</span>
+              <span>
+                Setup: Mark {expectedCount - officialCount} more horses as
+                official
+              </span>
             </div>
           )}
         </div>
       )}
 
       {/* Horse cards */}
-      {horses.map(horse => <HorseCard key={horse.id} horse={horse} />)}
+      {horses.map(horse => (
+        <HorseCard key={horse.id} horse={horse} />
+      ))}
     </div>
   );
 };
@@ -681,6 +697,7 @@ const DetectedHorses = ({ stream }) => {
 ## Testing Plan
 
 ### Test 1: Initial Setup
+
 1. Create barn with `expected_horse_count = 5`
 2. Process 3 chunks (no official horses yet)
 3. Verify system detects 5-8 horses
@@ -688,6 +705,7 @@ const DetectedHorses = ({ stream }) => {
 5. Delete any extras
 
 ### Test 2: Official-Only Tracking
+
 1. With 5 official horses marked
 2. Process 10 new chunks
 3. Verify:
@@ -696,17 +714,20 @@ const DetectedHorses = ({ stream }) => {
    - Detections without matches are ignored
 
 ### Test 3: Feature Aggregation
+
 1. Process chunk with horse appearing in 200 frames
 2. Check logs for quality scores per frame
 3. Verify best quality frame is selected
 4. Verify official horse features updated
 
 ### Test 4: Multi-Stream
+
 1. Barn with 3 streams, 5 official horses
 2. Process chunks from all streams
 3. Verify same horse gets same ID across streams
 
 ### Test 5: Out-of-Order Processing
+
 1. Mark horses as official at 10:30 AM
 2. Process chunks from 10:25 AM (before marking)
 3. Process chunks from 10:35 AM (after marking)
@@ -717,6 +738,7 @@ const DetectedHorses = ({ stream }) => {
 ## Summary
 
 ### What Changes
+
 1. **Chunk processing**: Accumulate features across all frames
 2. **Feature selection**: Use best quality frame from chunk, not first frame
 3. **Matching logic**:
@@ -727,17 +749,19 @@ const DetectedHorses = ({ stream }) => {
 5. **No guest horses**: Simplifies logic significantly
 
 ### What Stays the Same
+
 - Barn-scoped ReID (already implemented)
 - Official horse marking UI (already implemented)
 - Multi-stream support (already implemented)
 
 ### Benefits
--  Stops over-detection automatically
--  Improves ReID accuracy (best quality features per chunk)
--  Simple logic (no mode transitions, no guest handling)
--  Better matching (closest official horse, not hard threshold)
--  Filters noise (similarity < 0.3 rejected as YOLO errors)
--  Useful thumbnails (one per chunk showing best shot)
--  Works with existing infrastructure
+
+- Stops over-detection automatically
+- Improves ReID accuracy (best quality features per chunk)
+- Simple logic (no mode transitions, no guest handling)
+- Better matching (closest official horse, not hard threshold)
+- Filters noise (similarity < 0.3 rejected as YOLO errors)
+- Useful thumbnails (one per chunk showing best shot)
+- Works with existing infrastructure
 
 **Ready to implement!**

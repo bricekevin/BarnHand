@@ -1,11 +1,13 @@
 # Official Horses Workflow - Implementation Progress
 
 **Started**: 2025-10-26
-**Status**: 🚧 In Progress
+**Status**: In Progress
 **Branch**: `feature/documentation`
 
 ## Overview
+
 Implementing simplified official horses workflow with:
+
 - Chunk-level feature aggregation (best quality frame)
 - Closest-match ReID (0.3 noise threshold, no hard 0.7 threshold)
 - Per-chunk thumbnail saving
@@ -17,7 +19,7 @@ Implementing simplified official horses workflow with:
 
 ## Implementation Checklist
 
-### Phase 1: Database Schema  /  / 
+### Phase 1: Database Schema / /
 
 - [] **Migration 007**: Create `horse_thumbnails` table
   - File: `backend/database/src/migrations/sql/007_horse_thumbnails.sql`
@@ -26,9 +28,10 @@ Implementing simplified official horses workflow with:
   - View: horse_thumbnail_gallery (with quality/recency rankings)
   - Status: COMPLETED (line 007_horse_thumbnails.sql)
 
-### Phase 2: ML Service Backend  /  / 
+### Phase 2: ML Service Backend / /
 
 #### horse_database.py
+
 - [] **load_official_horses(farm_id)** - Load only official horses for barn
   - Query: `WHERE farm_id = $1 AND is_official = TRUE AND status = 'active'`
   - Returns: Dict[horse_id] -> {tracking_id, feature_vector, color, name, ...}
@@ -50,26 +53,27 @@ Implementing simplified official horses workflow with:
   - Status: COMPLETED (horse_database.py:438-471)
 
 #### processor.py
-- [] **_calculate_quality_score(confidence, bbox, crop)** - Quality scoring
+
+- [] **\_calculate_quality_score(confidence, bbox, crop)** - Quality scoring
   - Factors: confidence (0.4), sharpness (0.3), size (0.2), aspect ratio (0.1)
   - Laplacian variance for sharpness
   - Status: COMPLETED (processor.py:78-133)
 
-- [] **_calculate_iou(bbox1, bbox2)** - IoU calculation
+- [] **\_calculate_iou(bbox1, bbox2)** - IoU calculation
   - Intersection over Union for bbox matching
   - Status: COMPLETED (processor.py:135-173)
 
-- [] **_match_to_chunk_tracks(bbox, chunk_tracks, iou_threshold)** - IoU matching
+- [] **\_match_to_chunk_tracks(bbox, chunk_tracks, iou_threshold)** - IoU matching
   - Match detection to existing tracks in chunk
   - Returns: matched_track_id or None
   - Status: COMPLETED (processor.py:175-209)
 
-- [] **_aggregate_track_features(track_data)** - Get best frame from track
+- [] **\_aggregate_track_features(track_data)** - Get best frame from track
   - Find max quality_score frame
   - Return: (features, crop_image)
   - Status: COMPLETED (processor.py:211-236)
 
-- [] **_match_to_official_horses(features, official_horses, noise_threshold=0.3)** - Closest match
+- [] **\_match_to_official_horses(features, official_horses, noise_threshold=0.3)** - Closest match
   - Find CLOSEST official horse (highest similarity)
   - Only reject if best_similarity < 0.3
   - Return: {official_id, tracking_id, similarity} or None
@@ -88,7 +92,7 @@ Implementing simplified official horses workflow with:
   - If no: use discovery mode (existing code)
   - Status: COMPLETED (processor.py:530-563)
 
-### Phase 3: Utilities & Helpers  /  / 
+### Phase 3: Utilities & Helpers / /
 
 - [] **IoU calculation** - For track matching
   - Calculate intersection-over-union for bboxes
@@ -98,7 +102,7 @@ Implementing simplified official horses workflow with:
   - Created automatically in save_chunk_thumbnail()
   - Status: COMPLETED (horse_database.py:500)
 
-### Phase 4: Testing  /  / 
+### Phase 4: Testing / /
 
 - [] **Run migration** - Applied 007_horse_thumbnails.sql successfully
 - [] **Rebuild ML service** - Rebuilt and deployed successfully
@@ -114,12 +118,14 @@ Implementing simplified official horses workflow with:
 ## Code Locations
 
 ### Files to Modify
+
 1. `backend/database/src/migrations/sql/` - New migration 007
 2. `backend/ml-service/src/services/horse_database.py` - Official horse loading, thumbnails
 3. `backend/ml-service/src/services/processor.py` - Chunk aggregation, matching logic
 4. `backend/ml-service/src/utils/bbox_utils.py` - IoU calculation (if not exists)
 
 ### Files to Create
+
 - `backend/database/src/migrations/sql/007_horse_thumbnails.sql`
 - (Optional) `backend/ml-service/src/utils/quality_scoring.py` - Quality calculation
 
@@ -128,6 +134,7 @@ Implementing simplified official horses workflow with:
 ## Key Implementation Notes
 
 ### Quality Score Formula
+
 ```python
 quality = (
     confidence * 0.4 +        # YOLO confidence
@@ -138,7 +145,9 @@ quality = (
 ```
 
 ### Matching Logic Change
+
 **OLD**: Hard 0.7 threshold
+
 ```python
 if similarity >= 0.7:
     match
@@ -147,6 +156,7 @@ else:
 ```
 
 **NEW**: Closest match with 0.3 noise filter
+
 ```python
 best_match = max(official_horses, key=similarity)
 if best_match.similarity >= 0.3:
@@ -156,6 +166,7 @@ else:
 ```
 
 ### Thumbnail Paths
+
 - Storage: `/data/thumbnails/{horse_id}/{chunk_id}.jpg`
 - Format: JPEG, quality 85
 - Database: `horse_thumbnails` table with path reference
@@ -165,34 +176,37 @@ else:
 
 ## Progress Log
 
-### 2025-10-26 - Session 1  COMPLETED
--  Created proposal document: `SIMPLIFIED_OFFICIAL_HORSES_WORKFLOW.md`
--  Created progress tracking document: `IMPLEMENTATION_PROGRESS.md`
--  **Migration 007**: Created `horse_thumbnails` table schema
--  **horse_database.py**: Added 4 methods (load_official_horses, load_official_horses_at_time, save_chunk_thumbnail, get_horse_avatar_quality)
--  **processor.py**: Added 5 helper methods (quality scoring, IoU, chunk track matching, feature aggregation, official horse matching)
--  **processor.py**: Implemented `process_chunk_with_official_tracking()` main logic (207 lines)
--  **processor.py**: Modified `process_chunk()` to route to new workflow
--  **Migration applied**: horse_thumbnails table created in database
--  **ML service rebuilt**: New code deployed and running
--  **Verification**: All systems healthy, ready for testing
+### 2025-10-26 - Session 1 COMPLETED
+
+- Created proposal document: `SIMPLIFIED_OFFICIAL_HORSES_WORKFLOW.md`
+- Created progress tracking document: `IMPLEMENTATION_PROGRESS.md`
+- **Migration 007**: Created `horse_thumbnails` table schema
+- **horse_database.py**: Added 4 methods (load_official_horses, load_official_horses_at_time, save_chunk_thumbnail, get_horse_avatar_quality)
+- **processor.py**: Added 5 helper methods (quality scoring, IoU, chunk track matching, feature aggregation, official horse matching)
+- **processor.py**: Implemented `process_chunk_with_official_tracking()` main logic (207 lines)
+- **processor.py**: Modified `process_chunk()` to route to new workflow
+- **Migration applied**: horse_thumbnails table created in database
+- **ML service rebuilt**: New code deployed and running
+- **Verification**: All systems healthy, ready for testing
 
 **Implementation: 100% Complete**
 
-### 🟢 READY FOR USER TESTING
+### READY FOR USER TESTING
 
 ** Implementation Complete - All Code Written and Deployed**
 
 **What's been completed:**
--  Database migration for thumbnails table (applied to database)
--  All helper methods for quality scoring, IoU matching, and ReID matching
--  Database methods for loading official horses and saving thumbnails
--  Main chunk processing loop with official tracking (207 lines)
--  Routing logic to detect and use official horses
--  ML service rebuilt and running with new code
--  Database table verified and indexes created
+
+- Database migration for thumbnails table (applied to database)
+- All helper methods for quality scoring, IoU matching, and ReID matching
+- Database methods for loading official horses and saving thumbnails
+- Main chunk processing loop with official tracking (207 lines)
+- Routing logic to detect and use official horses
+- ML service rebuilt and running with new code
+- Database table verified and indexes created
 
 **What the system does now:**
+
 1. **Discovery Mode** (when no official horses exist):
    - Processes chunks normally, creates horse IDs for all detections
    - User can mark horses as official via UI
@@ -206,6 +220,7 @@ else:
 
 **Ready for Testing:**
 The system is fully implemented and deployed. Next steps are:
+
 1. Process 3-5 chunks to discover horses (discovery mode)
 2. Mark desired horses as official via UI
 3. Process more chunks to test official tracking mode
@@ -213,6 +228,7 @@ The system is fully implemented and deployed. Next steps are:
 5. Check logs for quality scores and matching results
 
 **Test Commands:**
+
 ```bash
 # Check logs for mode detection
 docker compose logs -f ml-service | grep -E "Mode:|official|quality|similarity"
@@ -250,6 +266,7 @@ docker compose exec -T postgres psql -U admin -d barnhand -c "SELECT horse_id, c
 ## Rollback Plan
 
 If issues occur:
+
 ```bash
 # Rollback migration
 docker compose exec -T postgres psql -U admin -d barnhand -c "DROP TABLE IF EXISTS horse_thumbnails CASCADE;"

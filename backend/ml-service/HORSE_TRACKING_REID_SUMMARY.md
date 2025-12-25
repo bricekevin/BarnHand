@@ -7,33 +7,34 @@ Successfully implemented a comprehensive horse tracking and re-identification sy
 ## Key Features Implemented
 
 ### 1. Horse Re-identification System
+
 - **Visual Feature Extraction**: Extracts 512-dimensional feature vectors for each detected horse using:
   - Color histograms (RGB and HSV channels)
   - Texture features using Sobel gradients
   - Spatial grid features (4x4 grid)
   - L2 normalization for cosine similarity
 
-- **Similarity Matching**: 
+- **Similarity Matching**:
   - Cosine similarity threshold of 0.65 for matching
   - Compares new detections with average features of tracked horses
   - Maintains rolling window of last 30 feature vectors per horse
 
 ### 2. Horse Tracking Management
+
 - **Unique Horse IDs**: Each horse gets assigned a unique ID (Horse #1, #2, #3, etc.)
 - **Persistent Tracking**: Horses maintain their ID even when:
   - Temporarily leaving the frame
   - Being occluded by other horses
   - Re-entering after up to 30 frames absence
-  
 - **Color Assignment**: Each horse gets a unique display color from a palette of 10 distinctive colors for visual clarity
 
 ### 3. Enhanced Video Output
+
 - **Horse ID Labels**: Display format "Horse #X (confidence%)" near each bounding box
 - **Color-coded Visualization**:
   - Bounding boxes in horse-specific colors
   - Pose keypoints in matching colors
   - Skeleton connections in lighter shade of horse color
-  
 - **Tracking Statistics Overlay**:
   - Current frame number
   - Active horses count
@@ -41,9 +42,10 @@ Successfully implemented a comprehensive horse tracking and re-identification sy
   - Total detections
 
 ### 4. Processing Capabilities
+
 - **Extended Frame Processing**: Now processes 3000 frames (100 seconds at 30fps)
 - **Multi-horse Support**: Successfully tracks 3+ horses simultaneously
-- **Real-time Statistics**: 
+- **Real-time Statistics**:
   - Detection count per horse
   - Average confidence per horse
   - Last seen frame tracking
@@ -51,6 +53,7 @@ Successfully implemented a comprehensive horse tracking and re-identification sy
 ## Technical Implementation
 
 ### TrackedHorse Class
+
 ```python
 @dataclass
 class TrackedHorse:
@@ -65,6 +68,7 @@ class TrackedHorse:
 ```
 
 ### HorseTracker Class
+
 - Manages all tracked horses
 - Handles feature extraction and matching
 - Assigns unique IDs and colors
@@ -73,12 +77,14 @@ class TrackedHorse:
 ## Performance Metrics
 
 ### Processing Speed (CPU)
+
 - YOLO Detection: ~100-250ms per frame
 - RTMPose Inference: ~190-220ms per horse
 - Feature Extraction: ~10-20ms per horse
 - Overall: ~2-3 fps with 3 horses
 
 ### Tracking Accuracy
+
 - Successfully maintains horse identities across occlusions
 - Re-identification works within 30-frame window
 - Color and texture features provide robust matching
@@ -98,9 +104,10 @@ class TrackedHorse:
 ## Test Results
 
 Successfully tested with `rolling-on-ground.mp4`:
+
 - **3 horses detected and tracked**
 - **Horse #1**: Light blue - consistently tracked across frames
-- **Horse #2**: Light green - maintained ID through occlusions  
+- **Horse #2**: Light green - maintained ID through occlusions
 - **Horse #3**: Light red - successfully re-identified after leaving frame
 
 ## Integration Ready
@@ -123,11 +130,12 @@ This tracking system is ready for integration into the BarnHand production backe
 ## Conclusion
 
 The horse tracking and re-identification system successfully demonstrates:
-- ✅ Persistent horse identification across frames
-- ✅ Multi-horse tracking with unique IDs
-- ✅ Visual feature-based re-identification
-- ✅ Integration with YOLO detection and RTMPose
-- ✅ Extended processing capability (3000 frames)
-- ✅ Clear visual feedback with color-coded horses
+
+- Persistent horse identification across frames
+- Multi-horse tracking with unique IDs
+- Visual feature-based re-identification
+- Integration with YOLO detection and RTMPose
+- Extended processing capability (3000 frames)
+- Clear visual feedback with color-coded horses
 
 The system is production-ready for integration into the BarnHand ML pipeline.

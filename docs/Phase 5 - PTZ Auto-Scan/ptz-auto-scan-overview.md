@@ -7,6 +7,7 @@ Implement an intelligent auto-patrol mode for PTZ cameras that automatically cyc
 ## Scope
 
 **Includes**:
+
 - Two-phase scan: Quick snapshot scan => Targeted recording scan
 - YOLO-only detection endpoint for fast horse presence checking
 - Auto-scan progress dialog with real-time status
@@ -16,6 +17,7 @@ Implement an intelligent auto-patrol mode for PTZ cameras that automatically cyc
 - Integration with existing recording pipeline (same output as manual "Record X Seconds")
 
 **Excludes**:
+
 - Scheduled/timed auto-scans (future feature)
 - Cross-stream auto-scan coordination
 - Automatic preset learning from horse activity patterns
@@ -28,12 +30,14 @@ Implement an intelligent auto-patrol mode for PTZ cameras that automatically cyc
 Due to HLS restreaming delay (~5-10 seconds), auto-scan operates in two phases:
 
 **Phase A: Snapshot Detection Scan (Fast)**
+
 1. Move to preset 1 => Take snapshot => YOLO detect => Record if horses found
 2. Move to preset 2 => Take snapshot => YOLO detect => Record which have horses
 3. ... Continue through all saved presets
 4. Build list of "locations with horses"
 
 **Phase B: Recording Scan (Targeted)**
+
 1. For each location with horses detected:
 2. Move to preset => Wait for HLS delay => Record chunk => Process with full ML pipeline
 3. Continue to next location with horses
@@ -113,22 +117,27 @@ Due to HLS restreaming delay (~5-10 seconds), auto-scan operates in two phases:
 ## Key Technical Decisions
 
 ### Decision 1: Two-Phase Scan vs Single-Pass
+
 - **Choice**: Two-phase (snapshot scan first, then recording scan)
 - **Rationale**: HLS delay makes it inefficient to wait at each location. Snapshot detection is instant, recording can be batched.
 
 ### Decision 2: Snapshot Detection Backend
+
 - **Choice**: New ML endpoint `/detect-snapshot` that only runs YOLO
 - **Rationale**: Full pipeline (pose, ReID) is overkill for presence detection. YOLO-only is 5-10x faster.
 
 ### Decision 3: Camera Auth Storage
+
 - **Choice**: Refactor to use `streams.config.ptzCredentials` instead of localStorage
 - **Rationale**: Enables server-side PTZ control, survives browser refresh, supports multi-user access.
 
 ### Decision 4: Auto-Scan State Management
+
 - **Choice**: Redis for active scan state, WebSocket for progress updates
 - **Rationale**: Survives API restarts, enables real-time UI updates, follows existing patterns.
 
 ### Decision 5: Recording Integration
+
 - **Choice**: Use existing `recordChunk` flow (same as manual "Record X Seconds")
 - **Rationale**: Ensures consistency - auto-scan chunks appear in Recorded Chunks tab identically.
 
@@ -152,16 +161,16 @@ interface StreamConfig {
   ptzPresets?: {
     [presetNumber: string]: {
       name: string;
-      savedAt: string;  // ISO timestamp
+      savedAt: string; // ISO timestamp
     };
   };
 
   // New: Auto-Scan Settings
   autoScan?: {
-    recordingDuration: number;     // 5-30 seconds (default: 10)
-    frameInterval: number;         // 1-30 (default: 5)
-    movementDelay: number;         // seconds to wait after PTZ move before recording (default: 8)
-    presetSequence: number[];      // which presets to scan [1,2,3,4] (default: all saved)
+    recordingDuration: number; // 5-30 seconds (default: 10)
+    frameInterval: number; // 1-30 (default: 5)
+    movementDelay: number; // seconds to wait after PTZ move before recording (default: 8)
+    presetSequence: number[]; // which presets to scan [1,2,3,4] (default: all saved)
   };
 }
 ```
@@ -170,23 +179,25 @@ interface StreamConfig {
 
 ```typescript
 // New events for auto-scan progress
-'autoScan:started'      // { streamId, totalPresets, phase: 'detection' }
-'autoScan:position'     // { streamId, preset, phase, horsesDetected: boolean }
-'autoScan:phaseChange'  // { streamId, phase: 'recording', locationsWithHorses: [1,3,5] }
-'autoScan:recording'    // { streamId, preset, chunkId }
-'autoScan:complete'     // { streamId, results: { scanned: 8, withHorses: 3, chunksRecorded: 3 } }
-'autoScan:stopped'      // { streamId, reason: 'user' | 'error' }
-'autoScan:error'        // { streamId, error: string }
+'autoScan:started'; // { streamId, totalPresets, phase: 'detection' }
+'autoScan:position'; // { streamId, preset, phase, horsesDetected: boolean }
+'autoScan:phaseChange'; // { streamId, phase: 'recording', locationsWithHorses: [1,3,5] }
+'autoScan:recording'; // { streamId, preset, chunkId }
+'autoScan:complete'; // { streamId, results: { scanned: 8, withHorses: 3, chunksRecorded: 3 } }
+'autoScan:stopped'; // { streamId, reason: 'user' | 'error' }
+'autoScan:error'; // { streamId, error: string }
 ```
 
 ## UI Flow
 
 ### Auto-Scan Button (Live Stream Tab)
+
 - Green "Auto Scan" button next to PTZ Controls
 - Disabled if no presets saved
 - Click opens confirmation with settings preview
 
 ### Progress Dialog
+
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Auto-Scan Progress                            [X]  │
@@ -213,6 +224,7 @@ interface StreamConfig {
 ```
 
 ### Settings Page (Stream Settings)
+
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Auto-Scan Settings                                 │
@@ -222,7 +234,7 @@ interface StreamConfig {
 │  Frame Interval:      [==*=======] 5 frames        │
 │  Movement Delay:      [=====*====] 8 seconds       │
 │                                                     │
-│  ℹ️ Movement delay accounts for HLS stream lag.     │
+│  ℹ Movement delay accounts for HLS stream lag.     │
 │     Increase if recordings show previous location.  │
 │                                                     │
 └─────────────────────────────────────────────────────┘
@@ -246,16 +258,19 @@ interface StreamConfig {
 ## Risks & Mitigations
 
 **Risk 1: HLS Delay Variability**
+
 - Different network conditions affect delay
-- *Mitigation*: Configurable movement delay in settings, default conservative (8s)
+- _Mitigation_: Configurable movement delay in settings, default conservative (8s)
 
 **Risk 2: Snapshot Quality Issues**
+
 - Camera auto-exposure may not settle before snapshot
-- *Mitigation*: Optional small delay after PTZ move before snapshot (1-2s built-in)
+- _Mitigation_: Optional small delay after PTZ move before snapshot (1-2s built-in)
 
 **Risk 3: False Negatives in Snapshot Detection**
+
 - Horse partially visible or occluded
-- *Mitigation*: Lower confidence threshold for snapshot detection (0.3 vs 0.5), can record "maybe" locations
+- _Mitigation_: Lower confidence threshold for snapshot detection (0.3 vs 0.5), can record "maybe" locations
 
 ## Estimate
 

@@ -1,16 +1,18 @@
 # Official Horses - Final Correct Behavior
 
 **Date**: 2025-10-27
-**Status**:  FIXED AND WORKING
+**Status**: FIXED AND WORKING
 
 ---
 
-## 🎯 Correct Logic Summary
+## Correct Logic Summary
 
 ### Discovery Mode (Official Count < Expected Count)
+
 **Example**: Barn expects 3 horses, only 1 marked as official (1/3)
 
 **Behavior**:
+
 ```
 YOLO detects horses => Extract features => Try to match to known horses
   - If match found => Reuse existing horse ID
@@ -25,9 +27,11 @@ Result: All detected horses appear in UI (official + guests)
 ---
 
 ### Official Tracking Mode (Official Count >= Expected Count)
+
 **Example**: Barn expects 3 horses, 3 marked as official (3/3)
 
 **Behavior**:
+
 ```
 YOLO detects horses => Extract features => Find CLOSEST official horse
   - For EVERY detection:
@@ -47,9 +51,10 @@ Result: Only 3 official horses in UI, each with detections assigned to closest m
 
 ---
 
-## 🔄 Complete Workflow
+## Complete Workflow
 
 ### Phase 1: Discovery (Setup)
+
 ```
 1. Create barn with expected_horse_count = 3
 2. Process 3-5 video chunks
@@ -58,6 +63,7 @@ Result: Only 3 official horses in UI, each with detections assigned to closest m
 ```
 
 ### Phase 2: Cleanup
+
 ```
 5. Admin reviews detected horses
 6. Delete obvious duplicates (#18 looks like #13)
@@ -66,6 +72,7 @@ Result: Only 3 official horses in UI, each with detections assigned to closest m
 ```
 
 ### Phase 3: Mark Official
+
 ```
 9. Mark selected 3 horses as official
 10. System switches to Official Tracking Mode
@@ -73,6 +80,7 @@ Result: Only 3 official horses in UI, each with detections assigned to closest m
 ```
 
 ### Phase 4: Tracking
+
 ```
 12. Process more chunks
 13. Every YOLO detection assigned to closest official horse:
@@ -87,6 +95,7 @@ Result: Only 3 official horses in UI, each with detections assigned to closest m
 ```
 
 ### Phase 5: Improvement Over Time
+
 ```
 17. More chunks processed = more feature data
 18. Official horse feature vectors improve
@@ -96,64 +105,74 @@ Result: Only 3 official horses in UI, each with detections assigned to closest m
 
 ---
 
-## 🐛 Fixed Issues
+## Fixed Issues
 
-### Issue 1: Deleted Horses Coming Back  FIXED
+### Issue 1: Deleted Horses Coming Back FIXED
+
 **Problem**: Deleted horses (duplicates/false positives) were being re-activated
 **Solution**: Removed `status = 'active'` from ON CONFLICT clauses
 **Result**: Deleted horses stay deleted permanently
 
-### Issue 2: Guest Horses in Official Mode  FIXED
+### Issue 2: Guest Horses in Official Mode FIXED
+
 **Problem**: New horses created even when 3/3 official horses marked
 **Solution**:
+
 - Added `allow_new_horses` flag to tracker
 - When capacity reached => `allow_new_horses = False`
 - Detections assigned to closest official horse via forced matching
-**Result**: No new horses, all detections go to one of the 3 officials
+  **Result**: No new horses, all detections go to one of the 3 officials
 
-### Issue 3: Invalid Timestamps  FIXED
+### Issue 3: Invalid Timestamps FIXED
+
 **Problem**: Horses showing "12/31/1969" (Unix epoch zero)
 **Solution**:
+
 - Added validation to reject timestamps <= 0
 - Fixed 29 existing horses with bad timestamps
-**Result**: Correct timestamps displayed
+  **Result**: Correct timestamps displayed
 
 ---
 
-## 📊 Expected Logs
+## Expected Logs
 
 ### Discovery Mode
+
 ```
-🟢 Mode: DISCOVERY (1/3 official horses - still accepting new horses)
-🟢 New horse creation ENABLED (discovery mode)
+ Mode: DISCOVERY (1/3 official horses - still accepting new horses)
+ New horse creation ENABLED (discovery mode)
 Created new horse track: stream_horse_022 (guest)
 ```
 
 ### Official Tracking Mode
+
 ```
 🔵 Mode: OFFICIAL TRACKING (3/3 official horses)
 🔵 Filtering known horses to 3 official horses only
 🔵 New horse creation DISABLED (capacity reached)
-🎯 Forced match to official horse stream_horse_006 (similarity: 0.847)
-🎯 Forced match to official horse stream_horse_013 (similarity: 0.912)
+ Forced match to official horse stream_horse_006 (similarity: 0.847)
+ Forced match to official horse stream_horse_013 (similarity: 0.912)
 ```
 
 ---
 
-##  Testing Checklist
+## Testing Checklist
 
 ### Test 1: Discovery Mode Works
+
 - [ ] Barn set to expect 3 horses
 - [ ] Only 1 marked as official
 - [ ] Process chunk => See multiple new horses created
 - [ ] All horses (official + guests) visible in UI
 
 ### Test 2: Cleanup Works
+
 - [ ] Delete duplicate horses
 - [ ] Deleted horses do NOT reappear after processing more chunks
 - [ ] UI correctly filters out deleted horses
 
 ### Test 3: Official Tracking Works
+
 - [ ] Mark 3 horses as official (total = 3)
 - [ ] Process chunk => Mode switches to Official Tracking
 - [ ] Logs show "New horse creation DISABLED"
@@ -162,12 +181,14 @@ Created new horse track: stream_horse_022 (guest)
 - [ ] Only 3 official horses visible
 
 ### Test 4: Forced Matching Works
+
 - [ ] In official mode, process chunk with 4-6 YOLO detections
 - [ ] All detections assigned to one of 3 official horses
 - [ ] Each official horse gets multiple detections
 - [ ] No detections ignored or lost
 
 ### Test 5: Improvement Over Time
+
 - [ ] Process 10 chunks in official tracking mode
 - [ ] Check that total_detections increases for each official horse
 - [ ] Check that thumbnails update to better quality
@@ -175,7 +196,7 @@ Created new horse track: stream_horse_022 (guest)
 
 ---
 
-## 🎯 Key Principles
+## Key Principles
 
 1. **Deleted = Permanent**: Deleted horses are duplicates/errors, never bring back
 2. **Official Tracking = Closed Set**: When capacity reached, only track known horses
@@ -185,19 +206,22 @@ Created new horse track: stream_horse_022 (guest)
 
 ---
 
-## 🔧 Configuration
+## Configuration
 
 ### Barn Settings
+
 - `expected_horse_count`: Total horses expected in barn (e.g., 3)
 - Mode automatically determined by: `official_count >= expected_horse_count`
 
 ### Tracker Settings
+
 - `similarity_threshold`: 0.7 (for optional matching in discovery mode)
 - `allow_new_horses`: Auto-set based on mode
   - Discovery: `True`
   - Official Tracking: `False`
 
 ### Force Matching
+
 - When `allow_new_horses = False`:
   - Every detection matched to closest official horse
   - No minimum similarity threshold
@@ -205,11 +229,11 @@ Created new horse track: stream_horse_022 (guest)
 
 ---
 
-## 📝 Summary
+## Summary
 
 **Discovery Mode**: Find all horses, create guests, let admin cleanup and pick officials
 **Official Tracking Mode**: Only track official horses, assign every detection to closest match
 **Deleted Horses**: Never come back (they were deleted for a reason)
 **Result**: Clean, accurate tracking of exactly N horses per barn
 
-**System is now working as intended! 🎉**
+**System is now working as intended! **

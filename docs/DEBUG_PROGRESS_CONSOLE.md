@@ -18,7 +18,7 @@ Nothing special - just recording the video
 You should start seeing status polls every 2 seconds:
 
 ```javascript
-📊 Chunk status poll: {
+ Chunk status poll: {
   chunk_id: '296a368b-e9f8-416f-8069-13a8d1d812c4',  ← Should be UUID!
   status: 'pending',                                  ← Starts as pending
   frames_processed: undefined,                        ← Initially undefined
@@ -42,7 +42,7 @@ You should start seeing status polls every 2 seconds:
 After a few seconds, you should see:
 
 ```javascript
-📊 Chunk status poll: {
+ Chunk status poll: {
   chunk_id: '296a368b-...',
   status: 'processing',          ← Status changed to processing!
   frames_processed: 31,           ← Numbers appear!
@@ -69,7 +69,7 @@ After a few seconds, you should see:
 Every 2 seconds while processing:
 
 ```javascript
-📊 Chunk status poll: {
+ Chunk status poll: {
   chunk_id: '296a368b-...',
   status: 'processing',
   frames_processed: 61,           ← Increasing!
@@ -86,7 +86,7 @@ Every 2 seconds while processing:
 ### When Processing Completes
 
 ```javascript
-📊 Chunk status poll: {
+ Chunk status poll: {
   chunk_id: '296a368b-...',
   status: 'complete',             ← Status changed to complete!
   frames_processed: 126,
@@ -106,7 +106,7 @@ Every 2 seconds while processing:
 
  ML processing completed! Auto-switching to processed video...
 
-🔄 Current state: {
+ Current state: {
   showRawVideo: false,
   selectedChunk: '296a368b-...',
   detectionDataKey: 0
